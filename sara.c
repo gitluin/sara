@@ -166,7 +166,6 @@ void cur_free(Display* dis, cur* cursor){
 	free(cursor);
 }
 
-
 void die(const char* e, ...){
 	fprintf(stdout,"sara: %s\n",e);
 	exit(1);
@@ -216,8 +215,7 @@ static client* find_client(Window w);
 static client* find_current();
 static client* find_vis_client(client* c);
 static int find_occ_desktops();
-static client* find_prev_client(client* c);
-static client* find_prev_vis_client(client* c);
+static client* find_prev_client(client* c, int is_vis);
 static unsigned long getcolor(const char* color);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static int gettextwidth(const char* str, int len);
@@ -228,11 +226,12 @@ static void kill_client();
 static void load_desktop(int i);
 static void manage(Window parent, XWindowAttributes* wa);
 static void maprequest(XEvent* e);
-static void map_floats();
+static void map_clients();
 static void monocle();
 static void move_focus(const Arg arg);
 static void move_client(const Arg arg);
 static void propertynotify(XEvent* e);
+static void raise_floats();
 static void save_desktop(int i);
 static Clr* scheme_create(const char* clrnames[], size_t clrcount);
 static void select_desktop(int i);
@@ -252,6 +251,7 @@ static void toggle_fullscreen();
 static void unmanage(client* c);
 static void update_focus();
 static void update_status();
+static void view(const Arg arg);
 static void youviolatedmymother();
 static int xerror(Display* dis, XErrorEvent* ee);
 
@@ -374,14 +374,7 @@ void change_desktop(const Arg arg){
 	seldesks = 1 << arg.i;
 	load_desktop(arg.i);
 
-	for (j=head;j;j=j->next){
-		if ( !((j->desktops >> arg.i) & 1) ){
-			XUnmapWindow(dis,j->win);
-
-		} else {
-			XMapWindow(dis,j->win);
-		}
-	}
+	map_clients();
 
 	current = find_current();
 	if ( !current && (c = find_vis_client(head)) ){
@@ -401,7 +394,6 @@ void change_msize(const Arg arg){
 }
 
 /* Kill off any remaining clients
- * Disown any remaining swindows from windows
  * Free all the things
  */
 void cleanup(){
@@ -412,9 +404,7 @@ void cleanup(){
 		kill_client();
 	}
 
-	/* Leaving only actually worked if the old quit() was double-called,
-	 * so why have extra code? We kill remaining windows the brutal way.
-	 */
+	/* This ain't pretty, but it gets the job done (Without memory leak? Not sure) */
 	XUnmapWindow(dis,sbar->win);
 	XDestroyWindow(dis,sbar->win);
 	XUngrabKey(dis,AnyKey,AnyModifier,root);
@@ -492,10 +482,10 @@ void detach(client* c){
 	XMoveWindow(dis,c->win,-2*wa.width,wa.y);
 
 	/* focus moves down if possible, else up */
-	vis = ( (vis = find_vis_client(c->next)) ) ? vis : find_prev_vis_client(c);
+	vis = ( (vis = find_vis_client(c->next)) ) ? vis : find_prev_client(c,1);
 
 	/* For both, if NULL, then we're still okay */
-	if ( (p = find_prev_client(c)) ){
+	if ( (p = find_prev_client(c,0)) ){
 		p->next = c->next;
 
 	} else {
@@ -598,6 +588,28 @@ int find_occ_desktops(){
 	return occ;
 }
 
+client* find_prev_client(client* c, int is_vis){
+	client* i, * ret = NULL;
+	for (i=head;i && i != c;i=i->next){
+		if (is_vis){
+			if (ISVISIBLE(i)){
+				ret = i;
+			}
+		}
+
+		if (i->next == c){
+			if (is_vis){
+				return ISVISIBLE(i) ? i : ret;
+
+			} else {
+				return i;
+			}
+		}
+	}
+
+	return NULL;
+}
+
 client* find_vis_client(client* c){
 	client* i;
 	for (i=c;i;i=i->next){
@@ -607,32 +619,6 @@ client* find_vis_client(client* c){
 	}
 	
 	return NULL;
-}
-
-client* find_prev_client(client* c){
-	client* i;
-	for (i=head;i;i=i->next){
-		if (i->next == c){
-			return i;
-		}
-	}
-
-	return NULL;
-}
-
-client* find_prev_vis_client(client* c){
-	client* i, * ret = NULL;
-	for (i=head;i != c;i=i->next){
-		if (ISVISIBLE(i)){
-			ret = i;
-		}
-
-		if (i->next == c){
-			break;
-		}
-	}
-
-	return ret;
 }
 
 unsigned long getcolor(const char* color){
@@ -666,7 +652,7 @@ int gettextprop(Window w, Atom atom, char *text, unsigned int size){
 		strncpy(text,(char *)name.value,size - 1);
 
 	} else {
-		if (XmbTextPropertyToTextList(dis,&name,&list,&n) >= Success && n > 0 && *list) {
+		if (XmbTextPropertyToTextList(dis,&name,&list,&n) >= Success && n > 0 && *list){
 			strncpy(text,*list,size - 1);
 			XFreeStringList(list);
 		}
@@ -736,14 +722,11 @@ void keypress(XEvent* e){
 }
 
 void kill_client(){
-	client* c;
 	Window w;
 
 	if (current){
 		w = current->win;
-		if ( (c = find_client(w)) ){
-			unmanage(c);
-		}
+		unmanage(current);
 
 		send_xkill_signal(w);
 	}
@@ -791,7 +774,19 @@ void maprequest(XEvent* e){
 	}
 }
 
-void map_floats(){
+void map_clients(){
+	client* i;
+	for (i=head;i;i=i->next){
+		if (ISVISIBLE(i)){
+			XMapWindow(dis,i->win);
+
+		} else {
+			XUnmapWindow(dis,i->win);
+		}
+	}
+}
+
+void raise_floats(){
 	client* i;
 	for (i=head;i;i=i->next){
 		if (ISVISIBLE(i) && i->is_float){
@@ -805,7 +800,7 @@ void monocle(){
 	client* i;
 	int mh = sh - sbar->height;
 
-	map_floats();
+	raise_floats();
 
 	for (i=head;i;i=i->next){
 		if (ISVISIBLE(i) && !i->is_float){
@@ -826,7 +821,7 @@ void move_client(const Arg arg){
 		return;
 	}
 
-	p = find_prev_client(current);
+	p = find_prev_client(current,0);
 
 	/* Up stack if not head */
 	if (arg.i == 1 && current != head){
@@ -834,7 +829,7 @@ void move_client(const Arg arg){
 			swap_master();
 
 		} else {
-			mp = find_prev_client(p);
+			mp = find_prev_client(p,0);
 
 			mp->next = current;
 			p->next = current->next;
@@ -876,7 +871,7 @@ void move_focus(const Arg arg){
 					}
 
 				} else {
-					c = find_prev_vis_client(current);
+					c = find_prev_client(current,1);
 				}
 
 			/* down in stack */
@@ -948,20 +943,16 @@ void send_xkill_signal(Window w){
 
 void setup(){
 	int i;
-	/* Install a signal */
 	sigchld(0);
 
 	XSetWindowAttributes wa;
 
-	/* Screen and root window */
 	screen = DefaultScreen(dis);
 	root = RootWindow(dis,screen);
 
 	sw = XDisplayWidth(dis,screen);
 	sh = XDisplayHeight(dis,screen);
-
-	win_focus = getcolor(FOCUS);
-	win_unfocus = getcolor(UNFOCUS);
+	master_size = sw*MASTER_SIZE;
 
 	grabkeys();
 
@@ -970,11 +961,11 @@ void setup(){
 	current_layout->arrange = layouts[0].arrange;
 	current_layout->symbol = layouts[0].symbol;
 
-	master_size = sw*MASTER_SIZE;
-
 	cursor[cur_norm] = cur_create(dis,XC_left_ptr);
 	cursor[cur_move] = cur_create(dis,XC_sizing);
 
+	win_focus = getcolor(FOCUS);
+	win_unfocus = getcolor(UNFOCUS);
 	scheme = ecalloc(TABLENGTH(colors),sizeof(Clr*));
 	for (i=0;i < TABLENGTH(colors);i++){
 		scheme[i] = scheme_create(colors[i],3);
@@ -1007,7 +998,6 @@ void setup(){
 
 	/* Catch requests */
 	XSelectInput(dis,root,wa.event_mask);
-	update_status();
 }
 
 void send_to_desktop(const Arg arg){
@@ -1021,7 +1011,7 @@ void send_to_desktop(const Arg arg){
 	set_current(current,arg.i);
 
 	/* focus moves down if possible, else up */
-	vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_vis_client(current);
+	vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_client(current,1);
 
 	XUnmapWindow(dis,current->win);
 	XSync(dis,False);
@@ -1087,7 +1077,7 @@ void swap_master(){
 
 	if (head && current && current != head){
 		tmp = (head->next == current) ? head : head->next;
-		p = find_prev_client(current);
+		p = find_prev_client(current,0);
 
 		/* if p is head, this gets overwritten - saves an if statement */
 		p->next = head;
@@ -1118,8 +1108,8 @@ void tile(){
 		}
 	}
 
-	/* Map any floating windows */
-	map_floats();
+	/* Raise any floating windows */
+	raise_floats();
 
 	if (nf && n == 1){
 		nf->x = gap_px; nf->y = y;
@@ -1180,7 +1170,7 @@ void toggle_desktop(const Arg arg){
 
 		if ( !((current->desktops >> current_desktop) & 1) ){
 			/* focus moves down if possible, else up */
-			vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_vis_client(current);
+			vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_client(current,1);
 
 			XUnmapWindow(dis,current->win);
 			XSync(dis,False);
@@ -1270,6 +1260,22 @@ void update_status(){
 	}
 
 	draw_bar();
+}
+
+void view(const Arg arg){
+	client* j;
+
+	if (arg.i == current_desktop){
+		return;
+	}
+
+	seldesks ^= 1 << arg.i;
+
+	map_clients();
+
+	current_layout->arrange();
+	update_focus();
+	update_status();
 }
 
 /* dwm copypasta */

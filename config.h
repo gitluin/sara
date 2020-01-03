@@ -91,6 +91,7 @@ static const layout layouts[] = {
 #define DESKTOPCHANGE(K,N) \
     {  MOD,             	    K,	change_desktop, 	{.i = N}}, \
     {  MOD|ShiftMask,   	    K,  toggle_desktop, 	{.i = N}}, \
+    {  MOD|ControlMask,   	    K,  view,		 	{.i = N}}, \
     {  MOD|ControlMask|ShiftMask,   K,  send_to_desktop, 	{.i = N}},
 /* My workarounds */
 #define BRTDOWNKEY 0x1008ff03

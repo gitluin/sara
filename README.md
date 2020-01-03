@@ -14,6 +14,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.8.2	- Can now view multiple tags at once. I probably won't, but you can (not much extra code, so big whoop).
  * v0.8.1	- Can now send clients to just a specific desktop (removes it from others).
  * v0.8		- No drw and no alpha behavior for the bar. We are a single .c file once more. Rules still don't work.
  * v0.7		- The dwm way of clients has been implemented, bug-free (I think)!
@@ -70,7 +71,7 @@ Bugs
  * Adjusting window sizes won't update the border size beyond the original dimensions, and will sometimes erase the contents - cmatrix or neofetch are examples of this _configurenotify/request?_
  * With large numbers of clients in the stack, clients start to get pushed beyond the desired boundaries
  * With programs like Krita, the popup window generates an unmap event upon completion of its task, so it stays around and takes up tiling space _somehow link unmap to destroy, but only for specific clients_
- * Function spawns don't play nice if you try to kill them
+ * Function spawns don't play nice if they hang around and you try to kill them before they go poof
 
 To Do
 ----
@@ -79,7 +80,6 @@ To Do
  * Does it leak memory?
  * quit() should probably be more responsibly implemented
  * Implement multiple monitors (0.5 points)
- * Implement real tagging behavior (0.1 points)
  * Implement rules (0.5 points)
  * Implement mouse focus support (enternotify) (0.5 points)
  * Implement mouse move, resize support for clients (0.2 points)
