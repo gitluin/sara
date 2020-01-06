@@ -66,6 +66,36 @@ Installation
 ------------
 Need Xlib, then sudo make install clean
 
+Keys
+------------
+You're on your own with the brightness and volume key situation. I had to do what I did for dwm as well, so comment out entries in config.h as necessary. If you're lucky, your keys Just Work (TM).
+
+| Key				| Function 						|
+| -----------------------------	| -----------------------------------------------------	|
+| Mod+NUMKEY			| Switch to desktop NUMKEY				|
+| Mod+Shift+NUMKEY		| Add focused client to desktop NUMKEY			|
+| Mod+Control+NUMKEY		| Add desktop NUMKEY to current view			|
+| Mod+Shift+Control+NUMKEY	| Put focused client on only desktop NUMKEY		|
+| Mod+T				| Spawn st						|
+| Mod+W				| Spawn firefox						|
+| Mod+F				| Spawn vifm						|
+| Mod+R				| Spawn R session					|
+| Mod+C				| Spawn calender (broke)				|
+| Mod+D				| Spawn dmenu						|
+| Mod+K				| Move focus up						|
+| Mod+J				| Move focus down					|
+| Mod+H				| Decrease master area					|
+| Mod+L				| Increase master area					|
+| Mod+Return			| Move client to master					|
+| Mod+Shift+K			| Move client up stack					|
+| Mod+Shift+J			| Move client down stack				|
+| Mod+Shift+Q			| Kill client ("force quit")				|
+| Mod+Shift+E			| Quit sara (shuts down X)				|
+| Mod+Shift+Space		| Toggle client to floating (not useful w/o movement)	|
+| Mod+Shift+Return		| Toggle client to fullscreen (no bar)			|
+| Mod+Control+T			| Change layout to tiling				|
+| Mod+Control+M			| Change layout to monocle				|
+
 Bugs
 ----
  * Adjusting window sizes won't update the border size beyond the original dimensions, and will sometimes erase the contents - cmatrix or neofetch are examples of this _configurenotify/request?_

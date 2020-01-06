@@ -125,8 +125,8 @@ const char* termcmd[] 		= { "st", NULL};
 const char* browscmd[] 	 	= { "firefox", NULL };
 const char* fbrowscmd[]		= { "st", "-e", "vifm", NULL };
 const char* rcalccmd[]  	= { "st", "-t", "rcalc",    "-g", "80x24+625+325", "-e", "R", "--vanilla", "-q", NULL };
-//const char* calcmd[] 	 	= { "st", "-t", "cal",      "-g", "26x14+855", "-e", "check_cal", NULL };
-const char* calcmd[] 	 	= { "st", "-e", "sl", NULL };
+const char* calcmd[] 	 	= { "st", "-t", "cal",      "-g", "26x14+855", "-e", "check_cal", NULL };
+//const char* calcmd[] 	 	= { "st", "-e", "sl", NULL };
 // Function key commands
 const char* brightdown[]  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_bright.sh", "-U", "5", NULL };
 const char* brightup[]	  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_bright.sh", "-A", "5", NULL };
@@ -147,8 +147,10 @@ const char* prtsc[]	  	= { "st", "-t", "funkey", "-e", "scrot", "-q", "100", NUL
 
 static struct key keys[] = {
 	/* Commands from DESKTOPCHANGE function
-	 * MOD + KEY 			-> go to desktop
-	 * MOD|ShiftMask + KEY		-> toggle client on desktop
+	 * MOD + KEY 					-> go to desktop
+	 * MOD|ShiftMask + KEY				-> toggle client on desktop
+	 * MOD|ControlMask + KEY			-> add desktop to current view
+	 * MOD|ControlMask|ShiftMask + KEY		-> send client to just desktop
 	 * MOD              	     KEY        FUNCTION        	ARGS
 	 */
 	{ MOD|ShiftMask,             XK_q,      	kill_client,    	{NULL} },
