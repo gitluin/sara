@@ -95,6 +95,7 @@ struct client {
 	/* being in monocle is not considered floating */
 	int is_float;
 	int is_full;
+	//int no_focus;
 }; 
 
 typedef struct {
@@ -759,6 +760,13 @@ void manage(Window parent, XWindowAttributes* wa){
 
 	apply_rules(c);
 	attachaside(c);
+	/* if (c->no_focus){
+	 * 	hide_client(c);
+	 *	vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_client(current,1);
+	 *	change_current(vis);
+	 * }
+	 * current_layout->arrange();
+	 */
 	XMapWindow(dis,c->win);
 	draw_bar();
 }
