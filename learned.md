@@ -8,15 +8,16 @@ output: pdf_document
 # General things
 
 * Man pages probably won't help you conceptually understand a(n) (X)lib
-* Drawing things out is still the most useful way for me to debug concepts
+* Doodling is still a useful way to debug
 
 # C-specific things
 
 * enums
 * unions
 * Batshit insane pointer manipulation with for loops
-* How #include makes things visible between files based on line of incorporation
-* That #defines are pretty nifty
+* Complex stopping conditions in for loops
+* #include makes things visible between files based on line of incorporation
+* #defines are pretty nifty
 * Assign and check within if statements
 * The ternary operator is wonderful
 * You can iterate multiple things in a for loop. Why don't they teach us this in school, fuq

@@ -367,7 +367,7 @@ void change_current(client* c){
 }
 
 void change_desktop(const Arg arg){
-	client* c, * j;
+	client* c;
 
 	if (arg.i == current_desktop){
 		return;
@@ -1003,6 +1003,8 @@ void setup(){
 	seldesks = 1 << arg.i;
 	current_desktop = arg.i;
 	change_desktop(arg);
+	
+	update_status();
 
 	/* Catch requests */
 	XSelectInput(dis,root,wa.event_mask);
@@ -1271,8 +1273,6 @@ void update_status(){
 }
 
 void view(const Arg arg){
-	client* j;
-
 	if (arg.i == current_desktop){
 		return;
 	}
