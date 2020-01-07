@@ -27,3 +27,4 @@ output: pdf_document
 
 * Mostly how the Xlib Window system works (I found a nice picture somewhere but have lost it, and have not gone looking yet)
 * That Xft has no fucking documentation
+* That Xlib has a lot of [documentation](https://www.x.org/releases/current/doc/libX11/libX11/libX11.pdf)
