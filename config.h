@@ -3,7 +3,7 @@
 *  ______________________________________________________________________________ 
 *                                                                                 
 *  Copyright (c) 2010, Rinaldini Julien, julien.rinaldini@heig-vd.ch              
-*  Copyright (c) 2019, This Fackin Guy, gitluin on github (no email for you!)     
+*  Copyright (c) 2020, This Fackin Guy, gitluin on github (no email for you!)     
 *                                                                                 
 *  Permission is hereby granted, free of charge, to any person obtaining a        
 *  copy of this software and associated documentation files (the "Software"),     
