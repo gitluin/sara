@@ -14,6 +14,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.8.7	- enternotify works (I think)!
  * v0.8.2	- Can now view multiple tags at once. I probably won't, but you can (not much extra code, so big whoop).
  * v0.8.1	- Can now send clients to just a specific desktop (removes it from others).
  * v0.8		- No drw and no alpha behavior for the bar. We are a single .c file once more. Rules still don't work.
@@ -111,7 +112,6 @@ To Do
  * quit() should probably be more responsibly implemented
  * Implement multiple monitors (0.5 points)
  * Implement rules (0.5 points)
- * Implement mouse focus support (enternotify) (0.5 points)
  * Implement mouse move, resize support for clients (0.2 points)
  * My own art (0.1 points)
  * Tutorial
