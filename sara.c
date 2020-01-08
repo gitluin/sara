@@ -233,10 +233,7 @@ static void move_focus(const Arg arg);
 static void move_client(const Arg arg);
 static void propertynotify(XEvent* e);
 static void raise_floats();
-static void save_desktop(int i);
 static Clr* scheme_create(const char* clrnames[], size_t clrcount);
-static void select_desktop(int i);
-static void send_xkill_signal(Window w);
 static void send_to_desktop(const Arg arg);
 static void set_current(client* c,int desktop);
 static void set_layout(const Arg arg);
@@ -685,6 +682,7 @@ int gettextprop(Window w, Atom atom, char *text, unsigned int size){
 	return 1;
 }
 
+/* does anything here need to be free() or XFree()? */
 int gettextwidth(const char* str, int len){
 	XGlyphInfo xgi;
 	XftTextExtents8(dis,sbar->xfont,(XftChar8*)str,len,&xgi);
@@ -745,20 +743,32 @@ void keypress(XEvent* e){
 
 void kill_client(){
 	Window w;
+	XEvent ev;
 
 	if (current){
 		w = current->win;
 		unmanage(current);
 
-		send_xkill_signal(w);
+		/* send X Kill signal */
+		ev.type = ClientMessage;
+		ev.xclient.window = w;
+		ev.xclient.message_type = XInternAtom(dis,"WM_PROTOCOLS",True);
+		ev.xclient.format = 32;
+		ev.xclient.data.l[0] = XInternAtom(dis,"WM_DELETE_WINDOW",True);
+		ev.xclient.data.l[1] = CurrentTime;
+		XSendEvent(dis,w,False,NoEventMask,&ev);
 	}
 
 	update_status();
 }
 
 void load_desktop(int i){
-	save_desktop(current_desktop);
-	select_desktop(i);
+	desktops[current_desktop].master_size = master_size;
+	desktops[current_desktop].current_layout = *current_layout;
+
+	master_size = desktops[i].master_size;
+	current_layout = &(desktops[i].current_layout);
+	current_desktop = i;
 }
 
 void manage(Window parent, XWindowAttributes* wa){
@@ -796,7 +806,7 @@ void maprequest(XEvent* e){
 	XWindowAttributes wa;
 	XMapRequestEvent* ev = &e->xmaprequest;
 
-	if ( XGetWindowAttributes(dis,ev->window,&wa) && !find_client(ev->window) ){
+	if ( XGetWindowAttributes(dis,ev->window,&wa) && !wa.override_redirect && !find_client(ev->window) ){
 		manage(ev->window,&wa);
 		current_layout->arrange();
 		update_focus();
@@ -930,11 +940,6 @@ void propertynotify(XEvent* e){
 	}
 }
 
-void save_desktop(int i){
-	desktops[i].master_size = master_size;
-	desktops[i].current_layout = *current_layout;
-}
-
 /* y'all need to free() this bad boi when you cleanup */
 Clr* scheme_create(const char* clrnames[], size_t clrcount){
 	int i;
@@ -951,23 +956,6 @@ Clr* scheme_create(const char* clrnames[], size_t clrcount){
 	}
 
 	return sch;
-}
-
-void select_desktop(int i){
-	master_size = desktops[i].master_size;
-	current_layout = &(desktops[i].current_layout);
-	current_desktop = i;
-}
-
-void send_xkill_signal(Window w){
-	XEvent ev;
-	ev.type = ClientMessage;
-	ev.xclient.window = w;
-	ev.xclient.message_type = XInternAtom(dis,"WM_PROTOCOLS",True);
-	ev.xclient.format = 32;
-	ev.xclient.data.l[0] = XInternAtom(dis,"WM_DELETE_WINDOW",True);
-	ev.xclient.data.l[1] = CurrentTime;
-	XSendEvent(dis,w,False,NoEventMask,&ev);
 }
 
 void setup(){
@@ -1019,7 +1007,8 @@ void setup(){
 
 	/* Set up all desktops, default to 0 */
 	for (i=0;i<NUMDESKTOPS;i++){
-		save_desktop(i);
+		desktops[i].master_size = master_size;
+		desktops[i].current_layout = *current_layout;
 	}
 	const Arg arg = {.i = 0};
 	seldesks = 1 << arg.i;
@@ -1078,17 +1067,18 @@ void sigchld(int unused){
 	while (0 < waitpid(-1,NULL,WNOHANG));
 }
 
+/* dwm copypasta */
 void spawn(const Arg arg){
 	if (fork() == 0){
-		if (fork() == 0){
-			if (dis){
-				close(ConnectionNumber(dis));
-			}
-			setsid();
-			execvp((char*)arg.com[0],(char**)arg.com);
+		if (dis){
+			close(ConnectionNumber(dis));
 		}
-
-		exit(0);
+		setsid();
+		execvp((char*)arg.com[0],(char**)arg.com);
+		
+		fprintf(stderr, "sara: execvp %s", ((char **)arg.com)[0]);
+		perror(" failed");
+		exit(EXIT_SUCCESS);
 	}
 }
 
