@@ -216,7 +216,6 @@ static void expose(XEvent* e);
 static client* find_client(Window w);
 static client* find_current();
 static client* find_vis_client(client* c);
-static int find_occ_desktops();
 static client* find_prev_client(client* c, int is_vis);
 static unsigned long getcolor(const char* color);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
@@ -501,6 +500,7 @@ void detach(client* c){
 
 /* part dwm copypasta */
 void draw_bar(){
+	client* j;
 	int x = 0, w, xsetr_text_w = 0;
 	unsigned int i, occ = 0;
 
@@ -509,7 +509,9 @@ void draw_bar(){
 	xsetr_text_w = TEXTW(xsetr_text) - lrpad + 2; /* 2px right padding */
 	draw_bar_text(sbar->width - xsetr_text_w,0,xsetr_text_w,sbar->height,0,xsetr_text);
 
-	occ = find_occ_desktops();
+	for (j=head;j;j=j->next){
+		occ |= j->desktops;
+	}
 
 	/* draw tags */
 	for (i=0;i<TABLENGTH(tags);i++){
@@ -606,17 +608,6 @@ client* find_current(){
 	}
 
 	return NULL;
-}
-
-int find_occ_desktops(){
-	client* i;
-	int occ = 0;
-
-	for (i=head;i;i=i->next){
-		occ |= i->desktops;
-	}
-
-	return occ;
 }
 
 client* find_prev_client(client* c, int is_vis){
