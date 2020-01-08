@@ -121,13 +121,13 @@ typedef struct {
 
 //typedef struct monitor monitor;
 //struct monitor {
-//	int h, w;
+//	int x, y, h, w;
 //	int num;
 //	float master_size;
 //	unsigned int seldesks;
 //	client* head;
 //	client* current;
-//	desktop desktops[NUMDESKTOPS];
+//	desktop* desktops;
 //	layout* current_layout;
 //	monitor* next;
 //};
@@ -286,6 +286,8 @@ static desktop desktops[NUMDESKTOPS];
 static Display* dis;
 static Window root;
 static Window* prev_enter;
+//static monitor* head_mon;
+//static monitor* current_mon;
 
 static char xsetr_text[256];
 static int lrpad;
@@ -404,6 +406,14 @@ void cleanup(){
 		kill_client();
 	}
 
+//	m = head_mon;
+//	while (m){
+//		free(m->desktops);
+//		tmp = m->next;
+//		free(m);
+//		m = tmp;
+//	}
+
 	/* This ain't pretty, but it gets the job done (Without memory leak? Not sure) */
 	XUnmapWindow(dis,sbar->win);
 	XDestroyWindow(dis,sbar->win);
@@ -417,10 +427,10 @@ void cleanup(){
 
 	free(current_layout);
 
-	for (i=0;i<cur_last;i++){
+	for (i=0;i < cur_last;i++){
 		cur_free(dis,cursor[i]);
 	}
-	for (i=0;i<TABLENGTH(colors);i++){
+	for (i=0;i < TABLENGTH(colors);i++){
 		free(scheme[i]);
 	}
 
@@ -728,6 +738,40 @@ void init_bar(){
 	XMapRaised(dis,sbar->win);
 }
 
+//void init_mons(){
+//	int i, ns;
+//	monitor* m;
+//
+//	XineramaScreenInfo* info = XineramaQueryScreens(dis,&ns);
+//	
+//	/* what is the "unique geometries" problem in dwm?" */
+//	for (i=0;i < ns;i++){
+//		m = ecalloc(1,sizeof(monitor));
+//		m->x = info[i].x_org;
+//		m->y = info[i].y_org;
+//		m->w = info[i].width;
+//		m->h = info[i].height;
+//		m->num = i; 
+//
+//		m->bar = sbar;
+//
+//		/* will be filled in when you save for the first time */
+//		m->desktops = ecalloc(NUMDESKTOPS,sizeof(desktop));
+//		m->seldesks = seldesks;
+//
+//		m->current_desktop = current_desktop;
+//		m->current_layout = current_layout;
+//		m->master_size = master_size;
+//
+//		m->head = head;
+//		m->current = current;
+//		m->prev_enter = prev_enter;
+//
+//		attach_mon(m);
+//	}
+//
+//	XFree(info);
+//}
 
 void keypress(XEvent* e){
 	int i;
@@ -770,6 +814,32 @@ void load_desktop(int i){
 	current_layout = &(desktops[i].current_layout);
 	current_desktop = i;
 }
+
+//void load_mon(monitor* m){
+//	/* save current */
+//	current_mon->desktops = desktops;
+//	current_mon->seldesks = seldesks;
+//
+//	current_mon->current_desktop = current_desktop;
+//	current_mon->current_layout = current_layout;
+//	current_mon->master_size = master_size;
+//
+//	current_mon->head = head;
+//	current_mon->current = current;
+//	current_mon->prev_enter = prev_enter;
+//
+//	/* select m */
+//	desktops = m->desktops;
+//	seldesks = m->seldesks;
+//
+//	current_desktop = m->current_desktop;
+//	current_layout = m->current_layout;
+//	master_size = m->master_size;
+//	
+//	head = m->head;
+//	current = m->current;
+//	prev_enter = m->prev_enter;
+//}
 
 void manage(Window parent, XWindowAttributes* wa){
 	client* c;
@@ -1006,7 +1076,7 @@ void setup(){
 	XChangeWindowAttributes(dis,root,CWEventMask|CWCursor,&wa);
 
 	/* Set up all desktops, default to 0 */
-	for (i=0;i<NUMDESKTOPS;i++){
+	for (i=0;i < NUMDESKTOPS;i++){
 		desktops[i].master_size = master_size;
 		desktops[i].current_layout = *current_layout;
 	}
@@ -1014,6 +1084,8 @@ void setup(){
 	seldesks = 1 << arg.i;
 	current_desktop = arg.i;
 	change_desktop(arg);
+	
+	// init_mons();
 	
 	update_status();
 
@@ -1086,6 +1158,7 @@ void spawn(const Arg arg){
 void start(){
 	XEvent ev;
 
+	XSync(dis,False);
 	while (running && !XNextEvent(dis,&ev)){
 		if (events[ev.type]){
 			events[ev.type](&ev);
