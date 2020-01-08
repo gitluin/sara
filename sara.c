@@ -891,7 +891,7 @@ void move_focus(const Arg arg){
 		if (!current->is_full){
 			/* up in stack */
 			if (arg.i == 1){
-				if (current == head){
+				if ( (current == head) || (current == find_vis_client(head)) ){
 					/* Save the last, visible j */
 					for (j=head;j;j=j->next){
 						if (ISVISIBLE(j)){
