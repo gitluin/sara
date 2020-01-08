@@ -103,6 +103,7 @@ Bugs
  * With large numbers of clients in the stack, clients start to get pushed beyond the desired bottom boundary
  * With programs like Krita, the popup window generates an unmap event upon completion of its task, so it stays around and takes up tiling space _somehow link unmap to destroy, but only for specific clients_
  * Function spawns don't play nice if they hang around and you try to kill them before they go poof
+ * If you move_focus up to the top of your current view, when that top isn't head, and you move_focus up again, you can't move out of top without switching desktops, spawning a window, etc.
 
 To Do
 ----
