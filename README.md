@@ -104,6 +104,7 @@ Bugs
  * With programs like Krita, the popup window generates an unmap event upon completion of its task, so it stays around and takes up tiling space _somehow link unmap to destroy, but only for specific clients_
  * Function spawns don't play nice if they hang around and you try to kill them before they go poof
  * Mouse click should draw focus to a window
+ * Movement check in enternotify needs to check boundaries of prev\_enter, not x and y
 
 To Do
 ----

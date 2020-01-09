@@ -119,6 +119,10 @@ typedef struct {
 	int is_float;
 } rule;
 
+typedef struct {
+	int x, y;
+} point;
+
 //typedef struct monitor monitor;
 //struct monitor {
 //	int x, y, h, w;
@@ -201,6 +205,7 @@ int slen(const char* str){
 
 static void apply_rules(client* c);
 static void attachaside(client* c);
+//static void buttonpress(XEvent* e);
 static void change_current(client* c);
 static void change_desktop(const Arg arg);
 static void change_msize(const Arg arg);
@@ -220,15 +225,18 @@ static client* find_prev_client(client* c, int is_vis);
 static unsigned long getcolor(const char* color);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static int gettextwidth(const char* str, int len);
+static int get_pointer_coords(int ret_y);
 static void grabkeys();
 static void init_bar();
 static void keypress(XEvent* e);
 static void kill_client();
+//static void leavenotify(XEvent* e);
 static void load_desktop(int i);
 static void manage(Window parent, XWindowAttributes* wa);
 static void maprequest(XEvent* e);
 static void map_clients();
 static void monocle();
+//static void motionnotify(XEvent* e);
 static void move_focus(const Arg arg);
 static void move_client(const Arg arg);
 static void propertynotify(XEvent* e);
@@ -282,10 +290,11 @@ static client* head;
 static client* current;
 static layout* current_layout;
 static cur* cursor[cur_last];
+static point* spointer;
 static desktop desktops[NUMDESKTOPS];
 static Display* dis;
 static Window root;
-static Window* prev_enter;
+static Window* prev_enter; /* track entering windows with the mouse */
 //static monitor* head_mon;
 //static monitor* current_mon;
 
@@ -295,13 +304,16 @@ static Clr** scheme;
 
 /* Events array */
 static void (*events[LASTEvent])(XEvent* e) = {
+	//[ButtonPress] = buttonpress,
 	[ConfigureNotify] = configurenotify,
 	[ConfigureRequest] = configurerequest,
 	[DestroyNotify] = destroynotify,
 	[EnterNotify] = enternotify,
 	[Expose] = expose,
 	[KeyPress] = keypress,
+	//[LeaveNotify] = leavenotify,
 	[MapRequest] = maprequest,
+	//[MotionNotify] = motionnotify,
 	[PropertyNotify] = propertynotify,
 /*	[UnmapNotify] = unmapnotify */
 };
@@ -354,6 +366,26 @@ void attachaside(client* c){
 	XSelectInput(dis,c->win,EnterWindowMask|FocusChangeMask|StructureNotifyMask);
 	change_current(c);
 }
+
+/* dwm copypasta */
+//void buttonpress(XEvent* e){
+//	client *c;
+//	XButtonPressedEvent* ev = &e->xbutton;
+//
+//	/* focus monitor if necessary */
+////	if ((m = wintomon(ev->window)) && m != selmon) {
+////		unfocus(selmon->sel, 1);
+////		selmon = m;
+////		focus(NULL);
+////	}
+//
+//	if ( (c = find_client(ev->window)) ){
+////		prev_enter = &(c->win);
+//		change_current(c);
+//		update_focus();
+//		XAllowEvents(dis,ReplayPointer,CurrentTime);
+//	}
+//}
 
 void change_current(client* c){
 	/* because detach */
@@ -430,6 +462,7 @@ void cleanup(){
 	for (i=0;i < cur_last;i++){
 		cur_free(dis,cursor[i]);
 	}
+	free(spointer);
 	for (i=0;i < TABLENGTH(colors);i++){
 		free(scheme[i]);
 	}
@@ -562,27 +595,29 @@ int draw_bar_text(int x, int y, int w, int h, unsigned int lpad, const char* tex
 /* to-do: allow a little wiggling to update focus? */
 void enternotify(XEvent* e){
 	client* c;
-	//int x, y, dwx, dwy;
-	//unsigned int dmr;
+	int x, y;
 	XCrossingEvent* ev = &e->xcrossing;
 
 	if ( (ev->mode != NotifyNormal || ev->detail == NotifyInferior) && ev->window != root){
 		return;
 
-	} else if ( !(c = find_client(ev->window)) || current == c ){
-		return;
-
 	/* if this is the last one we entered (i.e. this enternotify came from switching desktops) */
-	} else if (prev_enter == &(c->win)){
+	} else if ( !(c = find_client(ev->window)) || (prev_enter == &(c->win)) ){
 		return;
 	}
 
+	/* TODO: if we haven't moved from the confines of the old window */
+	/* if we haven't moved (i.e. this enternotify came from moving the stack */
+	if ( (spointer->x == (x = get_pointer_coords(0))) && (spointer->y == (y = get_pointer_coords(1))) ){
+		return;
+	}
+
+	spointer->x = x; spointer->y = y;
 	prev_enter = &(c->win);
 
-	//XQueryPointer(dis,c->win,*root_ret,*child_ret,&x,&y,&dwx,&dwy,&dmr);
-	//point->x = x; point->y = y;
-
-	change_current(c);
+	if (current != c){
+		change_current(c);
+	}
 	update_focus();
 }
 
@@ -700,6 +735,16 @@ int gettextwidth(const char* str, int len){
 	return xgi.width;
 }
 
+int get_pointer_coords(int ret_y){
+	int x, y, dwx, dwy;
+	unsigned int dmr;
+	Window drret, dcret;
+
+	XQueryPointer(dis,root,&drret,&dcret,&x,&y,&dwx,&dwy,&dmr);
+
+	return ret_y ? y : x;
+}
+
 void grabkeys(){
 	int i;
 	KeyCode code;
@@ -806,6 +851,15 @@ void kill_client(){
 	update_status();
 }
 
+//void leavenotify(XEvent* e){
+//	client* c;
+//	XCrossingEvent* ev = &e->xcrossing;
+//
+//	if ( (c = find_client(ev->window)) ){
+//		prev_enter = &(c->win);
+//	}
+//}
+
 void load_desktop(int i){
 	desktops[current_desktop].master_size = master_size;
 	desktops[current_desktop].current_layout = *current_layout;
@@ -894,6 +948,28 @@ void map_clients(){
 		}
 	}
 }
+
+//void motionnotify(XEvent* e){
+//	int x, y;
+//	client* c;
+//	XMotionEvent* ev = &e->xmotion;
+//
+//	x = get_pointer_coords(0);
+//	y = get_pointer_coords(1);
+//
+//	if ( !(c = find_client(ev->window)) ){
+//		return;
+//	}
+//
+//	/* if either x or y are greater than 5% of sw away from spointer->{x,y} */
+//	if ( (spointer->x + 0.05*sw < x || x < spointer->x - 0.05*sw) || (spointer->y + 0.05*sw < y || y < spointer->y - 0.05*sw) ){
+//		prev_enter = &(c->win);
+//		change_current(c);
+//		update_focus();
+//	}
+//
+//	spointer->x = x; spointer->y = y;
+//}
 
 void raise_floats(){
 	client* i;
@@ -1051,6 +1127,10 @@ void setup(){
 	cursor[cur_norm] = cur_create(dis,XC_left_ptr);
 	cursor[cur_move] = cur_create(dis,XC_sizing);
 
+	spointer = ecalloc(1,sizeof(point));
+	spointer->x = get_pointer_coords(0);
+	spointer->y = get_pointer_coords(0);
+
 	win_focus = getcolor(FOCUS);
 	win_unfocus = getcolor(UNFOCUS);
 	scheme = ecalloc(TABLENGTH(colors),sizeof(Clr*));
@@ -1072,7 +1152,7 @@ void setup(){
 	wa.cursor = cursor[cur_norm]->cursor;
 	wa.event_mask = SubstructureRedirectMask|SubstructureNotifyMask
 		|ButtonPressMask|PointerMotionMask|EnterWindowMask
-		|StructureNotifyMask|PropertyChangeMask;
+		|LeaveWindowMask|StructureNotifyMask|PropertyChangeMask;
 	XChangeWindowAttributes(dis,root,CWEventMask|CWCursor,&wa);
 
 	/* Set up all desktops, default to 0 */
