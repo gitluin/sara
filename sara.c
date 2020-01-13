@@ -930,7 +930,7 @@ void maprequest(XEvent* e){
 	XWindowAttributes wa;
 	XMapRequestEvent* ev = &e->xmaprequest;
 
-	if ( XGetWindowAttributes(dis,ev->window,&wa) && !wa.override_redirect && !find_client(ev->window) ){
+	if ( XGetWindowAttributes(dis,ev->window,&wa) && !find_client(ev->window) ){
 		manage(ev->window,&wa);
 		current_layout->arrange();
 		update_focus();
