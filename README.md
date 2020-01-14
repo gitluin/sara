@@ -100,7 +100,7 @@ You're on your own with the brightness and volume key situation. I had to do wha
 Bugs
 ----
  * Adjusting window sizes won't update the border size beyond the original dimensions, and will sometimes erase the contents - cmatrix or neofetch are examples of this _configurenotify/request?_
- * With large numbers of clients in the stack, clients start to get pushed beyond the desired bottom boundary
+ * tile() doesn't properly limit the bottom boundary of the stack when gap\_px > 0
  * With programs like Krita, the popup window generates an unmap event upon completion of its task, so it stays around and takes up tiling space _somehow link unmap to destroy, but only for specific clients_
  * Function spawns don't play nice if they hang around and you try to kill them before they go poof
  * Mouse click should draw focus to a window
@@ -108,14 +108,14 @@ Bugs
 
 To Do
 ----
- * No bugs (just use XGH)
+ * No bugs (just use XGH) (required for v1.0)
  * Code cleanup (as a constant)
  * Does it leak memory?
  * quit() should probably be more responsibly implemented
  * Implement multiple monitors (0.5 points)
  * Implement rules (0.5 points)
- * Implement mouse move, resize support for clients (0.2 points)
- * My own art (0.1 points)
+ * Implement mouse move, resize support for clients (0.3 points)
+ * My own art
  * Tutorial
 
 If you have some particular request, don't send me an e-mail, I won't do it!
