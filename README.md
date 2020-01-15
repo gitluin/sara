@@ -105,6 +105,8 @@ Bugs
  * Function spawns don't play nice if they hang around and you try to kill them before they go poof
  * Mouse click should draw focus to a window
  * Movement check in enternotify needs to check boundaries of prev\_enter, not x and y
+ * Sometimes, opening pictures in feh via vifm leads to insane tiling of the picture
+ * Bar doesn't redraw on laptop lid reopen until maprequest, change\_desktop, etc.
 
 To Do
 ----
@@ -117,5 +119,6 @@ To Do
  * Implement mouse move, resize support for clients (0.3 points)
  * My own art
  * Tutorial
+ * More minimalism (saw some dude with <1>, etc. for selection on reddit)
 
 If you have some particular request, don't send me an e-mail, I won't do it!

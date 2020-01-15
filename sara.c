@@ -43,7 +43,6 @@
 //#endif
 
 #define TABLENGTH(X)    (sizeof(X)/sizeof(*X))
-#define NUMDESKTOPS	8
 #define ISVISIBLE(C)	((C->desktops & seldesks))
 #define TEXTW(X)	(gettextwidth(X, slen(X)) + lrpad)
 
@@ -291,7 +290,7 @@ static client* current;
 static layout* current_layout;
 static cur* cursor[cur_last];
 static point* spointer;
-static desktop desktops[NUMDESKTOPS];
+static desktop desktops[TABLENGTH(tags)];
 static Display* dis;
 static Window root;
 static Window* prev_enter; /* track entering windows with the mouse */
@@ -801,7 +800,7 @@ void init_bar(){
 //		m->bar = sbar;
 //
 //		/* will be filled in when you save for the first time */
-//		m->desktops = ecalloc(NUMDESKTOPS,sizeof(desktop));
+//		m->desktops = ecalloc(TABLENGTH(tags),sizeof(desktop));
 //		m->seldesks = seldesks;
 //
 //		m->current_desktop = current_desktop;
@@ -930,6 +929,7 @@ void maprequest(XEvent* e){
 	XWindowAttributes wa;
 	XMapRequestEvent* ev = &e->xmaprequest;
 
+	//if ( XGetWindowAttributes(dis,ev->window,&wa) && !wa.override_redirect && !find_client(ev->window) ){
 	if ( XGetWindowAttributes(dis,ev->window,&wa) && !find_client(ev->window) ){
 		manage(ev->window,&wa);
 		current_layout->arrange();
@@ -1156,7 +1156,7 @@ void setup(){
 	XChangeWindowAttributes(dis,root,CWEventMask|CWCursor,&wa);
 
 	/* Set up all desktops, default to 0 */
-	for (i=0;i < NUMDESKTOPS;i++){
+	for (i=0;i < TABLENGTH(tags);i++){
 		desktops[i].master_size = master_size;
 		desktops[i].current_layout = *current_layout;
 	}
