@@ -107,6 +107,7 @@ Bugs
  * Movement check in enternotify needs to check boundaries of prev\_enter, not x and y
  * Sometimes, opening pictures in feh via vifm leads to insane tiling of the picture
  * Bar doesn't redraw on laptop lid reopen until maprequest, change\_desktop, etc.
+ * enternotify isn't perfect, sometimes it behaves weirdly. Need to experiment.
 
 To Do
 ----
