@@ -1,4 +1,4 @@
-SARA
+sara
 =====
 
         .-. .-.
@@ -108,19 +108,20 @@ Bugs
  * Sometimes, opening pictures in feh via vifm leads to insane tiling of the picture
  * Bar doesn't redraw on laptop lid reopen until maprequest, change\_desktop, etc.
  * enternotify isn't perfect, sometimes it behaves weirdly. Need to experiment.
- * invalid free() somewhere
- * Clients A and B [1], B [2], on [1], view([2]), toggle B from [1], unmaps B but shouldn't
+ * Need to XFree() in apply\_rules, I think? Unclear
 
 To Do
 ----
- * No bugs (just use XGH) (required for v1.0)
- * Code cleanup (as a constant) - spacing in function calls, function naming conventions
- * Does it leak memory?
- * quit() should probably be more responsibly implemented
- * Implement multiple monitors (0.5 points)
- * Implement rules (0.5 points)
- * Implement mouse move, resize support for clients (0.3 points)
- * My own art
- * Tutorial
+ * Continuous:
+   a. No bugs (just use XGH) (required for v1.0)
+   b. Code cleanup (as a constant) - function naming conventions
+   c. Does it leak memory?
+ * Discrete:
+   a. quit() should probably be more responsibly implemented
+   b. Implement multiple monitors (0.5 points)
+   c. Implement rules (0.5 points)
+   d. Implement mouse move, resize support for clients (0.3 points)
+   e. My own art
+   f. Tutorial
 
 If you have some particular request, don't send me an e-mail, I won't do it!

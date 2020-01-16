@@ -50,13 +50,10 @@ enum { SymLeft, SymRight };
 enum { NoVis, YesVis };
 
 typedef union {
-	const char** com;
 	const int i;
 	const float f;
 	const void* v;
 } Arg;
-
-typedef XftColor Clr;
 
 
 /* ---------------------------------------
@@ -75,7 +72,7 @@ typedef struct bar bar;
 struct bar {
 	int width;
 	int height;
-	Clr* scheme;
+	XftColor* scheme;
 	Drawable d;
 	XftFont* xfont;
 	GC gc;
@@ -232,7 +229,7 @@ static void view(const Arg arg);
 static void cleanup();
 static int get_pointer_coords(int ret_y);
 static void grabkeys();
-static Clr* scheme_create(const char* clrnames[], size_t clrcount);
+static XftColor* scheme_create(const char* clrnames[], size_t clrcount);
 static void setup();
 static void sigchld(int unused);
 static void spawn(const Arg arg);
@@ -276,7 +273,7 @@ static unsigned int seldesks;
 /* Backend */
 static int lrpad;
 static int running;
-static Clr** scheme;
+static XftColor** scheme;
 static char xsetr_text[256];
 
 /* Monitor Interfacing */
@@ -485,6 +482,9 @@ void apply_rules(client* c){
 			c->is_float = r->is_float;
 		}
 	}
+
+	/* need to free something, but idk what or how, because everything accidentallys */
+	//XFree(&tp.value);
 }	
 
 void attachaside(client* c){
@@ -723,7 +723,7 @@ void send_to_desktop(const Arg arg){
 void set_current(client* c, int desktop){
 	client* i;
 	for (i=head;i;i=i->next){
-		if (i != c && ((i->is_current >> desktop) & 1)){
+		if ( i != c && (i->is_current & 1 << desktop) ){
 			i->is_current ^= 1 << desktop;
 		}
 	}
@@ -763,7 +763,7 @@ void toggle_desktop(const Arg arg){
 
 		set_current(current, arg.i);
 
-		if ( !((current->desktops >> current_desktop) & 1) ){
+		if ( !(ISVISIBLE(current)) ){
 			/* focus moves down if possible, else up */
 			vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_client(current, YesVis);
 
@@ -860,7 +860,7 @@ client* find_client(Window w){
 client* find_current(){
 	client* i;
 	for (i=head;i;i=i->next){
-		if (ISVISIBLE(i) && ((i->is_current >> current_desktop) & 1)){
+		if (ISVISIBLE(i) && (i->is_current & 1 << current_desktop)){
 			return i;
 		}
 	}
@@ -1069,7 +1069,8 @@ void load_desktop(int i){
 	desktops[current_desktop].current_layout = *current_layout;
 
 	master_size = desktops[i].master_size;
-	current_layout = &(desktops[i].current_layout);
+	current_layout->arrange = desktops[i].current_layout.arrange;
+	current_layout->symbol = desktops[i].current_layout.symbol;
 	current_desktop = i;
 }
 
@@ -1198,6 +1199,7 @@ void cleanup(){
 	for (i=0;i < TABLENGTH(colors);i++){
 		free(scheme[i]);
 	}
+	free(scheme);
 
 	fprintf(stdout, "sara: Thanks for using!\n");
 	XDestroySubwindows(dis, root);
@@ -1230,9 +1232,9 @@ void grabkeys(){
 }
 
 /* y'all need to free() this bad boi when you cleanup */
-Clr* scheme_create(const char* clrnames[], size_t clrcount){
+XftColor* scheme_create(const char* clrnames[], size_t clrcount){
 	int i;
-	Clr* sch;
+	XftColor* sch;
 
 	if ( !(sch = ecalloc(clrcount, sizeof(XftColor))) ){
 		die("Error while trying to ecalloc for scheme_create");
@@ -1271,7 +1273,7 @@ void setup(){
 	spointer->x = get_pointer_coords(0);
 	spointer->y = get_pointer_coords(0);
 
-	scheme = ecalloc(TABLENGTH(colors), sizeof(Clr*));
+	scheme = ecalloc(TABLENGTH(colors), sizeof(XftColor*));
 	for (i=0;i < TABLENGTH(colors);i++){
 		scheme[i] = scheme_create(colors[i], 2);
 	}
@@ -1326,9 +1328,9 @@ void spawn(const Arg arg){
 			close(ConnectionNumber(dis));
 		}
 		setsid();
-		execvp((char*)arg.com[0], (char**)arg.com);
+		execvp( ((char**) arg.v)[0], (char**) arg.v);
 		
-		fprintf(stderr, "sara: execvp %s", ((char **)arg.com)[0]);
+		fprintf(stderr, "sara: execvp %s", ((char **) arg.v)[0]);
 		perror(" failed");
 		exit(EXIT_SUCCESS);
 	}
