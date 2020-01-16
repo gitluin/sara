@@ -10,7 +10,7 @@ sara
 
 What Is, Why Do
 -------
-sara is a very simple and lightweight tiling window manager, with the goal of making catwm actually work and paring down dwm. I will try to stay under 1000 SLOC, though usability is more important.
+sara is a very simple and lightweight tiling window manager, with the goal of making catwm actually work and paring down dwm. I will try to keep the source code as small and readable as possible.
 
 Recent Statii
 ------
@@ -113,15 +113,15 @@ Bugs
 To Do
 ----
  * Continuous:
-   a. No bugs (just use XGH) (required for v1.0)
-   b. Code cleanup (as a constant) - function naming conventions
-   c. Does it leak memory?
+   * No bugs (just use XGH) (required for v1.0)
+   * Code cleanup (as a constant) - function naming conventions
+   * Does it leak memory?
  * Discrete:
-   a. quit() should probably be more responsibly implemented
-   b. Implement multiple monitors (0.5 points)
-   c. Implement rules (0.5 points)
-   d. Implement mouse move, resize support for clients (0.3 points)
-   e. My own art
-   f. Tutorial
+   * quit() should probably be more responsibly implemented
+   * Implement multiple monitors (0.5 points)
+   * Implement rules (0.5 points)
+   * Implement mouse move, resize support for clients (0.3 points)
+   * My own art
+   * Tutorial
 
 If you have some particular request, don't send me an e-mail, I won't do it!
