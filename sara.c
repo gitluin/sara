@@ -43,6 +43,7 @@
 #define TABLENGTH(X)    (sizeof(X)/sizeof(*X))
 #define ISVISIBLE(C)	((C->desktops & seldesks))
 #define TEXTW(X)	(gettextwidth(X, slen(X)) + lrpad)
+#define CLIENTS		(client* i=head;i;i=i->next)
 
 enum { SchNorm, SchSel };
 enum { ColFg, ColBg };
@@ -122,7 +123,7 @@ typedef struct {
 //	unsigned int seldesks;
 //	client* head;
 //	client* current;
-//	desktop* desktops;
+//	desktop desktops[TABLENGTH(tags)];
 //	layout* current_layout;
 //	monitor* next;
 //};
@@ -192,6 +193,7 @@ static void manage(Window parent, XWindowAttributes* wa);
 static void map_clients();
 static void move_client(const Arg arg);
 static void move_focus(const Arg arg);
+static client* refocus(client* n, client* p);
 static void raise_floats();
 static void send_to_desktop(const Arg arg);
 static void set_current(client* c,int desktop);
@@ -266,6 +268,7 @@ static bar* sbar;
 /* Desktop Interfacing */
 static int current_desktop;
 static layout* current_layout;
+static layout* original_layout;
 static desktop desktops[TABLENGTH(tags)];
 static float master_size;
 static unsigned int seldesks;
@@ -533,7 +536,7 @@ void detach(client* c){
 	XMoveWindow(dis, c->win, -2*wa.width, wa.y);
 
 	/* focus moves down if possible, else up */
-	vis = ( (vis = find_vis_client(c->next)) ) ? vis : find_prev_client(c, YesVis);
+	vis = refocus(c->next,c);
 
 	/* For both, if NULL, then we're still okay */
 	if ( (p = find_prev_client(c, NoVis)) ){
@@ -600,13 +603,12 @@ void manage(Window parent, XWindowAttributes* wa){
 
 void map_clients(){
 	client* i;
+	//for CLIENTS if ISVISIBLE(i) XMapWindow(dis, i->win); else XUnmapWindow(dis, i->win);
 	for (i=head;i;i=i->next){
-		if (ISVISIBLE(i)){
+		if ISVISIBLE(i)
 			XMapWindow(dis, i->win);
-
-		} else {
+		else
 			XUnmapWindow(dis, i->win);
-		}
 	}
 }
 
@@ -688,6 +690,11 @@ void move_focus(const Arg arg){
 	}
 }
 
+client* refocus(client* n, client* p){
+	client* vis;
+	return (vis = find_vis_client(n)) ? vis : find_prev_client(p,YesVis);
+}
+
 void raise_floats(){
 	client* i;
 	for (i=head;i;i=i->next){
@@ -765,7 +772,8 @@ void toggle_desktop(const Arg arg){
 
 		if ( !(ISVISIBLE(current)) ){
 			/* focus moves down if possible, else up */
-			vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_client(current, YesVis);
+			//vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_client(current, YesVis);
+			vis = refocus(current->next,current);
 
 			XUnmapWindow(dis, current->win);
 			XSync(dis, False);
@@ -1069,8 +1077,7 @@ void load_desktop(int i){
 	desktops[current_desktop].current_layout = *current_layout;
 
 	master_size = desktops[i].master_size;
-	current_layout->arrange = desktops[i].current_layout.arrange;
-	current_layout->symbol = desktops[i].current_layout.symbol;
+	current_layout = &(desktops[i].current_layout);
 	current_desktop = i;
 }
 
@@ -1085,15 +1092,21 @@ void monocle(){
 			i->x = 0; i->y = sbar->height;
 			i->w = sw;
 			i->h = mh;
+			XMoveResizeWindow(dis, i->win, i->x, i->y, i->w, i->h);
 		}
-
-		XMoveResizeWindow(dis, i->win, i->x, i->y, i->w, i->h);
-		XRaiseWindow(dis, i->win);
 	}
+
+	//for CLIENTS if (ISVISIBLE(i) && !i->is_float){
+	//		i->x = 0; i->y = sbar->height;
+	//		i->w = sw;
+	//		i->h = mh;
+	//		XMoveResizeWindow(dis, i->win, i->x, i->y, i->w, i->h);
+	//		XRaiseWindow(dis, i->win);
+	//	} 
 }
 
 void set_layout(const Arg arg){
-	current_layout = (layout *)arg.v;
+	current_layout = (layout*) arg.v;
 	current_layout->arrange();
 	draw_bar();
 }
@@ -1105,6 +1118,7 @@ void tile(){
 	int y = sbar->height;
 
 	/* Find the first non-floating, visible window and tally non-floating, visible windows */
+	//for CLIENTS{
 	for (i=head;i;i=i->next){
 		if (!i->is_float && ISVISIBLE(i)){
 			nf = (!nf) ? i : nf;
@@ -1193,7 +1207,7 @@ void cleanup(){
 	XFreePixmap(dis, sbar->d);
 	free(sbar);
 
-	free(current_layout);
+	free(original_layout);
 	free(spointer);
 
 	for (i=0;i < TABLENGTH(colors);i++){
@@ -1264,8 +1278,9 @@ void setup(){
 
 	grabkeys();
 
-	/* First layout by default */
+	/* Default to first layout */
 	current_layout = ecalloc(1, sizeof(layout));
+	original_layout = current_layout;
 	current_layout->arrange = layouts[0].arrange;
 	current_layout->symbol = layouts[0].symbol;
 

@@ -1,4 +1,4 @@
-CFLAGS= -Wall -g -I/usr/include/freetype2 -Wno-deprecated-declarations -Os
+CFLAGS= -Wall -g -I/usr/include/freetype2 -Wno-deprecated-declarations
 LIBS= -lX11 -lXft -lfontconfig
 LDFLAGS=
 

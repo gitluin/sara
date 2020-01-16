@@ -14,6 +14,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.8.7.3	- Memory freeing that doesn't cause layout changing to accidentally
  * v0.8.7.2	- Cutting out excess code. No more cursorfont.h dependency - a normal cursor for resizing will be fine.
  * v0.8.7.1	- No gaps, no window borders, no bar boxes. You can customize selected tags symbols, though. Deal! Working on code style cleanup.
  * v0.8.7	- enternotify works (I think)!
