@@ -14,6 +14,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.8.7.1	- No gaps, no window borders, no bar boxes. You can customize selected tags symbols, though. Deal! Working on code style cleanup.
  * v0.8.7	- enternotify works (I think)!
  * v0.8.2	- Can now view multiple tags at once. I probably won't, but you can (not much extra code, so big whoop).
  * v0.8.1	- Can now send clients to just a specific desktop (removes it from others).
@@ -35,7 +36,7 @@ Features
 
 ### Behavior
 
-* dwm-like: tags (except for viewing multiple tags at once)
+* dwm-like: tags
 * patch-like:
 	* attachaside
 	* emptyview
@@ -43,7 +44,6 @@ Features
 	* movestack
 	* pertag-like: layouts, master_size
 	* singular borders
-* gaps for you zoomers
 * worst
 
 ### Design Limitations
@@ -100,7 +100,6 @@ You're on your own with the brightness and volume key situation. I had to do wha
 Bugs
 ----
  * Adjusting window sizes won't update the border size beyond the original dimensions, and will sometimes erase the contents - cmatrix or neofetch are examples of this _configurenotify/request?_
- * tile() doesn't properly limit the bottom boundary of the stack when gap\_px > 0
  * With programs like Krita, the popup window generates an unmap event upon completion of its task, so it stays around and takes up tiling space _somehow link unmap to destroy, but only for specific clients_
  * Function spawns don't play nice if they hang around and you try to kill them before they go poof
  * Mouse click should draw focus to a window
@@ -108,11 +107,13 @@ Bugs
  * Sometimes, opening pictures in feh via vifm leads to insane tiling of the picture
  * Bar doesn't redraw on laptop lid reopen until maprequest, change\_desktop, etc.
  * enternotify isn't perfect, sometimes it behaves weirdly. Need to experiment.
+ * invalid free() somewhere
+ * Clients A and B [1], B [2], on [1], view([2]), toggle B from [1], unmaps B but shouldn't
 
 To Do
 ----
  * No bugs (just use XGH) (required for v1.0)
- * Code cleanup (as a constant)
+ * Code cleanup (as a constant) - spacing in function calls, function naming conventions
  * Does it leak memory?
  * quit() should probably be more responsibly implemented
  * Implement multiple monitors (0.5 points)
@@ -120,6 +121,5 @@ To Do
  * Implement mouse move, resize support for clients (0.3 points)
  * My own art
  * Tutorial
- * More minimalism (saw some dude with <1>, etc. for selection on reddit)
 
 If you have some particular request, don't send me an e-mail, I won't do it!

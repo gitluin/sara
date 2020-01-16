@@ -40,26 +40,26 @@
 static const char* fontname	    = "Noto Sans:size=10";
 /* Normal theme! */
 static const char col_gray1[]       = "#222222";
-static const char col_gray2[]       = "#444444";
-static const char col_gray3[]       = "#bbbbbb";
-static const char col_gray4[]       = "#eeeeee";
+static const char col_gray2[]       = "#bbbbbb";
+static const char col_gray3[]       = "#eeeeee";
 static const char col_cyan[]        = "#005577";
 
 /* Winter theme! */
 /* dwm copypasta */
 //static const char col_gray1[]       = "#DBDBDB";
-//static const char col_gray2[]       = "#444444";
-//static const char col_gray3[]       = "#383838";
-//static const char col_gray4[]       = "#000000";
+//static const char col_gray2[]       = "#383838";
+//static const char col_gray3[]       = "#000000";
 //static const char col_cyan[]        = "#0090C9";
 static const char* colors[][3]      = {
-	/*               fg         bg         border   */
-	[sch_norm] = { col_gray3, col_gray1, col_gray2 },
-	[sch_sel]  = { col_gray4, col_cyan,  col_cyan  },
+	/*               fg         bg		*/
+	[sch_norm] = { col_gray2, col_gray1 },
+	[sch_sel]  = { col_gray3, col_cyan  },
 };
 
 /* dwm copypasta */
 static const char* tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
+/* indicators for selected tags */
+static const char* syms[] = { "<", ">" };
 
 /* dwm copypasta */
 static const rule rules[] = {
@@ -83,10 +83,6 @@ static const layout layouts[] = {
 	{ "[M]",      monocle  },
 };
 
-/* Colors */
-#define FOCUS           "rgb:bc/57/66"
-#define UNFOCUS         "rgb:88/88/88"
-
 /* change desktop, add to desktop, move to only desktop */
 #define DESKTOPCHANGE(K,N) \
     {  MOD,             	    K,	change_desktop, 	{.i = N}}, \
@@ -105,9 +101,6 @@ static const layout layouts[] = {
  * Appearance
  * ---------------------------------------
  */
-
-//const int gap_px = 50;
-const int gap_px = 0;
 
 static const char dmenufont[]	= "Misc Termsyn:size=10";
 
