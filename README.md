@@ -49,8 +49,8 @@ Features
 ### Design Limitations
 
 * No unmapping, just destroying. I don't like window decorations, so no minimizing, etc. possible.
-* Window borders are 1 pixel, and only if gap\_px > 0
 * No support for urgency coloring in the bar, because nothing I do is urgent.
+* No [ICCCM](https://web.archive.org/web/20190617214524/https://raw.githubusercontent.com/kfish/xsel/1a1c5edf0dc129055f7764c666da2dd468df6016/rant.txt) (found thanks to [dylan](https://github.com/dylanaraps/sowm))
 * No EWMH support, because you're an adult and can fullscreen manually (see config.h), and it's too much work to deal with floating pop-up windows when they'll disappear anyway.
 * One bar. I don't like to look to a particular monitor for the time, just the same spot on any monitor. No Xinerama yet but we'll get there.
 * No unicode support. If you provide unicode characters to the bar, behavior is undefined. I get junk for symbols. You might crash. Behave yourself.
