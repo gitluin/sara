@@ -52,8 +52,8 @@ static const char col_cyan[]        = "#005577";
 //static const char col_cyan[]        = "#0090C9";
 static const char* colors[][3]      = {
 	/*               fg         bg		*/
-	[sch_norm] = { col_gray2, col_gray1 },
-	[sch_sel]  = { col_gray3, col_cyan  },
+	[SchNorm] = { col_gray2, col_gray1 },
+	[SchSel]  = { col_gray3, col_cyan  },
 };
 
 /* dwm copypasta */

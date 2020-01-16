@@ -30,14 +30,12 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <X11/cursorfont.h>
 #include <X11/keysym.h>
 #include <X11/Xatom.h>
 #include <X11/XF86keysym.h>
 #include <X11/Xlib.h>
 #include <X11/Xproto.h>
 #include <X11/Xft/Xft.h>
-#include <X11/Xutil.h>
 //#ifdef XINERAMA
 //#include <X11/extensions/Xinerama.h>
 //#endif
@@ -46,7 +44,6 @@
 #define ISVISIBLE(C)	((C->desktops & seldesks))
 #define TEXTW(X)	(gettextwidth(X, slen(X)) + lrpad)
 
-enum { CurNorm, CurMove, CurLast };
 enum { SchNorm, SchSel };
 enum { ColFg, ColBg };
 enum { SymLeft, SymRight };
@@ -111,10 +108,6 @@ struct desktop {
 };
 
 typedef struct {
-	Cursor cursor;
-} cur;
-
-typedef struct {
 	const char* title;
 	int desktopmask;
 	int is_float;
@@ -143,34 +136,9 @@ typedef struct {
  * ---------------------------------------
  */
 
-static cur* cur_create(Display* dis, int shape);
-static void cur_free(Display* dis, cur* cursor);
 static void die(const char *fmt, ...);
 static void* ecalloc(size_t nmemb, size_t size);
 static int slen(const char* str);
-
-/* dwm copypasta */
-cur* cur_create(Display* dis, int shape){
-	cur* cur;
-
-	if (!dis || !(cur = ecalloc(1,sizeof(cur)))){
-		return NULL;
-	}
-
-	cur->cursor = XCreateFontCursor(dis,shape);
-
-	return cur;
-}
-
-/* dwm copypasta */
-void cur_free(Display* dis, cur* cursor){
-	if (!cursor){
-		return;
-	}
-
-	XFreeCursor(dis,cursor->cursor);
-	free(cursor);
-}
 
 void die(const char* e, ...){
 	fprintf(stdout,"sara: %s\n",e);
@@ -273,11 +241,7 @@ static void youviolatedmymother();
 static int xerror(Display* dis, XErrorEvent* ee);
 
 
-/* ---------------------------------------
- * Make the above known
- * ---------------------------------------
- */
-
+/* Make the above known */
 #include "config.h"
 
 
@@ -310,7 +274,6 @@ static float master_size;
 static unsigned int seldesks;
 
 /* Backend */
-static cur* cursor[CurLast];
 static int lrpad;
 static int running;
 static Clr** scheme;
@@ -368,9 +331,9 @@ void configurenotify(XEvent* e){
 	if (ev->window == root) {
 		sbar->width = ev->width;
 		XFreePixmap(dis,sbar->d);
-		sbar->d = XCreatePixmap(dis,root,sbar->width,sbar->height,DefaultDepth(dis,screen));
+		sbar->d = XCreatePixmap(dis, root, sbar->width, sbar->height, DefaultDepth(dis,screen));
 
-		XMoveResizeWindow(dis,sbar->win,0,0,sbar->width,sbar->height);
+		XMoveResizeWindow(dis, sbar->win, 0, 0, sbar->width, sbar->height);
 		draw_bar();
 	}
 }
@@ -386,7 +349,7 @@ void configurerequest(XEvent* e){
 	wc.border_width = ev->border_width;
 	wc.sibling = ev->above;
 	wc.stack_mode = ev->detail;
-	XConfigureWindow(dis,ev->window,ev->value_mask,&wc);
+	XConfigureWindow(dis, ev->window, ev->value_mask, &wc);
 }
 
 void destroynotify(XEvent* e){
@@ -449,7 +412,7 @@ void expose(XEvent* e){
 void keypress(XEvent* e){
 	int i;
 	XKeyEvent ke = e->xkey;
-	KeySym keysym = XKeycodeToKeysym(dis,ke.keycode,0);
+	KeySym keysym = XKeycodeToKeysym(dis, ke.keycode, 0);
 
 	for (i=0;i<TABLENGTH(keys);i++){
 		if (keys[i].keysym == keysym && keys[i].mod == ke.state){
@@ -462,9 +425,9 @@ void maprequest(XEvent* e){
 	XWindowAttributes wa;
 	XMapRequestEvent* ev = &e->xmaprequest;
 
-	//if ( XGetWindowAttributes(dis,ev->window,&wa) && !wa.override_redirect && !find_client(ev->window) ){
-	if ( XGetWindowAttributes(dis,ev->window,&wa) && !find_client(ev->window) ){
-		manage(ev->window,&wa);
+	//if ( XGetWindowAttributes(dis, ev->window, &wa) && !wa.override_redirect && !find_client(ev->window) ){
+	if ( XGetWindowAttributes(dis, ev->window, &wa) && !find_client(ev->window) ){
+		manage(ev->window, &wa);
 		current_layout->arrange();
 		update_focus();
 	}
@@ -511,11 +474,11 @@ void apply_rules(client* c){
 	int i;
 	const rule* r;
 	XTextProperty tp;
-	XGetWMName(dis,c->win,&tp);
+	XGetWMName(dis, c->win, &tp);
 
 	for (i=0;i<TABLENGTH(rules);i++){
 		r = &rules[i];
-		if ( !r->title || (tp.value && strstr(r->title,(const char*)tp.value)) ){
+		if ( !r->title || (tp.value && strstr(r->title, (const char*)tp.value)) ){
 			if (r->desktopmask > 0){
 				c->desktops = 1 << r->desktopmask;
 			}
@@ -546,7 +509,7 @@ void attachaside(client* c){
 		}
 	}
 
-	XSelectInput(dis,c->win,EnterWindowMask|FocusChangeMask|StructureNotifyMask);
+	XSelectInput(dis, c->win, EnterWindowMask|FocusChangeMask|StructureNotifyMask);
 	change_current(c);
 }
 
@@ -566,14 +529,14 @@ void detach(client* c){
 	client* p, * vis;
 	/* Move the window out of the way first to hide it while it hangs around :) */
 	XWindowAttributes wa;
-	XGetWindowAttributes(dis,c->win,&wa);
-	XMoveWindow(dis,c->win,-2*wa.width,wa.y);
+	XGetWindowAttributes(dis, c->win, &wa);
+	XMoveWindow(dis, c->win, -2*wa.width, wa.y);
 
 	/* focus moves down if possible, else up */
-	vis = ( (vis = find_vis_client(c->next)) ) ? vis : find_prev_client(c,YesVis);
+	vis = ( (vis = find_vis_client(c->next)) ) ? vis : find_prev_client(c, YesVis);
 
 	/* For both, if NULL, then we're still okay */
-	if ( (p = find_prev_client(c,NoVis)) ){
+	if ( (p = find_prev_client(c, NoVis)) ){
 		p->next = c->next;
 
 	} else {
@@ -594,11 +557,11 @@ void kill_client(){
 		/* send X Kill signal */
 		ev.type = ClientMessage;
 		ev.xclient.window = w;
-		ev.xclient.message_type = XInternAtom(dis,"WM_PROTOCOLS",True);
+		ev.xclient.message_type = XInternAtom(dis, "WM_PROTOCOLS", True);
 		ev.xclient.format = 32;
-		ev.xclient.data.l[0] = XInternAtom(dis,"WM_DELETE_WINDOW",True);
+		ev.xclient.data.l[0] = XInternAtom(dis, "WM_DELETE_WINDOW", True);
 		ev.xclient.data.l[1] = CurrentTime;
-		XSendEvent(dis,w,False,NoEventMask,&ev);
+		XSendEvent(dis, w, False, NoEventMask, &ev);
 	}
 
 	update_status();
@@ -626,12 +589,12 @@ void manage(Window parent, XWindowAttributes* wa){
 	attachaside(c);
 	/* if (c->no_focus){
 	 * 	hide_client(c);
-	 *	vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_client(current,YesVis);
+	 *	vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_client(current, YesVis);
 	 *	change_current(vis);
 	 * }
 	 * current_layout->arrange();
 	 */
-	XMapWindow(dis,c->win);
+	XMapWindow(dis, c->win);
 	draw_bar();
 }
 
@@ -639,10 +602,10 @@ void map_clients(){
 	client* i;
 	for (i=head;i;i=i->next){
 		if (ISVISIBLE(i)){
-			XMapWindow(dis,i->win);
+			XMapWindow(dis, i->win);
 
 		} else {
-			XUnmapWindow(dis,i->win);
+			XUnmapWindow(dis, i->win);
 		}
 	}
 }
@@ -654,7 +617,7 @@ void move_client(const Arg arg){
 		return;
 	}
 
-	p = find_prev_client(current,NoVis);
+	p = find_prev_client(current, NoVis);
 
 	/* Up stack if not head */
 	if (arg.i == 1 && current != head){
@@ -662,7 +625,7 @@ void move_client(const Arg arg){
 			swap_master();
 
 		} else {
-			mp = find_prev_client(p,NoVis);
+			mp = find_prev_client(p, NoVis);
 
 			mp->next = current;
 			p->next = current->next;
@@ -704,7 +667,7 @@ void move_focus(const Arg arg){
 					}
 
 				} else {
-					c = find_prev_client(current,YesVis);
+					c = find_prev_client(current, YesVis);
 				}
 
 			/* down in stack */
@@ -729,8 +692,8 @@ void raise_floats(){
 	client* i;
 	for (i=head;i;i=i->next){
 		if (ISVISIBLE(i) && i->is_float){
-			XMoveResizeWindow(dis,i->win,i->x,i->y,i->w,i->h);
-			XRaiseWindow(dis,i->win);
+			XMoveResizeWindow(dis, i->win, i->x, i->y, i->w, i->h);
+			XRaiseWindow(dis, i->win);
 		}
 	}
 }
@@ -743,13 +706,13 @@ void send_to_desktop(const Arg arg){
 
 	current->desktops = 1 << arg.i;
 	current->is_current = 1 << arg.i;
-	set_current(current,arg.i);
+	set_current(current, arg.i);
 
 	/* focus moves down if possible, else up */
-	vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_client(current,YesVis);
+	vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_client(current, YesVis);
 
-	XUnmapWindow(dis,current->win);
-	XSync(dis,False);
+	XUnmapWindow(dis, current->win);
+	XSync(dis, False);
 
 	change_current(vis);
 	current_layout->arrange();
@@ -757,7 +720,7 @@ void send_to_desktop(const Arg arg){
 	update_status();
 }
 
-void set_current(client* c,int desktop){
+void set_current(client* c, int desktop){
 	client* i;
 	for (i=head;i;i=i->next){
 		if (i != c && ((i->is_current >> desktop) & 1)){
@@ -772,7 +735,7 @@ void swap_master(){
 
 	if (head && current && current != head){
 		tmp = (head->next == current) ? head : head->next;
-		p = find_prev_client(current,NoVis);
+		p = find_prev_client(current, NoVis);
 
 		/* if p is head, this gets overwritten - saves an if statement */
 		p->next = head;
@@ -798,14 +761,14 @@ void toggle_desktop(const Arg arg){
 		current->desktops = new_desktops;
 		current->is_current ^= 1 << arg.i;
 
-		set_current(current,arg.i);
+		set_current(current, arg.i);
 
 		if ( !((current->desktops >> current_desktop) & 1) ){
 			/* focus moves down if possible, else up */
-			vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_client(current,YesVis);
+			vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_client(current, YesVis);
 
-			XUnmapWindow(dis,current->win);
-			XSync(dis,False);
+			XUnmapWindow(dis, current->win);
+			XSync(dis, False);
 			change_current(vis);
 		}
 
@@ -827,14 +790,14 @@ void toggle_float(){
 		wc.stack_mode = Below;
 
 		for (i=head;i;i=i->next){
-			XConfigureWindow(dis,i->win,CWSibling|CWStackMode,&wc);
+			XConfigureWindow(dis, i->win, CWSibling|CWStackMode, &wc);
 		}
 	}
 
 	if (!current->is_float){
 		wc.sibling = sbar->win;
 		wc.stack_mode = Below;
-		XConfigureWindow(dis,current->win,CWSibling|CWStackMode,&wc);
+		XConfigureWindow(dis, current->win, CWSibling|CWStackMode, &wc);
 	}
 }
 
@@ -846,15 +809,15 @@ void toggle_fullscreen(){
 	if (current->is_full){
 		current->x = 0; current->y = 0;
 		current->w = sw; current->h = sh;
-		XMoveResizeWindow(dis,current->win,current->x,current->y,current->w,current->h);
-		XRaiseWindow(dis,current->win);
+		XMoveResizeWindow(dis, current->win, current->x, current->y, current->w, current->h);
+		XRaiseWindow(dis, current->win);
 
-		XUnmapWindow(dis,sbar->win);
+		XUnmapWindow(dis, sbar->win);
 
 	} else {
 		current_layout->arrange();
 
-		XMapRaised(dis,sbar->win);
+		XMapRaised(dis, sbar->win);
 		draw_bar();
 	}
 }
@@ -871,7 +834,7 @@ void update_focus(){
 
 	for (i=head;i;i=i->next){
 		if (i == current){
-			XSetInputFocus(dis,i->win,RevertToPointerRoot,CurrentTime);
+			XSetInputFocus(dis, i->win, RevertToPointerRoot, CurrentTime);
 			XRaiseWindow(dis, i->win);
 		}
 	}
@@ -1004,16 +967,16 @@ int gettextprop(Window w, Atom atom, char *text, unsigned int size){
 
 	text[0] = '\0';
 
-	if (!XGetTextProperty(dis,w,&name,atom) || !name.nitems){
+	if ( !XGetTextProperty(dis, w, &name, atom) || !name.nitems ){
 		return 0;
 	}
 
 	if (name.encoding == XA_STRING){
-		strncpy(text,(char *)name.value,size - 1);
+		strncpy(text, (char *) name.value, size - 1);
 
 	} else {
-		if (XmbTextPropertyToTextList(dis,&name,&list,&n) >= Success && n > 0 && *list){
-			strncpy(text,*list,size - 1);
+		if ( XmbTextPropertyToTextList(dis,&name,&list,&n) >= Success && n > 0 && *list ){
+			strncpy(text, *list, size - 1);
 			XFreeStringList(list);
 		}
 	}
@@ -1026,7 +989,7 @@ int gettextprop(Window w, Atom atom, char *text, unsigned int size){
 /* does anything here need to be free() or XFree()? */
 int gettextwidth(const char* str, int len){
 	XGlyphInfo xgi;
-	XftTextExtents8(dis,sbar->xfont,(XftChar8*)str,len,&xgi);
+	XftTextExtents8(dis, sbar->xfont, (XftChar8*)str, len, &xgi);
 
 	return xgi.width;
 }
@@ -1038,30 +1001,30 @@ void init_bar(){
 		.event_mask = ExposureMask
 	};
 
-	if ( !(sbar->xfont = XftFontOpenName(dis,screen,fontname)) ){
+	if ( !(sbar->xfont = XftFontOpenName(dis, screen, fontname)) ){
 		die("The font you tried to use was not found. Check the name.");
 	}
 
 	sbar->height = sbar->xfont->ascent + sbar->xfont->descent + 2;
 	sbar->width = sw;
-	sbar->d = XCreatePixmap(dis,root,sw,sh,DefaultDepth(dis,screen));
-	sbar->gc = XCreateGC(dis,sbar->d,0,NULL);
-	sbar->xd = XftDrawCreate(dis,sbar->d,DefaultVisual(dis,screen),DefaultColormap(dis,screen));
+	sbar->d = XCreatePixmap(dis, root, sw, sh, DefaultDepth(dis, screen));
+	sbar->gc = XCreateGC(dis, sbar->d, 0, NULL);
+	sbar->xd = XftDrawCreate(dis, sbar->d, DefaultVisual(dis,screen), DefaultColormap(dis,screen));
 
-	sbar->win = XCreateWindow(dis,root,0,0,sbar->width,sbar->height,0,
-			DefaultDepth(dis,screen),InputOutput,DefaultVisual(dis,screen),
-			CWOverrideRedirect|CWBackPixel|CWBorderPixel|CWColormap|CWEventMask,&wa);
+	sbar->win = XCreateWindow(dis, root, 0, 0, sbar->width, sbar->height, 0, 
+			DefaultDepth(dis, screen), InputOutput, DefaultVisual(dis,screen), 
+			CWOverrideRedirect|CWBackPixel|CWBorderPixel|CWColormap|CWEventMask, &wa);
 
 
-	XDefineCursor(dis,sbar->win,cursor[CurNorm]->cursor);
-	XSelectInput(dis,sbar->win,StructureNotifyMask);
-	XMapRaised(dis,sbar->win);
+	XDefineCursor(dis, sbar->win, XCreateFontCursor(dis, 68));
+	XSelectInput(dis, sbar->win, StructureNotifyMask);
+	XMapRaised(dis, sbar->win);
 }
 
 /* dwm copypasta */
 void update_status(){
-	if (!gettextprop(root,XA_WM_NAME,xsetr_text,sizeof(xsetr_text))){
-		strcpy(xsetr_text,"sara-beta-leedle");
+	if (!gettextprop(root, XA_WM_NAME, xsetr_text, sizeof(xsetr_text))){
+		strcpy(xsetr_text, "where's the leak, ma'am?");
 	}
 
 	draw_bar();
@@ -1095,8 +1058,8 @@ void change_desktop(const Arg arg){
 }
 
 void change_msize(const Arg arg){
-	master_size += ( ((master_size < 0.95*sw) && (arg.f > 0))
-			|| ((master_size > 0.05*sw) && (arg.f < 0))  ) ? arg.f*sw : 0;
+	master_size += ( ((master_size < 0.95 * sw) && (arg.f > 0))
+			|| ((master_size > 0.05 * sw) && (arg.f < 0))  ) ? arg.f * sw : 0;
 
 	current_layout->arrange();
 }
@@ -1123,8 +1086,8 @@ void monocle(){
 			i->h = mh;
 		}
 
-		XMoveResizeWindow(dis,i->win,i->x,i->y,i->w,i->h);
-		XRaiseWindow(dis,i->win);
+		XMoveResizeWindow(dis, i->win, i->x, i->y, i->w, i->h);
+		XRaiseWindow(dis, i->win);
 	}
 }
 
@@ -1153,7 +1116,7 @@ void tile(){
 	if (nf && n == 1){
 		nf->x = 0; nf->y = y;
 		nf->w = sw; nf->h = mh;
-		XMoveResizeWindow(dis,nf->win,nf->x,nf->y,nf->w,nf->h);
+		XMoveResizeWindow(dis, nf->win, nf->x, nf->y, nf->w, nf->h);
 
 	} else if (nf){
 		/* so having a master doesn't affect stack splitting */
@@ -1162,7 +1125,7 @@ void tile(){
 		/* Master window */
 		nf->x = 0; nf->y = y;
 		nf->w = master_size; nf->h = mh;
-		XMoveResizeWindow(dis,nf->win,nf->x,nf->y,nf->w,nf->h);
+		XMoveResizeWindow(dis, nf->win, nf->x, nf->y, nf->w, nf->h);
 
 		/* Stack */
 		for (i=nf->next;i;i=i->next){
@@ -1170,10 +1133,10 @@ void tile(){
 				i->x = master_size;
 				i->y = y;
 				i->w = sw - master_size;
-				i->h = mh/n;
-				XMoveResizeWindow(dis,i->win,i->x,i->y,i->w,i->h);
+				i->h = mh / n;
+				XMoveResizeWindow(dis, i->win, i->x, i->y, i->w, i->h);
 
-				y += mh/n;
+				y += mh / n;
 			}
 		}
 	}
@@ -1219,31 +1182,28 @@ void cleanup(){
 //	}
 
 	/* This ain't pretty, but it gets the job done (Without memory leak? Not sure) */
-	XUnmapWindow(dis,sbar->win);
-	XDestroyWindow(dis,sbar->win);
-	XUngrabKey(dis,AnyKey,AnyModifier,root);
+	XUnmapWindow(dis, sbar->win);
+	XDestroyWindow(dis, sbar->win);
+	XUngrabKey(dis, AnyKey, AnyModifier, root);
 
 	XftDrawDestroy(sbar->xd);
-	XFreeGC(dis,sbar->gc);
-	XftFontClose(dis,sbar->xfont);
-	XFreePixmap(dis,sbar->d);
+	XFreeGC(dis, sbar->gc);
+	XftFontClose(dis, sbar->xfont);
+	XFreePixmap(dis, sbar->d);
 	free(sbar);
 
 	free(current_layout);
-
-	for (i=0;i < CurLast;i++){
-		cur_free(dis,cursor[i]);
-	}
 	free(spointer);
+
 	for (i=0;i < TABLENGTH(colors);i++){
 		free(scheme[i]);
 	}
 
-	fprintf(stdout,"sara: Thanks for using!\n");
-	XDestroySubwindows(dis,root);
+	fprintf(stdout, "sara: Thanks for using!\n");
+	XDestroySubwindows(dis, root);
 
-	XSync(dis,False);
-	XSetInputFocus(dis,PointerRoot,RevertToPointerRoot,CurrentTime);
+	XSync(dis, False);
+	XSetInputFocus(dis, PointerRoot, RevertToPointerRoot, CurrentTime);
 
         XCloseDisplay(dis);
 }
@@ -1253,7 +1213,7 @@ int get_pointer_coords(int ret_y){
 	unsigned int dmr;
 	Window drret, dcret;
 
-	XQueryPointer(dis,root,&drret,&dcret,&x,&y,&dwx,&dwy,&dmr);
+	XQueryPointer(dis, root, &drret, &dcret, &x, &y, &dwx, &dwy, &dmr);
 
 	return ret_y ? y : x;
 }
@@ -1263,8 +1223,8 @@ void grabkeys(){
 	KeyCode code;
 
 	for (i=0;i<TABLENGTH(keys);i++){
-		if ( (code = XKeysymToKeycode(dis,keys[i].keysym)) ){
-			XGrabKey(dis,code,keys[i].mod,root,True,GrabModeAsync,GrabModeAsync);
+		if ( (code = XKeysymToKeycode(dis, keys[i].keysym)) ){
+			XGrabKey(dis, code, keys[i].mod, root, True, GrabModeAsync, GrabModeAsync);
 		}
 	}
 }
@@ -1279,7 +1239,7 @@ Clr* scheme_create(const char* clrnames[], size_t clrcount){
 	}
 
 	for (i=0;i < clrcount;i++){
-		if (!XftColorAllocName(dis,DefaultVisual(dis,screen),DefaultColormap(dis,screen),clrnames[i],&sch[i])){
+		if ( !XftColorAllocName(dis, DefaultVisual(dis,screen), DefaultColormap(dis,screen), clrnames[i], &sch[i]) ){
 			die("Error while trying to allocate color '%s'", clrnames[i]);
 		}
 	}
@@ -1294,35 +1254,32 @@ void setup(){
 	XSetWindowAttributes wa;
 
 	screen = DefaultScreen(dis);
-	root = RootWindow(dis,screen);
+	root = RootWindow(dis, screen);
 
-	sw = XDisplayWidth(dis,screen);
-	sh = XDisplayHeight(dis,screen);
-	master_size = sw*MASTER_SIZE;
+	sw = XDisplayWidth(dis, screen);
+	sh = XDisplayHeight(dis, screen);
+	master_size = sw * MASTER_SIZE;
 
 	grabkeys();
 
-	/* Vertical stack by default */
-	current_layout = ecalloc(1,sizeof(layout));
+	/* First layout by default */
+	current_layout = ecalloc(1, sizeof(layout));
 	current_layout->arrange = layouts[0].arrange;
 	current_layout->symbol = layouts[0].symbol;
 
-	cursor[CurNorm] = cur_create(dis,XC_left_ptr);
-	cursor[CurMove] = cur_create(dis,XC_sizing);
-
-	spointer = ecalloc(1,sizeof(point));
+	spointer = ecalloc(1, sizeof(point));
 	spointer->x = get_pointer_coords(0);
 	spointer->y = get_pointer_coords(0);
 
-	scheme = ecalloc(TABLENGTH(colors),sizeof(Clr*));
+	scheme = ecalloc(TABLENGTH(colors), sizeof(Clr*));
 	for (i=0;i < TABLENGTH(colors);i++){
-		scheme[i] = scheme_create(colors[i],2);
+		scheme[i] = scheme_create(colors[i], 2);
 	}
 
 	running = 1;
 
 	/* set up bar */
-	sbar = ecalloc(1,sizeof(bar));
+	sbar = ecalloc(1, sizeof(bar));
 	init_bar();
 	lrpad = sbar->xfont->ascent + sbar->xfont->descent;
 
@@ -1330,11 +1287,11 @@ void setup(){
 	current = NULL;
 	prev_enter = NULL;
 
-	wa.cursor = cursor[CurNorm]->cursor;
+	wa.cursor = XCreateFontCursor(dis, 68);
 	wa.event_mask = SubstructureRedirectMask|SubstructureNotifyMask
 		|ButtonPressMask|PointerMotionMask|EnterWindowMask
 		|LeaveWindowMask|StructureNotifyMask|PropertyChangeMask;
-	XChangeWindowAttributes(dis,root,CWEventMask|CWCursor,&wa);
+	XChangeWindowAttributes(dis, root, CWEventMask|CWCursor, &wa);
 
 	/* Set up all desktops, default to 0 */
 	for (i=0;i < TABLENGTH(tags);i++){
@@ -1351,15 +1308,15 @@ void setup(){
 	update_status();
 
 	/* Catch requests */
-	XSelectInput(dis,root,wa.event_mask);
+	XSelectInput(dis, root, wa.event_mask);
 }
 
 /* dwm copypasta */
 void sigchld(int unused){
-	if (signal(SIGCHLD,sigchld) == SIG_ERR){
+	if (signal(SIGCHLD, sigchld) == SIG_ERR){
 		die("Can't install SIGCHLD handler");
 	}
-	while (0 < waitpid(-1,NULL,WNOHANG));
+	while (0 < waitpid(-1, NULL, WNOHANG));
 }
 
 /* dwm copypasta */
@@ -1369,7 +1326,7 @@ void spawn(const Arg arg){
 			close(ConnectionNumber(dis));
 		}
 		setsid();
-		execvp((char*)arg.com[0],(char**)arg.com);
+		execvp((char*)arg.com[0], (char**)arg.com);
 		
 		fprintf(stderr, "sara: execvp %s", ((char **)arg.com)[0]);
 		perror(" failed");
@@ -1381,8 +1338,8 @@ void spawn(const Arg arg){
 void start(){
 	XEvent ev;
 
-	XSync(dis,False);
-	while (running && !XNextEvent(dis,&ev)){
+	XSync(dis, False);
+	while ( running && !XNextEvent(dis,&ev) ){
 		if (events[ev.type]){
 			events[ev.type](&ev);
 		}
@@ -1429,11 +1386,11 @@ int main(){
 //	int i, ns;
 //	monitor* m;
 //
-//	XineramaScreenInfo* info = XineramaQueryScreens(dis,&ns);
+//	XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
 //	
 //	/* what is the "unique geometries" problem in dwm?" */
 //	for (i=0;i < ns;i++){
-//		m = ecalloc(1,sizeof(monitor));
+//		m = ecalloc(1, sizeof(monitor));
 //		m->x = info[i].x_org;
 //		m->y = info[i].y_org;
 //		m->w = info[i].width;
@@ -1443,7 +1400,7 @@ int main(){
 //		m->bar = sbar;
 //
 //		/* will be filled in when you save for the first time */
-//		m->desktops = ecalloc(TABLENGTH(tags),sizeof(desktop));
+//		m->desktops = ecalloc(TABLENGTH(tags), sizeof(desktop));
 //		m->seldesks = seldesks;
 //
 //		m->current_desktop = current_desktop;
