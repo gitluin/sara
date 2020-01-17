@@ -377,19 +377,17 @@ void enternotify(XEvent* e){
 	int x, y;
 	XCrossingEvent* ev = &e->xcrossing;
 
-	if ( (ev->mode != NotifyNormal || ev->detail == NotifyInferior) && ev->window != root){
+	if ( (ev->mode != NotifyNormal || ev->detail == NotifyInferior) && ev->window != root )
 		return;
 
 	/* if this is the last one we entered (i.e. this enternotify came from switching desktops) */
-	} else if ( !(c = find_client(ev->window)) || (prev_enter == &(c->win)) ){
+	if ( !(c = find_client(ev->window)) || (prev_enter == &(c->win)) )
 		return;
-	}
 
 	/* TODO: if we haven't moved from the confines of the old window */
 	/* if we haven't moved (i.e. this enternotify came from moving the stack */
-	if ( (spointer->x == (x = get_pointer_coords(0))) && (spointer->y == (y = get_pointer_coords(1))) ){
+	if ( (spointer->x == (x = get_pointer_coords(0))) && (spointer->y == (y = get_pointer_coords(1))) )
 		return;
-	}
 
 	spointer->x = x; spointer->y = y;
 	prev_enter = &(c->win);
@@ -421,9 +419,8 @@ void keypress(XEvent* e){
 	KeySym keysym = XKeycodeToKeysym(dis, ke.keycode, 0);
 
 	for (i=0;i<TABLENGTH(keys);i++){
-		if (keys[i].keysym == keysym && keys[i].mod == ke.state){
+		if (keys[i].keysym == keysym && keys[i].mod == ke.state)
 			keys[i].function(keys[i].arg);
-		}
 	}
 }
 
@@ -520,10 +517,9 @@ void attachaside(client* c){
 }
 
 void change_current(client* c){
-	/* because detach */
 	if (c) c->is_current ^= 1 << current_desktop;
-
 	if (current) current->is_current ^= 1 << current_desktop;
+
 	current = c;
 }
 
@@ -535,7 +531,7 @@ void detach(client* c){
 	XMoveWindow(dis, c->win, -2*wa.width, wa.y);
 
 	/* focus moves down if possible, else up */
-	vis = refocus(c->next,c);
+	vis = refocus(c->next, c);
 
 	/* For both, if NULL, then we're still okay */
 	if ( (p = find_prev_client(c, NoVis)) )
@@ -572,7 +568,6 @@ void manage(Window parent, XWindowAttributes* wa){
 
 	if ( !(c = ecalloc(1, sizeof(client))) )
 		die("Error while callocing new client!");
-	}
 
 	c->win = parent;
 	c->is_float = 0;
@@ -589,7 +584,7 @@ void manage(Window parent, XWindowAttributes* wa){
 	attachaside(c);
 	/* if (c->no_focus){
 	 * 	hide_client(c);
-	 *	vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_client(current, YesVis);
+	 *	vis = refocus(current->next, current);
 	 *	change_current(vis);
 	 * }
 	 * current_layout->arrange();
@@ -626,9 +621,9 @@ void move_client(const Arg arg){
 	/* Down stack if not tail */
 	} else if (arg.i == -1 && current->next){
 		n = current->next;
-
 		current->next = n->next;
 		n->next = current;
+
 		if (current == head)
 			head = n;
 		else
@@ -649,11 +644,7 @@ void move_focus(const Arg arg){
 			if (arg.i == 1){
 				if ( (current == head) || (current == find_vis_client(head)) ){
 					/* Save the last, visible j */
-					for (j=head;j;j=j->next){
-						if (ISVISIBLE(j)){
-							c = j;
-						}
-					}
+					for (j=head;j;j=j->next) if (ISVISIBLE(j)) c = j;
 
 				} else {
 					c = find_prev_client(current, YesVis);
@@ -697,7 +688,7 @@ void send_to_desktop(const Arg arg){
 	set_current(current, arg.i);
 
 	/* focus moves down if possible, else up */
-	vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_client(current, YesVis);
+	vis = refocus(current->next, current);
 
 	XUnmapWindow(dis, current->win);
 	XSync(dis, False);
@@ -748,8 +739,7 @@ void toggle_desktop(const Arg arg){
 
 		if ( !(ISVISIBLE(current)) ){
 			/* focus moves down if possible, else up */
-			//vis = ( (vis = find_vis_client(current->next)) ) ? vis : find_prev_client(current, YesVis);
-			vis = refocus(current->next,current);
+			vis = refocus(current->next, current);
 
 			XUnmapWindow(dis, current->win);
 			XSync(dis, False);
@@ -824,9 +814,7 @@ void update_focus(){
  */
 
 client* find_client(Window w){
-	for EACHCLIENT if (i->win == w){
-			return i;
-		}
+	for EACHCLIENT if (i->win == w) return i;
 
 	return NULL;
 }
@@ -858,9 +846,7 @@ client* find_prev_client(client* c, int is_vis){
 
 client* find_vis_client(client* c){
 	client* i;
-	for (i=c;i;i=i->next){
-		if ISVISIBLE(i) return i;
-	}
+	for (i=c;i;i=i->next) if ISVISIBLE(i) return i;
 	
 	return NULL;
 }
@@ -873,8 +859,7 @@ client* find_vis_client(client* c){
 
 /* part dwm copypasta */
 void draw_bar(){
-	client* j;
-	int i, x = 2, xsetr_text_w = 0, is_sel; /* 2px left padding */
+	int j, x = 2, xsetr_text_w = 0, is_sel; /* 2px left padding */
 	unsigned int occ = 0;
 
 	/* draw background */
@@ -886,21 +871,19 @@ void draw_bar(){
 	xsetr_text_w = TEXTW(xsetr_text) - lrpad + 2; /* 2px right padding */
 	draw_bar_text(sbar->width - xsetr_text_w, 0, xsetr_text_w, sbar->height, 0, xsetr_text);
 
-	for (j=head;j;j=j->next){
-		occ |= j->desktops;
-	}
+	for EACHCLIENT occ |= i->desktops;
 
 	/* draw tags */
-	for (i=0;i<TABLENGTH(tags);i++){
+	for (j=0;j<TABLENGTH(tags);j++){
 		/* do not draw vacant tags, but do draw selected tags regardless */
-		is_sel = seldesks & 1 << i;
-		if ( !(occ & 1 << i) && !is_sel )
+		is_sel = seldesks & 1 << j;
+		if ( !(occ & 1 << j) && !is_sel )
 			continue;
 
 		sbar->scheme = scheme[is_sel ? SchSel : SchNorm];
 
 		x = draw_bar_text(x, 0, TEXTW(syms[SymLeft]) + 1, sbar->height, 0, is_sel ? syms[SymLeft] : " ") - lrpad;
-		x = draw_bar_text(x, 0, TEXTW(tags[i]), sbar->height, 0, tags[i]) - lrpad + 2;
+		x = draw_bar_text(x, 0, TEXTW(tags[j]), sbar->height, 0, tags[j]) - lrpad + 2;
 		x = draw_bar_text(x, 0, TEXTW(syms[SymRight]), sbar->height, 0, is_sel ? syms[SymRight] : " ") - lrpad / 2;
 	}
 	x -= lrpad / 2;
