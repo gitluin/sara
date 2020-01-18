@@ -181,52 +181,52 @@ static void maprequest(XEvent* e);
 static void propertynotify(XEvent* e);
 
 /* Client & Linked List Manipulation */
-static void apply_rules(client* c);
+static void applyrules(client* c);
 static void attachaside(client* c);
-static void change_current(client* c);
+static void changecurrent(client* c);
 static void detach(client* c);
-static void kill_client();
+static void killclient();
 static void manage(Window parent, XWindowAttributes* wa);
-static void map_clients();
-static void move_client(const Arg arg);
-static void move_focus(const Arg arg);
+static void mapclients();
+static void moveclient(const Arg arg);
+static void movefocus(const Arg arg);
 static client* refocus(client* n, client* p);
-static void raise_floats();
-static void send_to_desktop(const Arg arg);
-static void set_current(client* c,int desktop);
-static void swap_master();
-static void toggle_desktop(const Arg arg);
-static void toggle_float();
-static void toggle_fullscreen();
+static void raisefloats();
+static void todesktop(const Arg arg);
+static void setcurrent(client* c,int desktop);
+static void swapmaster();
+static void toggledesktop(const Arg arg);
+static void togglefloat();
+static void togglefs();
 static void unmanage(client* c);
-static void update_focus();
+static void updatefocus();
 
 /* Client Interfacing */
-static client* find_client(Window w);
-static client* find_current();
-static client* find_vis_client(client* c);
-static client* find_prev_client(client* c, int is_vis);
+static client* findclient(Window w);
+static client* findcurrent();
+static client* findvisclient(client* c);
+static client* findprevclient(client* c, int is_vis);
 
 /* Bar */
 static void draw_bar();
 static int draw_bar_text(int x, int y, int w, int h, unsigned int lpad, const char* text);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static int gettextwidth(const char* str, int len);
-static void init_bar();
-static void update_status();
+static void initbar();
+static void updatestatus();
 
 /* Desktop Interfacing */
-static void change_desktop(const Arg arg);
-static void change_msize(const Arg arg);
-static void load_desktop(int i);
+static void changedesktop(const Arg arg);
+static void changemsize(const Arg arg);
+static void loaddesktop(int i);
 static void monocle();
-static void set_layout(const Arg arg);
+static void setlayout(const Arg arg);
 static void tile();
 static void view(const Arg arg);
 
 /* Backend */
 static void cleanup();
-static int get_pointer_coords(int ret_y);
+static int getpointcoords(int ret_y);
 static void grabkeys();
 static XftColor* scheme_create(const char* clrnames[], size_t clrcount);
 static void setup();
@@ -314,10 +314,10 @@ static void (*events[LASTEvent])(XEvent* e) = {
 ////		focus(NULL);
 ////	}
 //
-//	if ( (c = find_client(ev->window)) ){
+//	if ( (c = findclient(ev->window)) ){
 ////		prev_enter = &(c->win);
-//		change_current(c);
-//		update_focus();
+//		changecurrent(c);
+//		updatefocus();
 ////		XAllowEvents(dis,ReplayPointer,CurrentTime);
 //	}
 //}
@@ -342,7 +342,7 @@ void configurerequest(XEvent* e){
 	XConfigureRequestEvent* ev = &e->xconfigurerequest;
 	XWindowChanges wc;
 
-	if ( (c = find_client(ev->window)) && c->is_float ){
+	if ( (c = findclient(ev->window)) && c->is_float ){
 		if (ev->value_mask & CWX) c->x = 0 + ev->x;
 		if (ev->value_mask & CWY) /* c->y = sbar->height + ev->y; */ c->y = ev->y;
 		if (ev->value_mask & CWWidth) c->w = ev->width;
@@ -363,7 +363,7 @@ void destroynotify(XEvent* e){
 	client* c;
 	XDestroyWindowEvent* ev = &e->xdestroywindow;
 
-	if ( (c = find_client(ev->window)) ){
+	if ( (c = findclient(ev->window)) ){
 		unmanage(c);
 		draw_bar();
 	}
@@ -378,26 +378,26 @@ void enternotify(XEvent* e){
 		return;
 
 	/* if this is the last one we entered (i.e. this enternotify came from switching desktops) */
-	if ( !(c = find_client(ev->window)) || (prev_enter == &(c->win)) )
+	if ( !(c = findclient(ev->window)) || (prev_enter == &(c->win)) )
 		return;
 
 	/* TODO: if we haven't moved from the confines of the old window */
 	/* if we haven't moved (i.e. this enternotify came from moving the stack */
-	if ( (spointer->x == (x = get_pointer_coords(0))) && (spointer->y == (y = get_pointer_coords(1))) )
+	if ( (spointer->x == (x = getpointcoords(0))) && (spointer->y == (y = getpointcoords(1))) )
 		return;
 
 	spointer->x = x; spointer->y = y;
 	prev_enter = &(c->win);
 
-	if (current != c) change_current(c);
-	update_focus();
+	if (current != c) changecurrent(c);
+	updatefocus();
 }
 
 /* dwm copypasta */
 void expose(XEvent* e){
 	XExposeEvent* ev = &e->xexpose;
 
-	if (ev->count == 0 && find_client(ev->window))
+	if (ev->count == 0 && findclient(ev->window))
 		draw_bar();
 }
 
@@ -405,7 +405,7 @@ void expose(XEvent* e){
 //	client* c;
 //	XCrossingEvent* ev = &e->xcrossing;
 //
-//	if ( (c = find_client(ev->window)) ){
+//	if ( (c = findclient(ev->window)) ){
 //		prev_enter = &(c->win);
 //	}
 //}
@@ -425,11 +425,11 @@ void maprequest(XEvent* e){
 	XWindowAttributes wa;
 	XMapRequestEvent* ev = &e->xmaprequest;
 
-	//if ( XGetWindowAttributes(dis, ev->window, &wa) && !wa.override_redirect && !find_client(ev->window) ){
-	if ( XGetWindowAttributes(dis, ev->window, &wa) && !find_client(ev->window) ){
+	//if ( XGetWindowAttributes(dis, ev->window, &wa) && !wa.override_redirect && !findclient(ev->window) ){
+	if ( XGetWindowAttributes(dis, ev->window, &wa) && !findclient(ev->window) ){
 		manage(ev->window, &wa);
 		current_layout->arrange();
-		update_focus();
+		updatefocus();
 	}
 }
 
@@ -437,7 +437,7 @@ void maprequest(XEvent* e){
 //	int x, y;
 //	client* c;
 //	XMotionEvent* ev = &e->xmotion;
-//	if ( !(c = find_client(ev->window)) ){
+//	if ( !(c = findclient(ev->window)) ){
 //		return;
 //	}
 //
@@ -448,7 +448,7 @@ void propertynotify(XEvent* e){
 	XPropertyEvent* ev = &e->xproperty;
 
 	if ((ev->window == root) && (ev->atom == XA_WM_NAME))
-		update_status();
+		updatestatus();
 }
 
 
@@ -457,7 +457,7 @@ void propertynotify(XEvent* e){
  * ---------------------------------------
  */
 
-void apply_rules(client* c){
+void applyrules(client* c){
 	int i;
 	const rule* r;
 	XTextProperty tp;
@@ -498,10 +498,10 @@ void attachaside(client* c){
 	}
 
 	XSelectInput(dis, c->win, EnterWindowMask|FocusChangeMask|StructureNotifyMask);
-	change_current(c);
+	changecurrent(c);
 }
 
-void change_current(client* c){
+void changecurrent(client* c){
 	if (c) c->is_current ^= 1 << current_desktop;
 	if (current) current->is_current ^= 1 << current_desktop;
 
@@ -519,15 +519,15 @@ void detach(client* c){
 	vis = refocus(c->next, c);
 
 	/* For both, if NULL, then we're still okay */
-	if ( (p = find_prev_client(c, NoVis)) )
+	if ( (p = findprevclient(c, NoVis)) )
 		p->next = c->next;
 	else
 		head = c->next;
 
-	change_current(vis);
+	changecurrent(vis);
 }
 
-void kill_client(){
+void killclient(){
 	Window w;
 	XEvent ev;
 
@@ -545,7 +545,7 @@ void kill_client(){
 		XSendEvent(dis, w, False, NoEventMask, &ev);
 	}
 
-	update_status();
+	updatestatus();
 }
 
 void manage(Window parent, XWindowAttributes* wa){
@@ -565,12 +565,12 @@ void manage(Window parent, XWindowAttributes* wa){
 	c->w = wa->width;
 	c->h = wa->height;
 
-	apply_rules(c);
+	applyrules(c);
 	attachaside(c);
 	/* if (c->no_focus){
 	 * 	hide_client(c);
 	 *	vis = refocus(current->next, current);
-	 *	change_current(vis);
+	 *	changecurrent(vis);
 	 * }
 	 * current_layout->arrange();
 	 */
@@ -578,25 +578,25 @@ void manage(Window parent, XWindowAttributes* wa){
 	draw_bar();
 }
 
-void map_clients(){
+void mapclients(){
 	for EACHCLIENT(head) if ISVISIBLE(ic) XMapWindow(dis, ic->win); else XUnmapWindow(dis, ic->win);
 }
 
-void move_client(const Arg arg){
+void moveclient(const Arg arg){
 	client* p, * mp, * n;
 
 	if (!current || current->is_full)
 		return;
 
-	p = find_prev_client(current, NoVis);
+	p = findprevclient(current, NoVis);
 
 	/* Up stack if not head */
 	if (arg.i == 1 && current != head){
 		if (p == head){
-			swap_master();
+			swapmaster();
 
 		} else {
-			mp = find_prev_client(p, NoVis);
+			mp = findprevclient(p, NoVis);
 
 			mp->next = current;
 			p->next = current->next;
@@ -616,28 +616,28 @@ void move_client(const Arg arg){
 	}
 
 	current_layout->arrange();
-	update_focus();
+	updatefocus();
 	draw_bar();
 }
 
-void move_focus(const Arg arg){
+void movefocus(const Arg arg){
 	client* j, * c = NULL;
 
 	if (current && head){
 		if (!current->is_full){
 			/* up in stack */
 			if (arg.i == 1){
-				if ( (current == head) || (current == find_vis_client(head)) ){
+				if ( (current == head) || (current == findvisclient(head)) ){
 					/* Save the last, visible j */
 					for (j=head;j;j=j->next) if (ISVISIBLE(j)) c = j;
 
 				} else {
-					c = find_prev_client(current, YesVis);
+					c = findprevclient(current, YesVis);
 				}
 
 			/* down in stack */
 			} else if (arg.i == -1){
-				if (current->next) c = find_vis_client(current->next);
+				if (current->next) c = findvisclient(current->next);
 
 				if (!c){
 					for (j=head;j && !ISVISIBLE(j);j=j->next);
@@ -645,8 +645,8 @@ void move_focus(const Arg arg){
 				}
 			}
 
-			change_current(c);
-			update_focus();
+			changecurrent(c);
+			updatefocus();
 			draw_bar();
 		}
 	}
@@ -654,23 +654,23 @@ void move_focus(const Arg arg){
 
 client* refocus(client* n, client* p){
 	client* vis;
-	return (vis = find_vis_client(n)) ? vis : find_prev_client(p,YesVis);
+	return (vis = findvisclient(n)) ? vis : findprevclient(p,YesVis);
 }
 
-void raise_floats(){
+void raisefloats(){
 	for EACHCLIENT(head) if (ISVISIBLE(ic) && ic->is_float){
 			XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
 			XRaiseWindow(dis, ic->win);
 		}
 }
 
-void send_to_desktop(const Arg arg){
+void todesktop(const Arg arg){
 	client* vis;
 	if (arg.i == current_desktop) return;
 
 	current->desktops = 1 << arg.i;
 	current->is_current = 1 << arg.i;
-	set_current(current, arg.i);
+	setcurrent(current, arg.i);
 
 	/* focus moves down if possible, else up */
 	vis = refocus(current->next, current);
@@ -678,25 +678,25 @@ void send_to_desktop(const Arg arg){
 	XUnmapWindow(dis, current->win);
 	XSync(dis, False);
 
-	change_current(vis);
+	changecurrent(vis);
 	current_layout->arrange();
-	update_focus();
-	update_status();
+	updatefocus();
+	updatestatus();
 }
 
-void set_current(client* c, int desktop){
+void setcurrent(client* c, int desktop){
 	for EACHCLIENT(head) if ( ic != c && (ic->is_current & 1 << desktop) ){
 			ic->is_current ^= 1 << desktop;
 		}
 }
 
-void swap_master(){
+void swapmaster(){
 	client* tmp;
 	client* p;
 
 	if (head && current && current != head){
 		tmp = (head->next == current) ? head : head->next;
-		p = find_prev_client(current, NoVis);
+		p = findprevclient(current, NoVis);
 
 		/* if p is head, this gets overwritten - saves an if statement */
 		p->next = head;
@@ -705,11 +705,11 @@ void swap_master(){
 		head = current;
 
 		current_layout->arrange();
-		update_focus();
+		updatefocus();
 	}
 }
 
-void toggle_desktop(const Arg arg){
+void toggledesktop(const Arg arg){
 	unsigned int new_desktops;
 	client* vis;
 
@@ -720,7 +720,7 @@ void toggle_desktop(const Arg arg){
 		current->desktops = new_desktops;
 		current->is_current ^= 1 << arg.i;
 
-		set_current(current, arg.i);
+		setcurrent(current, arg.i);
 
 		if ( !(ISVISIBLE(current)) ){
 			/* focus moves down if possible, else up */
@@ -728,16 +728,16 @@ void toggle_desktop(const Arg arg){
 
 			XUnmapWindow(dis, current->win);
 			XSync(dis, False);
-			change_current(vis);
+			changecurrent(vis);
 		}
 
 		current_layout->arrange();
-		update_focus();
-		update_status();
+		updatefocus();
+		updatestatus();
 	}
 }
 
-void toggle_float(){
+void togglefloat(){
 	XWindowChanges wc;
 
 	current->is_float = !current->is_float;
@@ -757,7 +757,7 @@ void toggle_float(){
 	}
 }
 
-void toggle_fullscreen(){
+void togglefs(){
 	current->is_full = !current->is_full;
 	/* a pecularity of my implementation - will remain as such unless I decide to implement oldx, oldy, etc. for clients */
 	current->is_float = 0;
@@ -782,10 +782,10 @@ void unmanage(client* c){
 	detach(c);
 	free(c);
 	current_layout->arrange();
-	update_focus();
+	updatefocus();
 }
 
-void update_focus(){
+void updatefocus(){
 	for EACHCLIENT(head) if (ic == current){
 			XSetInputFocus(dis, ic->win, RevertToPointerRoot, CurrentTime);
 			XRaiseWindow(dis, ic->win);
@@ -798,13 +798,13 @@ void update_focus(){
  * ---------------------------------------
  */
 
-client* find_client(Window w){
+client* findclient(Window w){
 	for EACHCLIENT(head) if (ic->win == w) return ic;
 
 	return NULL;
 }
 
-client* find_current(){
+client* findcurrent(){
 	for EACHCLIENT(head) if ( ISVISIBLE(ic) && (ic->is_current & 1 << current_desktop) ){
 			return ic;
 		}
@@ -812,7 +812,7 @@ client* find_current(){
 	return NULL;
 }
 
-client* find_prev_client(client* c, int is_vis){
+client* findprevclient(client* c, int is_vis){
 	client* i, * ret = NULL;
 	for (i=head;i && i != c;i=i->next){
 		if (is_vis)
@@ -829,7 +829,7 @@ client* find_prev_client(client* c, int is_vis){
 	return NULL;
 }
 
-client* find_vis_client(client* c){
+client* findvisclient(client* c){
 	for EACHCLIENT(c) if ISVISIBLE(ic) return ic;
 	
 	return NULL;
@@ -922,7 +922,7 @@ int gettextwidth(const char* str, int len){
 	return xgi.width;
 }
 
-void init_bar(){
+void initbar(){
 	XSetWindowAttributes wa = {
 		.override_redirect = True,
 		.background_pixmap = ParentRelative,
@@ -950,7 +950,7 @@ void init_bar(){
 }
 
 /* dwm copypasta */
-void update_status(){
+void updatestatus(){
 	if (!gettextprop(root, XA_WM_NAME, xsetr_text, sizeof(xsetr_text))){
 		strcpy(xsetr_text, "where's the leak, ma'am?");
 	}
@@ -964,33 +964,33 @@ void update_status(){
  * ---------------------------------------
  */
 
-void change_desktop(const Arg arg){
+void changedesktop(const Arg arg){
 	client* c;
 
 	if (arg.i == current_desktop) return;
 
 	seldesks = 1 << arg.i;
-	load_desktop(arg.i);
+	loaddesktop(arg.i);
 
-	map_clients();
+	mapclients();
 
-	current = find_current();
-	if ( !current && (c = find_vis_client(head)) )
+	current = findcurrent();
+	if ( !current && (c = findvisclient(head)) )
 		current = c;
 
 	current_layout->arrange();
-	update_focus();
-	update_status();
+	updatefocus();
+	updatestatus();
 }
 
-void change_msize(const Arg arg){
+void changemsize(const Arg arg){
 	master_size += ( ((master_size < 0.95 * sw) && (arg.f > 0))
 			|| ((master_size > 0.05 * sw) && (arg.f < 0))  ) ? arg.f * sw : 0;
 
 	current_layout->arrange();
 }
 
-void load_desktop(int i){
+void loaddesktop(int i){
 	desktops[current_desktop].master_size = master_size;
 	desktops[current_desktop].current_layout = *current_layout;
 
@@ -1002,7 +1002,7 @@ void load_desktop(int i){
 void monocle(){
 	int mh = sh - sbar->height;
 
-	raise_floats();
+	raisefloats();
 	for EACHCLIENT(head) if (ISVISIBLE(ic) && !ic->is_float){
 			ic->x = 0; ic->y = sbar->height;
 			ic->w = sw;
@@ -1011,7 +1011,7 @@ void monocle(){
 		} 
 }
 
-void set_layout(const Arg arg){
+void setlayout(const Arg arg){
 	current_layout = (layout*) arg.v;
 	current_layout->arrange();
 	draw_bar();
@@ -1029,7 +1029,7 @@ void tile(){
 			n++;
 		}
 
-	raise_floats();
+	raisefloats();
 
 	if (nf && n == 1){
 		nf->x = 0; nf->y = y;
@@ -1065,11 +1065,11 @@ void view(const Arg arg){
 
 	seldesks ^= 1 << arg.i;
 
-	map_clients();
+	mapclients();
 
 	current_layout->arrange();
-	update_focus();
-	update_status();
+	updatefocus();
+	updatestatus();
 }
 
 
@@ -1085,7 +1085,7 @@ void view(const Arg arg){
 void cleanup(){
 	int i;
 
-	while (current) kill_client();
+	while (current) killclient();
 
 //	m = head_mon;
 //	while (m){
@@ -1121,7 +1121,7 @@ void cleanup(){
         XCloseDisplay(dis);
 }
 
-int get_pointer_coords(int ret_y){
+int getpointcoords(int ret_y){
 	int x, y, dwx, dwy;
 	unsigned int dmr;
 	Window drret, dcret;
@@ -1179,8 +1179,8 @@ void setup(){
 	current_layout->symbol = layouts[0].symbol;
 
 	spointer = ecalloc(1, sizeof(point));
-	spointer->x = get_pointer_coords(0);
-	spointer->y = get_pointer_coords(0);
+	spointer->x = getpointcoords(0);
+	spointer->y = getpointcoords(0);
 
 	scheme = ecalloc(TABLENGTH(colors), sizeof(XftColor*));
 	for (i=0;i < TABLENGTH(colors);i++) scheme[i] = scheme_create(colors[i], 2);
@@ -1189,7 +1189,7 @@ void setup(){
 
 	/* set up bar */
 	sbar = ecalloc(1, sizeof(bar));
-	init_bar();
+	initbar();
 	lrpad = sbar->xfont->ascent + sbar->xfont->descent;
 
 	head = NULL;
@@ -1210,11 +1210,11 @@ void setup(){
 	const Arg arg = {.i = 0};
 	seldesks = 1 << arg.i;
 	current_desktop = arg.i;
-	change_desktop(arg);
+	changedesktop(arg);
 	
-	// init_mons();
+	// initmons();
 	
-	update_status();
+	updatestatus();
 
 	/* Catch requests */
 	XSelectInput(dis, root, wa.event_mask);
@@ -1285,7 +1285,7 @@ int main(){
 	return 0;
 }
 
-//void init_mons(){
+//void initmons(){
 //	int i, ns;
 //	monitor* m;
 //
@@ -1320,7 +1320,7 @@ int main(){
 //	XFree(info);
 //}
 
-//void load_mon(monitor* m){
+//void loadmon(monitor* m){
 //	/* save current */
 //	current_mon->desktops = desktops;
 //	current_mon->seldesks = seldesks;

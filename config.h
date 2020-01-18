@@ -87,10 +87,10 @@ static const layout layouts[] = {
 /* change desktop, add to desktop, move to only desktop */
 /* dwm copypasta */
 #define DESKTOPCHANGE(K,N) \
-    {  MOD,             	    K,	change_desktop, 	{.i = N}}, \
-    {  MOD|ShiftMask,   	    K,  toggle_desktop, 	{.i = N}}, \
+    {  MOD,             	    K,	changedesktop, 		{.i = N}}, \
+    {  MOD|ShiftMask,   	    K,  toggledesktop, 		{.i = N}}, \
     {  MOD|ControlMask,   	    K,  view,		 	{.i = N}}, \
-    {  MOD|ControlMask|ShiftMask,   K,  send_to_desktop, 	{.i = N}},
+    {  MOD|ControlMask|ShiftMask,   K,  todesktop, 		{.i = N}},
 /* My workarounds */
 #define BRTDOWNKEY 0x1008ff03
 #define BRTUPKEY 0x1008ff02
@@ -150,18 +150,18 @@ static struct key keys[] = {
 	 * MOD|ControlMask|ShiftMask + KEY		-> send client to just desktop
 	 * MOD              	     KEY        FUNCTION        	ARGS
 	 */
-	{ MOD|ShiftMask,             XK_q,      	kill_client,    	{0} },
+	{ MOD|ShiftMask,             XK_q,      	killclient,    		{0} },
 	{ MOD|ShiftMask,             XK_e,      	youviolatedmymother,	{0} },
-	{ MOD,             	     XK_j,      	move_focus,    		{.i = -1} },
-	{ MOD,             	     XK_k,      	move_focus,    		{.i = 1} },
-	{ MOD|ShiftMask,             XK_j,      	move_client,      	{.i = -1} },
-	{ MOD|ShiftMask,   	     XK_k,      	move_client,      	{.i = 1} },
-	{ MOD|ShiftMask,             XK_space,  	toggle_float,   	{0} },
-	{ MOD|ControlMask,	     XK_t,      	set_layout,      	{.v = &layouts[0]} },
-	{ MOD|ControlMask,	     XK_m,      	set_layout,      	{.v = &layouts[1]} },
-	{ MOD,             	     XK_Return, 	swap_master,   		{0} },
+	{ MOD,             	     XK_j,      	movefocus,    		{.i = -1} },
+	{ MOD,             	     XK_k,      	movefocus,    		{.i = 1} },
+	{ MOD|ShiftMask,             XK_j,      	moveclient,      	{.i = -1} },
+	{ MOD|ShiftMask,   	     XK_k,      	moveclient,      	{.i = 1} },
+	{ MOD|ShiftMask,             XK_space,  	togglefloat,   		{0} },
+	{ MOD|ControlMask,	     XK_t,      	setlayout,      	{.v = &layouts[0]} },
+	{ MOD|ControlMask,	     XK_m,      	setlayout,      	{.v = &layouts[1]} },
+	{ MOD,             	     XK_Return, 	swapmaster,   		{0} },
 	/* Go fullscreen, my dude */
-	{ MOD|ShiftMask,	     XK_Return,		toggle_fullscreen,	{0} },
+	{ MOD|ShiftMask,	     XK_Return,		togglefs,		{0} },
 	/* Custom commands */
 	{ MOD,                       XK_d,      	spawn,         		{.v = dmenucmd } },
 	{ MOD,	                     XK_t, 		spawn,         		{.v = termcmd } },
@@ -182,8 +182,8 @@ static struct key keys[] = {
 	{ ShiftMask,                 VUPKEY,    	spawn,         		{.v = volupsmall } },
 	{ 0,                         XK_Print,  	spawn,         		{.v = prtsc } },
 	/* Control size of master area (by 5 percent increments) */
-	{ MOD,             	     XK_h,      change_msize,  		{.f = -0.05 } },
-	{ MOD,             	     XK_l,      change_msize,  		{.f = 0.05 } },
+	{ MOD,             	     XK_h,      	changemsize,  		{.f = -0.05 } },
+	{ MOD,             	     XK_l,      	changemsize,  		{.f = 0.05 } },
 
 	/* To implement */
 	// Send focused window to previous and next monitor
