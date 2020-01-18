@@ -43,7 +43,7 @@
 #define TABLENGTH(X)    (sizeof(X)/sizeof(*X))
 #define ISVISIBLE(C)	((C->desktops & seldesks))
 #define TEXTW(X)	(gettextwidth(X, slen(X)) + lrpad)
-#define EACHCLIENT(_I)	(client* i=_I;i;i=i->next)
+#define EACHCLIENT(_I)	(ic=_I;ic;ic=ic->next)
 
 enum { SchNorm, SchSel };
 enum { ColFg, ColBg };
@@ -156,10 +156,7 @@ int slen(const char* str){
 	int i = 0;
 	const char* c = str;
 
-	while (*c){
-		c++;
-		i++;
-	}
+	while (*c){ c++; i++; }
 
 	return i;
 }
@@ -274,6 +271,7 @@ static float master_size;
 static unsigned int seldesks;
 
 /* Backend */
+static client* ic; /* for iterating */
 static int lrpad;
 static int running;
 static XftColor** scheme;
@@ -581,7 +579,7 @@ void manage(Window parent, XWindowAttributes* wa){
 }
 
 void map_clients(){
-	for EACHCLIENT(head) if ISVISIBLE(i) XMapWindow(dis, i->win); else XUnmapWindow(dis, i->win);
+	for EACHCLIENT(head) if ISVISIBLE(ic) XMapWindow(dis, ic->win); else XUnmapWindow(dis, ic->win);
 }
 
 void move_client(const Arg arg){
@@ -660,9 +658,9 @@ client* refocus(client* n, client* p){
 }
 
 void raise_floats(){
-	for EACHCLIENT(head) if (ISVISIBLE(i) && i->is_float){
-			XMoveResizeWindow(dis, i->win, i->x, i->y, i->w, i->h);
-			XRaiseWindow(dis, i->win);
+	for EACHCLIENT(head) if (ISVISIBLE(ic) && ic->is_float){
+			XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
+			XRaiseWindow(dis, ic->win);
 		}
 }
 
@@ -687,8 +685,8 @@ void send_to_desktop(const Arg arg){
 }
 
 void set_current(client* c, int desktop){
-	for EACHCLIENT(head) if ( i != c && (i->is_current & 1 << desktop) ){
-			i->is_current ^= 1 << desktop;
+	for EACHCLIENT(head) if ( ic != c && (ic->is_current & 1 << desktop) ){
+			ic->is_current ^= 1 << desktop;
 		}
 }
 
@@ -749,7 +747,7 @@ void toggle_float(){
 		wc.sibling = current->win;
 		wc.stack_mode = Below;
 
-		for EACHCLIENT(head) XConfigureWindow(dis, i->win, CWSibling|CWStackMode, &wc);
+		for EACHCLIENT(head) XConfigureWindow(dis, ic->win, CWSibling|CWStackMode, &wc);
 	}
 
 	if (!current->is_float){
@@ -788,9 +786,9 @@ void unmanage(client* c){
 }
 
 void update_focus(){
-	for EACHCLIENT(head) if (i == current){
-			XSetInputFocus(dis, i->win, RevertToPointerRoot, CurrentTime);
-			XRaiseWindow(dis, i->win);
+	for EACHCLIENT(head) if (ic == current){
+			XSetInputFocus(dis, ic->win, RevertToPointerRoot, CurrentTime);
+			XRaiseWindow(dis, ic->win);
 		}
 }
 
@@ -801,14 +799,14 @@ void update_focus(){
  */
 
 client* find_client(Window w){
-	for EACHCLIENT(head) if (i->win == w) return i;
+	for EACHCLIENT(head) if (ic->win == w) return i;
 
 	return NULL;
 }
 
 client* find_current(){
-	for EACHCLIENT(head) if ( ISVISIBLE(i) && (i->is_current & 1 << current_desktop) ){
-			return i;
+	for EACHCLIENT(head) if ( ISVISIBLE(ic) && (ic->is_current & 1 << current_desktop) ){
+			return ic;
 		}
 
 	return NULL;
@@ -832,7 +830,7 @@ client* find_prev_client(client* c, int is_vis){
 }
 
 client* find_vis_client(client* c){
-	for EACHCLIENT(c) if ISVISIBLE(i) return i;
+	for EACHCLIENT(c) if ISVISIBLE(ic) return ic;
 	
 	return NULL;
 }
@@ -857,7 +855,7 @@ void draw_bar(){
 	xsetr_text_w = TEXTW(xsetr_text) - lrpad + 2; /* 2px right padding */
 	draw_bar_text(sbar->width - xsetr_text_w, 0, xsetr_text_w, sbar->height, 0, xsetr_text);
 
-	for EACHCLIENT(head) occ |= i->desktops;
+	for EACHCLIENT(head) occ |= ic->desktops;
 
 	/* draw tags */
 	for (j=0;j<TABLENGTH(tags);j++){
@@ -1005,11 +1003,11 @@ void monocle(){
 	int mh = sh - sbar->height;
 
 	raise_floats();
-	for EACHCLIENT(head) if (ISVISIBLE(i) && !i->is_float){
-			i->x = 0; i->y = sbar->height;
-			i->w = sw;
-			i->h = mh;
-			XMoveResizeWindow(dis, i->win, i->x, i->y, i->w, i->h);
+	for EACHCLIENT(head) if (ISVISIBLE(ic) && !ic->is_float){
+			ic->x = 0; ic->y = sbar->height;
+			ic->w = sw;
+			ic->h = mh;
+			XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
 		} 
 }
 
@@ -1026,8 +1024,8 @@ void tile(){
 	int y = sbar->height;
 
 	/* Find the first non-floating, visible window and tally non-floating, visible windows */
-	for EACHCLIENT(head) if (!i->is_float && ISVISIBLE(i)){
-			nf = (!nf) ? i : nf;
+	for EACHCLIENT(head) if (!ic->is_float && ISVISIBLE(ic)){
+			nf = (!nf) ? ic : nf;
 			n++;
 		}
 
@@ -1049,12 +1047,12 @@ void tile(){
 
 		/* Stack */
 		for EACHCLIENT(nf->next){
-			if (ISVISIBLE(i) && !i->is_float){
-				i->x = master_size;
-				i->y = y;
-				i->w = sw - master_size;
-				i->h = mh / n;
-				XMoveResizeWindow(dis, i->win, i->x, i->y, i->w, i->h);
+			if (ISVISIBLE(ic) && !ic->is_float){
+				ic->x = master_size;
+				ic->y = y;
+				ic->w = sw - master_size;
+				ic->h = mh / n;
+				XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
 
 				y += mh / n;
 			}
