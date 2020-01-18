@@ -620,36 +620,30 @@ void moveclient(const Arg arg){
 	draw_bar();
 }
 
+/* some dwm copypasta */
 void movefocus(const Arg arg){
 	client* j, * c = NULL;
 
-	if (current && head){
-		if (!current->is_full){
-			/* up in stack */
-			if (arg.i == 1){
-				if ( (current == head) || (current == findvisclient(head)) ){
-					/* Save the last, visible j */
-					for (j=head;j;j=j->next) if (ISVISIBLE(j)) c = j;
+	if ( !(current && head) || current->is_full )
+		return;
 
-				} else {
-					c = findprevclient(current, YesVis);
-				}
+	/* up stack */
+	if (arg.i > 0){
+		for (j=head;j != current;j=j->next)
+			if ISVISIBLE(j) c = j;
 
-			/* down in stack */
-			} else if (arg.i == -1){
-				if (current->next) c = findvisclient(current->next);
+		/* if current was highest, go to the bottom */
+		for (;j;j=j->next) if ISVISIBLE(j) c = j;
 
-				if (!c){
-					for (j=head;j && !ISVISIBLE(j);j=j->next);
-					c = j;
-				}
-			}
-
-			changecurrent(c);
-			updatefocus();
-			draw_bar();
-		}
+	/* down stack */
+	} else {
+		if ( !(c = findvisclient(current->next)) )
+			for (c=head;c && !ISVISIBLE(c);c=c->next);
 	}
+
+	changecurrent(c);
+	updatefocus();
+	draw_bar();
 }
 
 client* refocus(client* n, client* p){
