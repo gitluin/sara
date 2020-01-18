@@ -242,7 +242,7 @@ static int xerror(Display* dis, XErrorEvent* ee);
 
 
 /* ---------------------------------------
- * "Globals"
+ * Globals
  * ---------------------------------------
  */
 
@@ -257,7 +257,7 @@ static Window root;
 /* Client Interfacing */
 static client* head;
 static client* current;
-static Window* prev_enter; /* track entering windows with the mouse */
+static Window* prev_enter;
 
 /* Bar */
 static bar* sbar;
@@ -271,7 +271,7 @@ static float master_size;
 static unsigned int seldesks;
 
 /* Backend */
-static client* ic; /* for iterating */
+static client* ic; /* for EACHCLIENT iterating */
 static int lrpad;
 static int running;
 static XftColor** scheme;
@@ -377,12 +377,12 @@ void enternotify(XEvent* e){
 	if ( (ev->mode != NotifyNormal || ev->detail == NotifyInferior) && ev->window != root )
 		return;
 
-	/* if this is the last one we entered (i.e. this enternotify came from switching desktops) */
+	/* if this enternotify came from switching desktops */
 	if ( !(c = findclient(ev->window)) || (prev_enter == &(c->win)) )
 		return;
 
 	/* TODO: if we haven't moved from the confines of the old window */
-	/* if we haven't moved (i.e. this enternotify came from moving the stack */
+	/* if this enternotify came from moving the stack */
 	if ( (spointer->x == (x = getpointcoords(0))) && (spointer->y == (y = getpointcoords(1))) )
 		return;
 
@@ -482,12 +482,8 @@ void attachaside(client* c){
 		head = c;
 
 	} else {
-		if (c->is_float){
-			c->next = head->next;
-			head->next = c;
-
-		/* Else if not the first on this desktop */
-		} else if (current){
+		/* If not the first on this desktop */
+		if (current){
 			c->next = current->next;
 			current->next = c;
 
@@ -560,10 +556,8 @@ void manage(Window parent, XWindowAttributes* wa){
 	c->is_current = 0;
 	c->desktops = 1 << current_desktop;
 
-	c->x = wa->x;
-	c->y = wa->y;
-	c->w = wa->width;
-	c->h = wa->height;
+	c->x = wa->x; c->y = wa->y;
+	c->w = wa->width; c->h = wa->height;
 
 	applyrules(c);
 	attachaside(c);
@@ -591,7 +585,7 @@ void moveclient(const Arg arg){
 	p = findprevclient(current, NoVis);
 
 	/* Up stack if not head */
-	if (arg.i == 1 && current != head){
+	if (arg.i > 0 && current != head){
 		if (p == head){
 			swapmaster();
 
@@ -604,7 +598,7 @@ void moveclient(const Arg arg){
 		}
 
 	/* Down stack if not tail */
-	} else if (arg.i == -1 && current->next){
+	} else if (arg.i < 0 && current->next){
 		n = current->next;
 		current->next = n->next;
 		n->next = current;
@@ -624,7 +618,7 @@ void moveclient(const Arg arg){
 void movefocus(const Arg arg){
 	client* j, * c = NULL;
 
-	if ( !(current && head) || current->is_full )
+	if ( !current || current->is_full )
 		return;
 
 	/* up stack */
