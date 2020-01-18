@@ -799,7 +799,7 @@ void update_focus(){
  */
 
 client* find_client(Window w){
-	for EACHCLIENT(head) if (ic->win == w) return i;
+	for EACHCLIENT(head) if (ic->win == w) return ic;
 
 	return NULL;
 }
