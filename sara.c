@@ -1,5 +1,5 @@
 /*                                                                                
- * SARA Window Manager
+ * sara Window Manager
  * ______________________________________________________________________________ 
  *                                                                                
  * Copyright (c) 2010, Rinaldini Julien, julien.rinaldini@heig-vd.ch              
@@ -43,7 +43,7 @@
 #define TABLENGTH(X)    (sizeof(X)/sizeof(*X))
 #define ISVISIBLE(C)	((C->desktops & seldesks))
 #define TEXTW(X)	(gettextwidth(X, slen(X)) + lrpad)
-#define EACHCLIENT	(client* i=head;i;i=i->next)
+#define EACHCLIENT(_I)	(client* i=_I;i;i=i->next)
 
 enum { SchNorm, SchSel };
 enum { ColFg, ColBg };
@@ -320,7 +320,7 @@ static void (*events[LASTEvent])(XEvent* e) = {
 ////		prev_enter = &(c->win);
 //		change_current(c);
 //		update_focus();
-//		XAllowEvents(dis,ReplayPointer,CurrentTime);
+////		XAllowEvents(dis,ReplayPointer,CurrentTime);
 //	}
 //}
 
@@ -371,7 +371,6 @@ void destroynotify(XEvent* e){
 	}
 }
 
-/* TODO: allow a little wiggling to update focus? */
 void enternotify(XEvent* e){
 	client* c;
 	int x, y;
@@ -440,22 +439,10 @@ void maprequest(XEvent* e){
 //	int x, y;
 //	client* c;
 //	XMotionEvent* ev = &e->xmotion;
-//
-//	x = get_pointer_coords(0);
-//	y = get_pointer_coords(1);
-//
 //	if ( !(c = find_client(ev->window)) ){
 //		return;
 //	}
 //
-//	/* if either x or y are greater than 5% of sw away from spointer->{x,y} */
-//	if ( (spointer->x + 0.05*sw < x || x < spointer->x - 0.05*sw) || (spointer->y + 0.05*sw < y || y < spointer->y - 0.05*sw) ){
-//		prev_enter = &(c->win);
-//		change_current(c);
-//		update_focus();
-//	}
-//
-//	spointer->x = x; spointer->y = y;
 //}
 
 /* dwm copypasta */
@@ -594,7 +581,7 @@ void manage(Window parent, XWindowAttributes* wa){
 }
 
 void map_clients(){
-	for EACHCLIENT if ISVISIBLE(i) XMapWindow(dis, i->win); else XUnmapWindow(dis, i->win);
+	for EACHCLIENT(head) if ISVISIBLE(i) XMapWindow(dis, i->win); else XUnmapWindow(dis, i->win);
 }
 
 void move_client(const Arg arg){
@@ -673,7 +660,7 @@ client* refocus(client* n, client* p){
 }
 
 void raise_floats(){
-	for EACHCLIENT if (ISVISIBLE(i) && i->is_float){
+	for EACHCLIENT(head) if (ISVISIBLE(i) && i->is_float){
 			XMoveResizeWindow(dis, i->win, i->x, i->y, i->w, i->h);
 			XRaiseWindow(dis, i->win);
 		}
@@ -700,7 +687,7 @@ void send_to_desktop(const Arg arg){
 }
 
 void set_current(client* c, int desktop){
-	for EACHCLIENT if ( i != c && (i->is_current & 1 << desktop) ){
+	for EACHCLIENT(head) if ( i != c && (i->is_current & 1 << desktop) ){
 			i->is_current ^= 1 << desktop;
 		}
 }
@@ -762,7 +749,7 @@ void toggle_float(){
 		wc.sibling = current->win;
 		wc.stack_mode = Below;
 
-		for EACHCLIENT XConfigureWindow(dis, i->win, CWSibling|CWStackMode, &wc);
+		for EACHCLIENT(head) XConfigureWindow(dis, i->win, CWSibling|CWStackMode, &wc);
 	}
 
 	if (!current->is_float){
@@ -801,7 +788,7 @@ void unmanage(client* c){
 }
 
 void update_focus(){
-	for EACHCLIENT if (i == current){
+	for EACHCLIENT(head) if (i == current){
 			XSetInputFocus(dis, i->win, RevertToPointerRoot, CurrentTime);
 			XRaiseWindow(dis, i->win);
 		}
@@ -814,13 +801,13 @@ void update_focus(){
  */
 
 client* find_client(Window w){
-	for EACHCLIENT if (i->win == w) return i;
+	for EACHCLIENT(head) if (i->win == w) return i;
 
 	return NULL;
 }
 
 client* find_current(){
-	for EACHCLIENT if (ISVISIBLE(i) && (i->is_current & 1 << current_desktop)){
+	for EACHCLIENT(head) if ( ISVISIBLE(i) && (i->is_current & 1 << current_desktop) ){
 			return i;
 		}
 
@@ -845,8 +832,7 @@ client* find_prev_client(client* c, int is_vis){
 }
 
 client* find_vis_client(client* c){
-	client* i;
-	for (i=c;i;i=i->next) if ISVISIBLE(i) return i;
+	for EACHCLIENT(c) if ISVISIBLE(i) return i;
 	
 	return NULL;
 }
@@ -871,7 +857,7 @@ void draw_bar(){
 	xsetr_text_w = TEXTW(xsetr_text) - lrpad + 2; /* 2px right padding */
 	draw_bar_text(sbar->width - xsetr_text_w, 0, xsetr_text_w, sbar->height, 0, xsetr_text);
 
-	for EACHCLIENT occ |= i->desktops;
+	for EACHCLIENT(head) occ |= i->desktops;
 
 	/* draw tags */
 	for (j=0;j<TABLENGTH(tags);j++){
@@ -1019,7 +1005,7 @@ void monocle(){
 	int mh = sh - sbar->height;
 
 	raise_floats();
-	for EACHCLIENT if (ISVISIBLE(i) && !i->is_float){
+	for EACHCLIENT(head) if (ISVISIBLE(i) && !i->is_float){
 			i->x = 0; i->y = sbar->height;
 			i->w = sw;
 			i->h = mh;
@@ -1034,13 +1020,13 @@ void set_layout(const Arg arg){
 }
 
 void tile(){
-	client* i, * nf = NULL;
+	client* nf = NULL;
 	int n = 0;
 	int mh = sh - sbar->height;
 	int y = sbar->height;
 
 	/* Find the first non-floating, visible window and tally non-floating, visible windows */
-	for EACHCLIENT if (!i->is_float && ISVISIBLE(i)){
+	for EACHCLIENT(head) if (!i->is_float && ISVISIBLE(i)){
 			nf = (!nf) ? i : nf;
 			n++;
 		}
@@ -1062,7 +1048,7 @@ void tile(){
 		XMoveResizeWindow(dis, nf->win, nf->x, nf->y, nf->w, nf->h);
 
 		/* Stack */
-		for (i=nf->next;i;i=i->next){
+		for EACHCLIENT(nf->next){
 			if (ISVISIBLE(i) && !i->is_float){
 				i->x = master_size;
 				i->y = y;
@@ -1125,9 +1111,7 @@ void cleanup(){
 	free(original_layout);
 	free(spointer);
 
-	for (i=0;i < TABLENGTH(colors);i++){
-		free(scheme[i]);
-	}
+	for (i=0;i < TABLENGTH(colors);i++) free(scheme[i]);
 	free(scheme);
 
 	fprintf(stdout, "sara: Thanks for using!\n");
@@ -1154,9 +1138,8 @@ void grabkeys(){
 	KeyCode code;
 
 	for (i=0;i<TABLENGTH(keys);i++){
-		if ( (code = XKeysymToKeycode(dis, keys[i].keysym)) ){
+		if ( (code = XKeysymToKeycode(dis, keys[i].keysym)) )
 			XGrabKey(dis, code, keys[i].mod, root, True, GrabModeAsync, GrabModeAsync);
-		}
 	}
 }
 
@@ -1169,9 +1152,8 @@ XftColor* scheme_create(const char* clrnames[], size_t clrcount){
 		die("Error while trying to ecalloc for scheme_create");
 
 	for (i=0;i < clrcount;i++){
-		if ( !XftColorAllocName(dis, DefaultVisual(dis,screen), DefaultColormap(dis,screen), clrnames[i], &sch[i]) ){
+		if ( !XftColorAllocName(dis, DefaultVisual(dis,screen), DefaultColormap(dis,screen), clrnames[i], &sch[i]) )
 			die("Error while trying to allocate color '%s'", clrnames[i]);
-		}
 	}
 
 	return sch;
@@ -1203,9 +1185,7 @@ void setup(){
 	spointer->y = get_pointer_coords(0);
 
 	scheme = ecalloc(TABLENGTH(colors), sizeof(XftColor*));
-	for (i=0;i < TABLENGTH(colors);i++){
-		scheme[i] = scheme_create(colors[i], 2);
-	}
+	for (i=0;i < TABLENGTH(colors);i++) scheme[i] = scheme_create(colors[i], 2);
 
 	running = 1;
 
@@ -1252,7 +1232,7 @@ void sigchld(int unused){
 
 /* dwm copypasta */
 void spawn(const Arg arg){
-	if fork() return;
+	if (fork()) return;
 	if (dis) close(ConnectionNumber(dis));
 
 	setsid();
@@ -1269,9 +1249,8 @@ void start(){
 
 	XSync(dis, False);
 	while ( running && !XNextEvent(dis,&ev) ){
-		if (events[ev.type]){
+		if (events[ev.type])
 			events[ev.type](&ev);
-		}
 	}
 }
 
@@ -1297,10 +1276,7 @@ void youviolatedmymother(){
 }
 
 int main(){
-	if ( !(dis = XOpenDisplay(NULL)) ){
-		die("Cannot open display!");
-	}
-
+	if ( !(dis = XOpenDisplay(NULL)) ) die("Cannot open display!");
 	XSetErrorHandler(xerror);
 	setup();
 

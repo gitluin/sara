@@ -1,22 +1,22 @@
-CFLAGS= -Wall -g -I/usr/include/freetype2 -Wno-deprecated-declarations
+PREFIX?= /usr
+BINDIR?= $(PREFIX)/bin
+
+CFLAGS= -std=c99 -Wall -Wno-deprecated-declarations -g # -Os
+INCFLAGS= -I/usr/include/freetype2
 LIBS= -lX11 -lXft -lfontconfig
-LDFLAGS=
 
 SRC= sara.c
 OBJ= ${SRC:.c=.o}
 
-PREFIX?= /usr
-BINDIR?= $(PREFIX)/bin
-
 all: sara
 
 .c.o:
-	${CC} -c ${CFLAGS} $<
+	${CC} -c ${CFLAGS} ${INCFLAGS} $<
 
 ${OBJ}: config.h
 
 sara: ${OBJ}
-	${CC} ${LDFLAGS} -o $@ ${OBJ} ${LIBS}
+	${CC} -o $@ ${OBJ} ${LIBS}
 
 install: all
 	install -Dm 755 sara $(BINDIR)/sara

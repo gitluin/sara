@@ -1,5 +1,5 @@
 /*                                                                                
-*  SARA Window Manager                                                            
+*  sara Window Manager                                                            
 *  ______________________________________________________________________________ 
 *                                                                                 
 *  Copyright (c) 2010, Rinaldini Julien, julien.rinaldini@heig-vd.ch              
@@ -45,11 +45,11 @@ static const char col_gray3[]       = "#eeeeee";
 static const char col_cyan[]        = "#005577";
 
 /* Winter theme! */
-/* dwm copypasta */
 //static const char col_gray1[]       = "#DBDBDB";
 //static const char col_gray2[]       = "#383838";
 //static const char col_gray3[]       = "#000000";
 //static const char col_cyan[]        = "#0090C9";
+/* dwm copypasta */
 static const char* colors[][3]      = {
 	/*               fg         bg		*/
 	[SchNorm] = { col_gray2, col_gray1 },
@@ -77,6 +77,7 @@ static const rule rules[] = {
 };
 
 /* Layouts */
+/* dwm copypasta */
 static const layout layouts[] = {
 	/* symbol     arrange function */
 	{ "[]=",      tile     },    /* first entry is default */
@@ -84,6 +85,7 @@ static const layout layouts[] = {
 };
 
 /* change desktop, add to desktop, move to only desktop */
+/* dwm copypasta */
 #define DESKTOPCHANGE(K,N) \
     {  MOD,             	    K,	change_desktop, 	{.i = N}}, \
     {  MOD|ShiftMask,   	    K,  toggle_desktop, 	{.i = N}}, \
@@ -111,16 +113,18 @@ static const char dmenufont[]	= "Misc Termsyn:size=10";
  */
 
 //static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
-
 //const char* dmenucmd[]	= { "dmenu_run", "-m", dmenumon, "-b", "-l", "4", "-p", "Run", "-fn", dmenufont, "-nb", "#282a36", "-nf", "#f8f8f2", "-sb", "#1E88E5", "-sf", "#202020" , NULL};
+
+/* Program Spawning Keys */
+/* dwm copypasta */
 const char* dmenucmd[]		= { "dmenu_run", "-m", "0", "-b", "-l", "4", "-p", "Run", "-fn", dmenufont, "-nb", "#282a36", "-nf", "#f8f8f2", "-sb", "#1E88E5", "-sf", "#202020" , NULL};
 const char* termcmd[] 		= { "st", NULL};
 const char* browscmd[] 	 	= { "firefox", NULL };
 const char* fbrowscmd[]		= { "st", "-e", "vifm", NULL };
 const char* rcalccmd[]  	= { "st", "-t", "rcalc",    "-g", "80x24+625+325", "-e", "R", "--vanilla", "-q", NULL };
 const char* calcmd[] 	 	= { "st", "-t", "cal",      "-g", "26x14+855", "-e", "check_cal", NULL };
-//const char* calcmd[] 	 	= { "st", "-e", "sl", NULL };
-// Function key commands
+
+/* Function Keys */
 const char* brightdown[]  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_bright.sh", "-U", "5", NULL };
 const char* brightup[]	  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_bright.sh", "-A", "5", NULL };
 const char* brightdownsmall[]  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_bright.sh", "-U", "1", NULL };
