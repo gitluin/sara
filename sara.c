@@ -208,8 +208,8 @@ static client* findvisclient(client* c);
 static client* findprevclient(client* c, int is_vis);
 
 /* Bar */
-static void draw_bar();
-static int draw_bar_text(int x, int y, int w, int h, unsigned int lpad, const char* text);
+static void drawbar();
+static int drawbartext(int x, int y, int w, int h, unsigned int lpad, const char* text);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static int gettextwidth(const char* str, int len);
 static void initbar();
@@ -332,7 +332,7 @@ void configurenotify(XEvent* e){
 		sbar->d = XCreatePixmap(dis, root, sbar->width, sbar->height, DefaultDepth(dis,screen));
 
 		XMoveResizeWindow(dis, sbar->win, 0, 0, sbar->width, sbar->height);
-		draw_bar();
+		drawbar();
 	}
 }
 
@@ -365,7 +365,7 @@ void destroynotify(XEvent* e){
 
 	if ( (c = findclient(ev->window)) ){
 		unmanage(c);
-		draw_bar();
+		drawbar();
 	}
 }
 
@@ -398,7 +398,7 @@ void expose(XEvent* e){
 	XExposeEvent* ev = &e->xexpose;
 
 	if (ev->count == 0 && findclient(ev->window))
-		draw_bar();
+		drawbar();
 }
 
 //void leavenotify(XEvent* e){
@@ -575,7 +575,7 @@ void manage(Window parent, XWindowAttributes* wa){
 	 * current_layout->arrange();
 	 */
 	XMapWindow(dis, c->win);
-	draw_bar();
+	drawbar();
 }
 
 void mapclients(){
@@ -617,7 +617,7 @@ void moveclient(const Arg arg){
 
 	current_layout->arrange();
 	updatefocus();
-	draw_bar();
+	drawbar();
 }
 
 /* some dwm copypasta */
@@ -643,7 +643,7 @@ void movefocus(const Arg arg){
 
 	changecurrent(c);
 	updatefocus();
-	draw_bar();
+	drawbar();
 }
 
 client* refocus(client* n, client* p){
@@ -768,7 +768,7 @@ void togglefs(){
 		current_layout->arrange();
 
 		XMapRaised(dis, sbar->win);
-		draw_bar();
+		drawbar();
 	}
 }
 
@@ -836,7 +836,7 @@ client* findvisclient(client* c){
  */
 
 /* part dwm copypasta */
-void draw_bar(){
+void drawbar(){
 	int j, x = 2, xsetr_text_w = 0, is_sel; /* 2px left padding */
 	unsigned int occ = 0;
 
@@ -847,7 +847,7 @@ void draw_bar(){
 
 	/* draw status */
 	xsetr_text_w = TEXTW(xsetr_text) - lrpad + 2; /* 2px right padding */
-	draw_bar_text(sbar->width - xsetr_text_w, 0, xsetr_text_w, sbar->height, 0, xsetr_text);
+	drawbartext(sbar->width - xsetr_text_w, 0, xsetr_text_w, sbar->height, 0, xsetr_text);
 
 	for EACHCLIENT(head) occ |= ic->desktops;
 
@@ -860,19 +860,19 @@ void draw_bar(){
 
 		sbar->scheme = scheme[is_sel ? SchSel : SchNorm];
 
-		x = draw_bar_text(x, 0, TEXTW(syms[SymLeft]) + 1, sbar->height, 0, is_sel ? syms[SymLeft] : " ") - lrpad;
-		x = draw_bar_text(x, 0, TEXTW(tags[j]), sbar->height, 0, tags[j]) - lrpad + 2;
-		x = draw_bar_text(x, 0, TEXTW(syms[SymRight]), sbar->height, 0, is_sel ? syms[SymRight] : " ") - lrpad / 2;
+		x = drawbartext(x, 0, TEXTW(syms[SymLeft]) + 1, sbar->height, 0, is_sel ? syms[SymLeft] : " ") - lrpad;
+		x = drawbartext(x, 0, TEXTW(tags[j]), sbar->height, 0, tags[j]) - lrpad + 2;
+		x = drawbartext(x, 0, TEXTW(syms[SymRight]), sbar->height, 0, is_sel ? syms[SymRight] : " ") - lrpad / 2;
 	}
 	x -= lrpad / 2;
 	sbar->scheme = scheme[SchNorm];
-	draw_bar_text(x, 0, TEXTW(current_layout->symbol), sbar->height, lrpad / 2, current_layout->symbol);
+	drawbartext(x, 0, TEXTW(current_layout->symbol), sbar->height, lrpad / 2, current_layout->symbol);
 
 	XCopyArea(dis, sbar->d, sbar->win, sbar->gc, 0, 0, sbar->width, sbar->height, 0, 0);
 	XSync(dis, False);
 }
 
-int draw_bar_text(int x, int y, int w, int h, unsigned int lpad, const char* text){
+int drawbartext(int x, int y, int w, int h, unsigned int lpad, const char* text){
 	int ty = y + (h - (sbar->xfont->ascent + sbar->xfont->descent)) / 2 + sbar->xfont->ascent;
 	XftDrawString8(sbar->xd, &sbar->scheme[ColFg], sbar->xfont, x + lpad, ty, (XftChar8*)text, slen(text));
 
@@ -949,7 +949,7 @@ void updatestatus(){
 		strcpy(xsetr_text, "where's the leak, ma'am?");
 	}
 
-	draw_bar();
+	drawbar();
 }
 
 
@@ -1008,7 +1008,7 @@ void monocle(){
 void setlayout(const Arg arg){
 	current_layout = (layout*) arg.v;
 	current_layout->arrange();
-	draw_bar();
+	drawbar();
 }
 
 void tile(){
