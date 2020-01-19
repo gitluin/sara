@@ -40,10 +40,10 @@
 //#include <X11/extensions/Xinerama.h>
 //#endif
 
-#define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
-#define ISVISIBLE(C)			((C->desktops & seldesks))
-#define TEXTW(X)			(gettextwidth(X, slen(X)) + lrpad)
-#define EACHCLIENT(_I)			(ic=_I;ic;ic=ic->next)
+#define TABLENGTH(X)    (sizeof(X)/sizeof(*X))
+#define ISVISIBLE(C)	((C->desktops & seldesks))
+#define TEXTW(X)	(gettextwidth(X, slen(X)) + lrpad)
+#define EACHCLIENT(_I)	(ic=_I;ic;ic=ic->next)
 
 enum { SchNorm, SchSel };
 enum { ColFg, ColBg };
@@ -381,7 +381,7 @@ void enternotify(XEvent* e){
 		return;
 
 	/* TODO: if we haven't moved from the confines of the old window
-	 * Tried with XGetWindowAttributes, but it completeley broke enternotify
+	 * Tried with XGetWindowAttributes, but it completely broke enternotify
 	 */
 	/* if this enternotify came from moving the stack */
 	if ( (spointer->x == (x = getpointcoords(0))) && (spointer->y == (y = getpointcoords(1))) )
