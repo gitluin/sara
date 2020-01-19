@@ -40,10 +40,10 @@
 //#include <X11/extensions/Xinerama.h>
 //#endif
 
-#define TABLENGTH(X)    (sizeof(X)/sizeof(*X))
-#define ISVISIBLE(C)	((C->desktops & seldesks))
-#define TEXTW(X)	(gettextwidth(X, slen(X)) + lrpad)
-#define EACHCLIENT(_I)	(ic=_I;ic;ic=ic->next)
+#define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
+#define ISVISIBLE(C)			((C->desktops & seldesks))
+#define TEXTW(X)			(gettextwidth(X, slen(X)) + lrpad)
+#define EACHCLIENT(_I)			(ic=_I;ic;ic=ic->next)
 
 enum { SchNorm, SchSel };
 enum { ColFg, ColBg };
@@ -380,7 +380,9 @@ void enternotify(XEvent* e){
 	if ( !(c = findclient(ev->window)) || (prev_enter == &(c->win)) )
 		return;
 
-	/* TODO: if we haven't moved from the confines of the old window */
+	/* TODO: if we haven't moved from the confines of the old window
+	 * Tried with XGetWindowAttributes, but it completeley broke enternotify
+	 */
 	/* if this enternotify came from moving the stack */
 	if ( (spointer->x == (x = getpointcoords(0))) && (spointer->y == (y = getpointcoords(1))) )
 		return;
@@ -424,8 +426,7 @@ void maprequest(XEvent* e){
 	XWindowAttributes wa;
 	XMapRequestEvent* ev = &e->xmaprequest;
 
-	//if ( XGetWindowAttributes(dis, ev->window, &wa) && !wa.override_redirect && !findclient(ev->window) ){
-	if ( XGetWindowAttributes(dis, ev->window, &wa) && !findclient(ev->window) ){
+	if ( XGetWindowAttributes(dis, ev->window, &wa) && !wa.override_redirect && !findclient(ev->window) ){
 		manage(ev->window, &wa);
 		current_layout->arrange();
 		updatefocus();
@@ -548,6 +549,7 @@ void manage(Window parent, XWindowAttributes* wa){
 		die("Error while callocing new client!");
 
 	c->win = parent;
+	if (!prev_enter) prev_enter = &(c->win); /* first encounter */
 	c->is_float = 0;
 	c->is_full = 0;
 	c->is_current = 0;
