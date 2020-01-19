@@ -190,10 +190,10 @@ static void manage(Window parent, XWindowAttributes* wa);
 static void mapclients();
 static void moveclient(const Arg arg);
 static void movefocus(const Arg arg);
-static client* refocus(client* n, client* p);
+static void refocus(client* n, client* p);
 static void raisefloats();
 static void todesktop(const Arg arg);
-static void setcurrent(client* c,int desktop);
+static void setcurrent(client* c, int desktop);
 static void swapmaster();
 static void toggledesktop(const Arg arg);
 static void togglefloat();
@@ -218,7 +218,6 @@ static void updatestatus();
 /* Desktop Interfacing */
 static void changedesktop(const Arg arg);
 static void changemsize(const Arg arg);
-static void loaddesktop(int i);
 static void monocle();
 static void setlayout(const Arg arg);
 static void tile();
@@ -505,22 +504,20 @@ void changecurrent(client* c){
 }
 
 void detach(client* c){
-	client* p, * vis;
+	client* p;
 	/* Move the window out of the way first to hide it while it hangs around :) */
 	XWindowAttributes wa;
 	XGetWindowAttributes(dis, c->win, &wa);
 	XMoveWindow(dis, c->win, -2*wa.width, wa.y);
 
-	/* focus moves down if possible, else up */
-	vis = refocus(c->next, c);
+	/* before disconnecting c */
+	refocus(c->next, c);
 
 	/* For both, if NULL, then we're still okay */
 	if ( (p = findprevclient(c, NoVis)) )
 		p->next = c->next;
 	else
 		head = c->next;
-
-	changecurrent(vis);
 }
 
 void killclient(){
@@ -563,8 +560,7 @@ void manage(Window parent, XWindowAttributes* wa){
 	attachaside(c);
 	/* if (c->no_focus){
 	 * 	hide_client(c);
-	 *	vis = refocus(current->next, current);
-	 *	changecurrent(vis);
+	 *	refocus(current->next, current);
 	 * }
 	 * current_layout->arrange();
 	 */
@@ -626,8 +622,9 @@ void movefocus(const Arg arg){
 		for (j=head;j != current;j=j->next)
 			if ISVISIBLE(j) c = j;
 
-		/* if current was highest, go to the bottom */
-		for (;j;j=j->next) if ISVISIBLE(j) c = j;
+		if (!c)
+			/* if current was highest, go to the bottom */
+			for (;j;j=j->next) if ISVISIBLE(j) c = j;
 
 	/* down stack */
 	} else {
@@ -640,9 +637,11 @@ void movefocus(const Arg arg){
 	drawbar();
 }
 
-client* refocus(client* n, client* p){
+/* focus moves down if possible, else up */
+void refocus(client* n, client* p){
 	client* vis;
-	return (vis = findvisclient(n)) ? vis : findprevclient(p,YesVis);
+	vis = (vis = findvisclient(n)) ? vis : findprevclient(p,YesVis);
+	changecurrent(vis);
 }
 
 void raisefloats(){
@@ -653,20 +652,16 @@ void raisefloats(){
 }
 
 void todesktop(const Arg arg){
-	client* vis;
 	if (arg.i == current_desktop) return;
 
 	current->desktops = 1 << arg.i;
 	current->is_current = 1 << arg.i;
 	setcurrent(current, arg.i);
 
-	/* focus moves down if possible, else up */
-	vis = refocus(current->next, current);
-
 	XUnmapWindow(dis, current->win);
 	XSync(dis, False);
 
-	changecurrent(vis);
+	refocus(current->next, current);
 	current_layout->arrange();
 	updatefocus();
 	updatestatus();
@@ -699,7 +694,6 @@ void swapmaster(){
 
 void toggledesktop(const Arg arg){
 	unsigned int new_desktops;
-	client* vis;
 
 	if (!current) return;
 
@@ -711,12 +705,9 @@ void toggledesktop(const Arg arg){
 		setcurrent(current, arg.i);
 
 		if ( !(ISVISIBLE(current)) ){
-			/* focus moves down if possible, else up */
-			vis = refocus(current->next, current);
-
 			XUnmapWindow(dis, current->win);
 			XSync(dis, False);
-			changecurrent(vis);
+			refocus(current->next, current);
 		}
 
 		current_layout->arrange();
@@ -957,8 +948,13 @@ void changedesktop(const Arg arg){
 
 	if (arg.i == current_desktop) return;
 
+	desktops[current_desktop].master_size = master_size;
+	desktops[current_desktop].current_layout = *current_layout;
+
 	seldesks = 1 << arg.i;
-	loaddesktop(arg.i);
+	master_size = desktops[arg.i].master_size;
+	current_layout = &(desktops[arg.i].current_layout);
+	current_desktop = arg.i;
 
 	mapclients();
 
@@ -976,15 +972,6 @@ void changemsize(const Arg arg){
 			|| ((master_size > 0.05 * sw) && (arg.f < 0))  ) ? arg.f * sw : 0;
 
 	current_layout->arrange();
-}
-
-void loaddesktop(int i){
-	desktops[current_desktop].master_size = master_size;
-	desktops[current_desktop].current_layout = *current_layout;
-
-	master_size = desktops[i].master_size;
-	current_layout = &(desktops[i].current_layout);
-	current_desktop = i;
 }
 
 void monocle(){
