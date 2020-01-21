@@ -105,12 +105,10 @@ Bugs
  * With programs like Krita, the popup window generates an unmap event upon completion of its task, so it stays around and takes up tiling space _somehow link unmap to destroy, but only for specific clients_
  * Function spawns don't play nice if they hang around and you try to kill them before they go poof
  * Mouse click should draw focus to a window
- * Movement check in enternotify needs to check boundaries of preventer, not x and y
  * Sometimes, opening pictures in feh via vifm leads to insane tiling of the picture
  * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc.
- * enternotify isn't perfect, sometimes it behaves weirdly. Need to experiment.
  * Need to XFree() in applyrules, I think? Unclear
- * When you spawn a new window, if the mouse hasn't moved, it should focus the new client
+ * Clients A and B in [1], A is head, B is below. A is current. Mouse is in A, but coordinates have changed since last in B. Move A down, focus goes to B. Move B down, focus goes to A. Move A down, focus stays with A until mouse is moved (coordinate check).
 
 To Do
 ----

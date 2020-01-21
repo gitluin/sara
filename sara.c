@@ -43,7 +43,7 @@
 #define TABLENGTH(X)    (sizeof(X)/sizeof(*X))
 #define ISVISIBLE(C)	((C->desktops & seldesks))
 #define TEXTW(X)	(gettextwidth(X, slen(X)) + lrpad)
-#define EACHCLIENT(_I)	(ic=_I;ic;ic=ic->next)
+#define EACHCLIENT(_I)	(ic=_I;ic;ic=ic->next) /* ic is a global */
 
 enum { SchNorm, SchSel };
 enum { ColFg, ColBg };
@@ -256,7 +256,7 @@ static Window root;
 /* Client Interfacing */
 static client* head;
 static client* current;
-static Window* prev_enter;
+static client* prev_enter;
 
 /* Bar */
 static bar* sbar;
@@ -314,7 +314,7 @@ static void (*events[LASTEvent])(XEvent* e) = {
 ////	}
 //
 //	if ( (c = findclient(ev->window)) ){
-////		prev_enter = &(c->win);
+////		prev_enter->win = c->win;
 //		changecurrent(c);
 //		updatefocus();
 ////		XAllowEvents(dis,ReplayPointer,CurrentTime);
@@ -371,26 +371,33 @@ void destroynotify(XEvent* e){
 void enternotify(XEvent* e){
 	client* c;
 	int x, y;
+//	XWindowAttributes wa;
 	XCrossingEvent* ev = &e->xcrossing;
 
 	if ( (ev->mode != NotifyNormal || ev->detail == NotifyInferior) && ev->window != root )
 		return;
 
 	/* if this enternotify came from switching desktops */
-	if ( !(c = findclient(ev->window)) || (prev_enter == &(c->win)) )
+	if ( !(c = findclient(ev->window)) || (prev_enter->win == c->win) || current == c )
 		return;
 
-	/* TODO: if we haven't moved from the confines of the old window
-	 * Tried with XGetWindowAttributes, but it completely broke enternotify
-	 */
+//	This won't do anything unless I XWindowChanges some things, or I just access findclient(prev_enter->win)
+//	XGetWindowAttributes(dis, prev_enter->win, &wa)
+
 	/* if this enternotify came from moving the stack */
 	if ( (spointer->x == (x = getpointcoords(0))) && (spointer->y == (y = getpointcoords(1))) )
 		return;
 
-	spointer->x = x; spointer->y = y;
-	prev_enter = &(c->win);
+	/* TODO: if we haven't moved from the confines of the old window */
+//	if (!ISOUTSIDE(getpointcoords(0), getpointcoords(1), prev_enter->x, prev_enter->y, prev_enter->w, prev_enter->h))
+//		return;
 
-	if (current != c) changecurrent(c);
+	spointer->x = x; spointer->y = y;
+	prev_enter->win = c->win;
+//	prev_enter->x = c->x; prev_enter->y = c->y;
+//	prev_enter->w = c->w; prev_enter->h = c->h;
+
+	changecurrent(c);
 	updatefocus();
 }
 
@@ -407,7 +414,7 @@ void expose(XEvent* e){
 //	XCrossingEvent* ev = &e->xcrossing;
 //
 //	if ( (c = findclient(ev->window)) ){
-//		prev_enter = &(c->win);
+//		prev_enter->win = c->win;
 //	}
 //}
 
@@ -549,7 +556,7 @@ void manage(Window parent, XWindowAttributes* wa){
 		die("Error while callocing new client!");
 
 	c->win = parent;
-	if (!prev_enter) prev_enter = &(c->win); /* first encounter */
+	if (!(prev_enter->win) || !findclient(prev_enter->win)) prev_enter->win = c->win;
 	c->is_float = 0;
 	c->is_full = 0;
 	c->is_current = 0;
@@ -1029,6 +1036,8 @@ void tile(){
 				ic->y = y;
 				ic->w = sw - master_size;
 				ic->h = mh / n;
+//				wc.x = ic->x; wc.y = ic->y; wc.width = ic->w; wc.height = ic->h;
+//				XConfigureWindow(dis, ev->window, ev->value_mask, &wc);
 				XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
 
 				y += mh / n;
@@ -1085,6 +1094,7 @@ void cleanup(){
 
 	free(original_layout);
 	free(spointer);
+	free(prev_enter);
 
 	for (i=0;i < TABLENGTH(colors);i++) free(scheme[i]);
 	free(scheme);
@@ -1171,7 +1181,7 @@ void setup(){
 
 	head = NULL;
 	current = NULL;
-	prev_enter = NULL;
+	prev_enter = ecalloc(1, sizeof(client));
 
 	wa.cursor = XCreateFontCursor(dis, 68);
 	wa.event_mask = SubstructureRedirectMask|SubstructureNotifyMask
