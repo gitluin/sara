@@ -14,6 +14,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.8.7.4	- enternotify works logically. Still not the same as dwm (focus does change on desktop switching), but I think this is acceptable. If it bugs me, I'll fix it. Doing so will require desktops to each have prev\_enter, though.
  * v0.8.7.3	- Memory freeing that doesn't cause layout changing to accidentally
  * v0.8.7.2	- Cutting out excess code. No more cursorfont.h dependency - a normal cursor for resizing will be fine.
  * v0.8.7.1	- No gaps, no window borders, no bar boxes. You can customize selected tags symbols, though. Deal! Working on code style cleanup.
@@ -108,7 +109,6 @@ Bugs
  * Sometimes, opening pictures in feh via vifm leads to insane tiling of the picture
  * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc.
  * Need to XFree() in applyrules, I think? Unclear
- * Clients A and B in [1], A is head, B is below. A is current. Mouse is in A, but coordinates have changed since last in B. Move A down, focus goes to B. Move B down, focus goes to A. Move A down, focus stays with A until mouse is moved (coordinate check).
 
 To Do
 ----

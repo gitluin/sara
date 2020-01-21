@@ -40,10 +40,11 @@
 //#include <X11/extensions/Xinerama.h>
 //#endif
 
-#define TABLENGTH(X)    (sizeof(X)/sizeof(*X))
-#define ISVISIBLE(C)	((C->desktops & seldesks))
-#define TEXTW(X)	(gettextwidth(X, slen(X)) + lrpad)
-#define EACHCLIENT(_I)	(ic=_I;ic;ic=ic->next) /* ic is a global */
+#define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
+#define ISVISIBLE(C)			((C->desktops & seldesks))
+#define TEXTW(X)			(gettextwidth(X, slen(X)) + lrpad)
+#define EACHCLIENT(_I)			(ic=_I;ic;ic=ic->next) /* ic is a global */
+#define ISOUTSIDE(PX,PY,X,Y,W,H)	((PX > X + W || PX < X || PY > Y + H || PY < Y))
 
 enum { SchNorm, SchSel };
 enum { ColFg, ColBg };
@@ -174,10 +175,8 @@ static void configurerequest(XEvent* e);
 static void destroynotify(XEvent* e);
 static void enternotify(XEvent* e);
 static void expose(XEvent* e);
-//static void leavenotify(XEvent* e);
 static void keypress(XEvent* e);
 static void maprequest(XEvent* e);
-//static void motionnotify(XEvent* e);
 static void propertynotify(XEvent* e);
 
 /* Client & Linked List Manipulation */
@@ -206,6 +205,7 @@ static client* findclient(Window w);
 static client* findcurrent();
 static client* findvisclient(client* c);
 static client* findprevclient(client* c, int is_vis);
+static void updateprev(client* c);
 
 /* Bar */
 static void drawbar();
@@ -249,7 +249,6 @@ static int xerror(Display* dis, XErrorEvent* ee);
 static int screen;
 static int sh;
 static int sw;
-static point* spointer;
 static Display* dis;
 static Window root;
 
@@ -289,9 +288,7 @@ static void (*events[LASTEvent])(XEvent* e) = {
 	[EnterNotify] = enternotify,
 	[Expose] = expose,
 	[KeyPress] = keypress,
-	//[LeaveNotify] = leavenotify,
 	[MapRequest] = maprequest,
-	//[MotionNotify] = motionnotify,
 	[PropertyNotify] = propertynotify
 };
 
@@ -314,7 +311,7 @@ static void (*events[LASTEvent])(XEvent* e) = {
 ////	}
 //
 //	if ( (c = findclient(ev->window)) ){
-////		prev_enter->win = c->win;
+////		updateprev(c);
 //		changecurrent(c);
 //		updatefocus();
 ////		XAllowEvents(dis,ReplayPointer,CurrentTime);
@@ -370,33 +367,19 @@ void destroynotify(XEvent* e){
 
 void enternotify(XEvent* e){
 	client* c;
-	int x, y;
-//	XWindowAttributes wa;
 	XCrossingEvent* ev = &e->xcrossing;
 
 	if ( (ev->mode != NotifyNormal || ev->detail == NotifyInferior) && ev->window != root )
 		return;
 
-	/* if this enternotify came from switching desktops */
-	if ( !(c = findclient(ev->window)) || (prev_enter->win == c->win) || current == c )
+	if ( !(c = findclient(ev->window)) )
 		return;
 
-//	This won't do anything unless I XWindowChanges some things, or I just access findclient(prev_enter->win)
-//	XGetWindowAttributes(dis, prev_enter->win, &wa)
-
-	/* if this enternotify came from moving the stack */
-	if ( (spointer->x == (x = getpointcoords(0))) && (spointer->y == (y = getpointcoords(1))) )
+	/* if we haven't moved */
+	if (prev_enter && !ISOUTSIDE(getpointcoords(0), getpointcoords(1), prev_enter->x, prev_enter->y, prev_enter->w, prev_enter->h))
 		return;
 
-	/* TODO: if we haven't moved from the confines of the old window */
-//	if (!ISOUTSIDE(getpointcoords(0), getpointcoords(1), prev_enter->x, prev_enter->y, prev_enter->w, prev_enter->h))
-//		return;
-
-	spointer->x = x; spointer->y = y;
-	prev_enter->win = c->win;
-//	prev_enter->x = c->x; prev_enter->y = c->y;
-//	prev_enter->w = c->w; prev_enter->h = c->h;
-
+	updateprev(c);
 	changecurrent(c);
 	updatefocus();
 }
@@ -408,15 +391,6 @@ void expose(XEvent* e){
 	if (ev->count == 0 && findclient(ev->window))
 		drawbar();
 }
-
-//void leavenotify(XEvent* e){
-//	client* c;
-//	XCrossingEvent* ev = &e->xcrossing;
-//
-//	if ( (c = findclient(ev->window)) ){
-//		prev_enter->win = c->win;
-//	}
-//}
 
 void keypress(XEvent* e){
 	int i;
@@ -439,16 +413,6 @@ void maprequest(XEvent* e){
 		updatefocus();
 	}
 }
-
-//void motionnotify(XEvent* e){
-//	int x, y;
-//	client* c;
-//	XMotionEvent* ev = &e->xmotion;
-//	if ( !(c = findclient(ev->window)) ){
-//		return;
-//	}
-//
-//}
 
 /* dwm copypasta */
 void propertynotify(XEvent* e){
@@ -556,7 +520,6 @@ void manage(Window parent, XWindowAttributes* wa){
 		die("Error while callocing new client!");
 
 	c->win = parent;
-	if (!(prev_enter->win) || !findclient(prev_enter->win)) prev_enter->win = c->win;
 	c->is_float = 0;
 	c->is_full = 0;
 	c->is_current = 0;
@@ -564,6 +527,9 @@ void manage(Window parent, XWindowAttributes* wa){
 
 	c->x = wa->x; c->y = wa->y;
 	c->w = wa->width; c->h = wa->height;
+
+	if (!(prev_enter->win) || !findclient(prev_enter->win))
+		updateprev(c);
 
 	applyrules(c);
 	attachaside(c);
@@ -641,6 +607,7 @@ void movefocus(const Arg arg){
 			for (c=head;c && !ISVISIBLE(c);c=c->next);
 	}
 
+	updateprev(c);
 	changecurrent(c);
 	updatefocus();
 	drawbar();
@@ -821,6 +788,12 @@ client* findvisclient(client* c){
 	for EACHCLIENT(c) if ISVISIBLE(ic) return ic;
 	
 	return NULL;
+}
+
+void updateprev(client* c){
+	prev_enter->win = c->win;
+	prev_enter->x = c->x; prev_enter->y = c->y;
+	prev_enter->w = c->w; prev_enter->h = c->h;
 }
 
 
@@ -1036,8 +1009,6 @@ void tile(){
 				ic->y = y;
 				ic->w = sw - master_size;
 				ic->h = mh / n;
-//				wc.x = ic->x; wc.y = ic->y; wc.width = ic->w; wc.height = ic->h;
-//				XConfigureWindow(dis, ev->window, ev->value_mask, &wc);
 				XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
 
 				y += mh / n;
@@ -1093,7 +1064,6 @@ void cleanup(){
 	free(sbar);
 
 	free(original_layout);
-	free(spointer);
 	free(prev_enter);
 
 	for (i=0;i < TABLENGTH(colors);i++) free(scheme[i]);
@@ -1164,10 +1134,6 @@ void setup(){
 	original_layout = current_layout;
 	current_layout->arrange = layouts[0].arrange;
 	current_layout->symbol = layouts[0].symbol;
-
-	spointer = ecalloc(1, sizeof(point));
-	spointer->x = getpointcoords(0);
-	spointer->y = getpointcoords(0);
 
 	scheme = ecalloc(TABLENGTH(colors), sizeof(XftColor*));
 	for (i=0;i < TABLENGTH(colors);i++) scheme[i] = scheme_create(colors[i], 2);
