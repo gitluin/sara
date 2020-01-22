@@ -92,11 +92,11 @@ static const layout layouts[] = {
     {  MOD|ControlMask,   	    K,  view,		 	{.i = N}}, \
     {  MOD|ControlMask|ShiftMask,   K,  todesktop, 		{.i = N}},
 /* My workarounds */
-#define BRTDOWNKEY 0x1008ff03
-#define BRTUPKEY 0x1008ff02
-#define VMUTEKEY 0x1008ff12
-#define VDOWNKEY 0x1008ff11
-#define VUPKEY 0x1008ff13
+#define XK_BDOWN 	XF86XK_MonBrightnessDown
+#define XK_BUP 		XF86XK_MonBrightnessUp
+#define XK_AUDIOMUTE 	XF86XK_AudioMute
+#define XK_AUDIODOWN 	XF86XK_AudioLowerVolume
+#define XK_AUDIOUP 	XF86XK_AudioRaiseVolume
 
 
 /* ---------------------------------------
@@ -170,16 +170,16 @@ static struct key keys[] = {
 	{ MOD,                       XK_r,      	spawn,         		{.v = rcalccmd } },
 	{ MOD,                       XK_c,      	spawn,         		{.v = calcmd } },
 	/* Brightness keys */
-	{ 0,                         BRTDOWNKEY,	spawn,         		{.v = brightdown } },
-	{ 0,                         BRTUPKEY,  	spawn,         		{.v = brightup } },
-	{ ShiftMask,                 BRTDOWNKEY,	spawn,         		{.v = brightdownsmall } },
-	{ ShiftMask,                 BRTUPKEY,  	spawn,         		{.v = brightupsmall } },
+	{ 0,                         XK_BDOWN,		spawn,         		{.v = brightdown } },
+	{ 0,                         XK_BUP,  		spawn,         		{.v = brightup } },
+	{ ShiftMask,                 XK_BDOWN,		spawn,         		{.v = brightdownsmall } },
+	{ ShiftMask,                 XK_BUP,  		spawn,         		{.v = brightupsmall } },
 	/* Volume keys */
-	{ 0,                         VMUTEKEY,  	spawn,         		{.v = volmute } },
-	{ 0,                         VDOWNKEY,  	spawn,         		{.v = voldown } },
-	{ 0,                         VUPKEY,    	spawn,         		{.v = volup } },
-	{ ShiftMask,                 VDOWNKEY,  	spawn,         		{.v = voldownsmall } },
-	{ ShiftMask,                 VUPKEY,    	spawn,         		{.v = volupsmall } },
+	{ 0,                         XK_AUDIOMUTE,  	spawn,         		{.v = volmute } },
+	{ 0,                         XK_AUDIODOWN,  	spawn,         		{.v = voldown } },
+	{ 0,                         XK_AUDIOUP,    	spawn,         		{.v = volup } },
+	{ ShiftMask,                 XK_AUDIODOWN,  	spawn,         		{.v = voldownsmall } },
+	{ ShiftMask,                 XK_AUDIOUP,    	spawn,         		{.v = volupsmall } },
 	{ 0,                         XK_Print,  	spawn,         		{.v = prtsc } },
 	/* Control size of master area (by 5 percent increments) */
 	{ MOD,             	     XK_h,      	changemsize,  		{.f = -0.05 } },
