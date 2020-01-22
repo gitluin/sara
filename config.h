@@ -91,7 +91,7 @@ static const layout layouts[] = {
     {  MOD|ShiftMask,   	    K,  toggledesktop, 		{.i = N}}, \
     {  MOD|ControlMask,   	    K,  view,		 	{.i = N}}, \
     {  MOD|ControlMask|ShiftMask,   K,  todesktop, 		{.i = N}},
-/* My workarounds */
+
 #define XK_BDOWN 	XF86XK_MonBrightnessDown
 #define XK_BUP 		XF86XK_MonBrightnessUp
 #define XK_AUDIOMUTE 	XF86XK_AudioMute
