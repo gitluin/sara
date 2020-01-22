@@ -27,8 +27,8 @@
 
 #include <stdio.h>
 #include <math.h>
-#include <stdlib.h>
 #include <signal.h>
+#include <stdlib.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <X11/keysym.h>
