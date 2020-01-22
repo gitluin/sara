@@ -26,6 +26,7 @@
  */ 
 
 #include <stdio.h>
+#include <math.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <sys/wait.h>
@@ -45,6 +46,8 @@
 #define TEXTW(X)			(gettextwidth(X, slen(X)) + lrpad)
 #define EACHCLIENT(_I)			(ic=_I;ic;ic=ic->next) /* ic is a global */
 #define ISOUTSIDE(PX,PY,X,Y,W,H)	((PX > X + W || PX < X || PY > Y + H || PY < Y))
+#define POSTOINT(X)			((int)(ceil(log2(X)) == floor(log2(X)) ? ceil(log2(X)) : 0))
+#define ISPOSTOINT(X)			((X == 0 ? 0 : ceil(log2(X)) == floor(log2(X))))
 
 enum { SchNorm, SchSel };
 enum { ColFg, ColBg };
@@ -103,7 +106,7 @@ typedef struct {
 typedef struct desktop desktop;
 struct desktop {
 	float master_size;
-	layout current_layout;
+	layout* current_layout;
 };
 
 typedef struct {
@@ -182,18 +185,17 @@ static void propertynotify(XEvent* e);
 /* Client & Linked List Manipulation */
 static void applyrules(client* c);
 static void attachaside(client* c);
-static void changecurrent(client* c);
+static void changecurrent(client* c, unsigned int desktopmask);
 static void detach(client* c);
 static void killclient();
 static void manage(Window parent, XWindowAttributes* wa);
 static void mapclients();
 static void moveclient(const Arg arg);
 static void movefocus(const Arg arg);
-static void refocus(client* n, client* p);
 static void raisefloats();
-static void todesktop(const Arg arg);
-static void setcurrent(client* c, int desktop);
+static void refocus(client* n, client* p);
 static void swapmaster();
+static void todesktop(const Arg arg);
 static void toggledesktop(const Arg arg);
 static void togglefloat();
 static void togglefs();
@@ -218,6 +220,7 @@ static void updatestatus();
 /* Desktop Interfacing */
 static void changedesktop(const Arg arg);
 static void changemsize(const Arg arg);
+static void loaddesktop(int i);
 static void monocle();
 static void setlayout(const Arg arg);
 static void tile();
@@ -261,11 +264,10 @@ static client* prev_enter;
 static bar* sbar;
 
 /* Desktop Interfacing */
-static int current_desktop;
 static layout* current_layout;
-static layout* original_layout;
 static desktop desktops[TABLENGTH(tags)];
 static float master_size;
+static unsigned int current_desktop;
 static unsigned int seldesks;
 
 /* Backend */
@@ -312,7 +314,7 @@ static void (*events[LASTEvent])(XEvent* e) = {
 //
 //	if ( (c = findclient(ev->window)) ){
 ////		updateprev(c);
-//		changecurrent(c);
+//		changecurrent(c, current_desktop);
 //		updatefocus();
 ////		XAllowEvents(dis,ReplayPointer,CurrentTime);
 //	}
@@ -380,7 +382,7 @@ void enternotify(XEvent* e){
 		return;
 
 	updateprev(c);
-	changecurrent(c);
+	changecurrent(c, current_desktop);
 	updatefocus();
 }
 
@@ -465,12 +467,15 @@ void attachaside(client* c){
 	}
 
 	XSelectInput(dis, c->win, EnterWindowMask|FocusChangeMask|StructureNotifyMask);
-	changecurrent(c);
+	changecurrent(c, current_desktop);
 }
 
-void changecurrent(client* c){
-	if (c) c->is_current ^= 1 << current_desktop;
-	if (current) current->is_current ^= 1 << current_desktop;
+void changecurrent(client* c, unsigned int desktopmask){
+	if (c) c->is_current ^= desktopmask;
+	
+	for EACHCLIENT(head) if ( ic != c && (ic->is_current & desktopmask) ){
+			ic->is_current ^= desktopmask;
+		}
 
 	current = c;
 }
@@ -523,7 +528,7 @@ void manage(Window parent, XWindowAttributes* wa){
 	c->is_float = 0;
 	c->is_full = 0;
 	c->is_current = 0;
-	c->desktops = 1 << current_desktop;
+	c->desktops = current_desktop;
 
 	c->x = wa->x; c->y = wa->y;
 	c->w = wa->width; c->h = wa->height;
@@ -608,16 +613,9 @@ void movefocus(const Arg arg){
 	}
 
 	updateprev(c);
-	changecurrent(c);
+	changecurrent(c, current_desktop);
 	updatefocus();
 	drawbar();
-}
-
-/* focus moves down if possible, else up */
-void refocus(client* n, client* p){
-	client* vis;
-	vis = (vis = findvisclient(n)) ? vis : findprevclient(p,YesVis);
-	changecurrent(vis);
 }
 
 void raisefloats(){
@@ -627,26 +625,11 @@ void raisefloats(){
 		}
 }
 
-void todesktop(const Arg arg){
-	if (arg.i == current_desktop) return;
-
-	current->desktops = 1 << arg.i;
-	current->is_current = 1 << arg.i;
-	setcurrent(current, arg.i);
-
-	XUnmapWindow(dis, current->win);
-	XSync(dis, False);
-
-	refocus(current->next, current);
-	current_layout->arrange();
-	updatefocus();
-	updatestatus();
-}
-
-void setcurrent(client* c, int desktop){
-	for EACHCLIENT(head) if ( ic != c && (ic->is_current & 1 << desktop) ){
-			ic->is_current ^= 1 << desktop;
-		}
+/* focus moves down if possible, else up */
+void refocus(client* n, client* p){
+	client* vis;
+	vis = (vis = findvisclient(n)) ? vis : findprevclient(p,YesVis);
+	changecurrent(vis, current_desktop);
 }
 
 void swapmaster(){
@@ -668,17 +651,32 @@ void swapmaster(){
 	}
 }
 
+void todesktop(const Arg arg){
+	if (current_desktop & 1 << arg.i) return;
+
+	current->desktops = 1 << arg.i;
+	current->is_current = 0;
+	changecurrent(current, 1 << arg.i);
+
+	XUnmapWindow(dis, current->win);
+	XSync(dis, False);
+
+	refocus(current->next, current);
+	current_layout->arrange();
+	updatefocus();
+	updatestatus();
+}
+
 void toggledesktop(const Arg arg){
 	unsigned int new_desktops;
 
 	if (!current) return;
 
-	new_desktops = current->desktops ^ (1 << arg.i);
+	new_desktops = current->desktops ^ 1 << arg.i;
 	if (new_desktops){
 		current->desktops = new_desktops;
-		current->is_current ^= 1 << arg.i;
-
-		setcurrent(current, arg.i);
+		current->is_current = 0;
+		changecurrent(current, 1 << arg.i);
 
 		if ( !(ISVISIBLE(current)) ){
 			XUnmapWindow(dis, current->win);
@@ -760,7 +758,7 @@ client* findclient(Window w){
 }
 
 client* findcurrent(){
-	for EACHCLIENT(head) if ( ISVISIBLE(ic) && (ic->is_current & 1 << current_desktop) ){
+	for EACHCLIENT(head) if ( ISVISIBLE(ic) && (ic->is_current & current_desktop) ){
 			return ic;
 		}
 
@@ -928,20 +926,15 @@ void updatestatus(){
 void changedesktop(const Arg arg){
 	client* c;
 
-	if (arg.i == current_desktop) return;
+	if (current_desktop & 1 << arg.i) return;
 
-	desktops[current_desktop].master_size = master_size;
-	desktops[current_desktop].current_layout = *current_layout;
-
-	seldesks = 1 << arg.i;
-	master_size = desktops[arg.i].master_size;
-	current_layout = &(desktops[arg.i].current_layout);
-	current_desktop = arg.i;
+	loaddesktop(arg.i);
+	seldesks = current_desktop = 1 << arg.i;
 
 	mapclients();
 
-	current = findcurrent();
-	if ( !current && (c = findvisclient(head)) )
+	/* why is this not changecurrent? */
+	if ( !(current = findcurrent()) && (c = findvisclient(head)) )
 		current = c;
 
 	current_layout->arrange();
@@ -954,6 +947,14 @@ void changemsize(const Arg arg){
 			|| ((master_size > 0.05 * sw) && (arg.f < 0))  ) ? arg.f * sw : 0;
 
 	current_layout->arrange();
+}
+
+void loaddesktop(int i){
+	desktops[POSTOINT(current_desktop)].master_size = master_size;
+	desktops[POSTOINT(current_desktop)].current_layout = current_layout;
+
+	master_size = desktops[i].master_size;
+	current_layout = desktops[i].current_layout;
 }
 
 void monocle(){
@@ -1018,11 +1019,23 @@ void tile(){
 }
 
 void view(const Arg arg){
-	if (arg.i == current_desktop) return;
+	int i;
+
+	/* if this would leave nothing visible */
+	if ((seldesks ^ 1 << arg.i) == 0) return;
 
 	seldesks ^= 1 << arg.i;
-
 	mapclients();
+
+	if (!(current_desktop & seldesks)){
+		for (i=0;i < TABLENGTH(tags);i++){
+			if (seldesks & 1 << i){
+				loaddesktop(i);
+				current_desktop = seldesks;
+				break;
+			}
+		}
+	}
 
 	current_layout->arrange();
 	updatefocus();
@@ -1063,7 +1076,6 @@ void cleanup(){
 	XFreePixmap(dis, sbar->d);
 	free(sbar);
 
-	free(original_layout);
 	free(prev_enter);
 
 	for (i=0;i < TABLENGTH(colors);i++) free(scheme[i]);
@@ -1130,10 +1142,7 @@ void setup(){
 	grabkeys();
 
 	/* Default to first layout */
-	current_layout = ecalloc(1, sizeof(layout));
-	original_layout = current_layout;
-	current_layout->arrange = layouts[0].arrange;
-	current_layout->symbol = layouts[0].symbol;
+	current_layout = (layout*) &layouts[0];
 
 	scheme = ecalloc(TABLENGTH(colors), sizeof(XftColor*));
 	for (i=0;i < TABLENGTH(colors);i++) scheme[i] = scheme_create(colors[i], 2);
@@ -1158,11 +1167,10 @@ void setup(){
 	/* Set up all desktops, default to 0 */
 	for (i=0;i < TABLENGTH(tags);i++){
 		desktops[i].master_size = master_size;
-		desktops[i].current_layout = *current_layout;
+		desktops[i].current_layout = current_layout;
 	}
 	const Arg arg = {.i = 0};
-	seldesks = 1 << arg.i;
-	current_desktop = arg.i;
+	seldesks = current_desktop = 1 << arg.i;
 	changedesktop(arg);
 	
 	// initmons();
