@@ -177,10 +177,11 @@ static void configurenotify(XEvent* e);
 static void configurerequest(XEvent* e);
 static void destroynotify(XEvent* e);
 static void enternotify(XEvent* e);
-static void expose(XEvent* e);
+//static void expose(XEvent* e);
 static void keypress(XEvent* e);
 static void maprequest(XEvent* e);
 static void propertynotify(XEvent* e);
+//static void unmapnotify(XEvent* e);
 
 /* Client & Linked List Manipulation */
 static void applyrules(client* c);
@@ -288,10 +289,11 @@ static void (*events[LASTEvent])(XEvent* e) = {
 	[ConfigureRequest] = configurerequest,
 	[DestroyNotify] = destroynotify,
 	[EnterNotify] = enternotify,
-	[Expose] = expose,
+	//[Expose] = expose,
 	[KeyPress] = keypress,
 	[MapRequest] = maprequest,
-	[PropertyNotify] = propertynotify
+	[PropertyNotify] = propertynotify,
+	//[UnmapNotify] = unmapnotify
 };
 
 
@@ -387,12 +389,12 @@ void enternotify(XEvent* e){
 }
 
 /* dwm copypasta */
-void expose(XEvent* e){
-	XExposeEvent* ev = &e->xexpose;
-
-	if (ev->count == 0 && findclient(ev->window))
-		drawbar();
-}
+//void expose(XEvent* e){
+//	XExposeEvent* ev = &e->xexpose;
+//
+//	if (ev->count == 0 && findclient(ev->window))
+//		drawbar();
+//}
 
 void keypress(XEvent* e){
 	int i;
@@ -423,6 +425,11 @@ void propertynotify(XEvent* e){
 	if ((ev->window == root) && (ev->atom == XA_WM_NAME))
 		updatestatus();
 }
+
+//void unmapnotify(XEvent* e){
+//	XUnmapEvent* ev = &e->xunmap;
+//
+//}
 
 
 /* ---------------------------------------
@@ -693,6 +700,8 @@ void toggledesktop(const Arg arg){
 void togglefloat(){
 	XWindowChanges wc;
 
+	if (!current) return;
+
 	current->is_float = !current->is_float;
 	current_layout->arrange();
 
@@ -711,6 +720,8 @@ void togglefloat(){
 }
 
 void togglefs(){
+	if (!current) return;
+
 	current->is_full = !current->is_full;
 	/* a pecularity of my implementation - will remain as such unless I decide to implement oldx, oldy, etc. for clients */
 	current->is_float = 0;
@@ -902,17 +913,14 @@ void initbar(){
 			DefaultDepth(dis, screen), InputOutput, DefaultVisual(dis,screen), 
 			CWOverrideRedirect|CWBackPixel|CWBorderPixel|CWColormap|CWEventMask, &wa);
 
-
 	XDefineCursor(dis, sbar->win, XCreateFontCursor(dis, 68));
-	XSelectInput(dis, sbar->win, StructureNotifyMask);
 	XMapRaised(dis, sbar->win);
 }
 
 /* dwm copypasta */
 void updatestatus(){
-	if (!gettextprop(root, XA_WM_NAME, xsetr_text, sizeof(xsetr_text))){
+	if (!gettextprop(root, XA_WM_NAME, xsetr_text, sizeof(xsetr_text)))
 		strcpy(xsetr_text, "where's the leak, ma'am?");
-	}
 
 	drawbar();
 }
@@ -1139,8 +1147,6 @@ void setup(){
 	sh = XDisplayHeight(dis, screen);
 	master_size = sw * MASTER_SIZE;
 
-	grabkeys();
-
 	/* Default to first layout */
 	current_layout = (layout*) &layouts[0];
 
@@ -1158,27 +1164,25 @@ void setup(){
 	current = NULL;
 	prev_enter = ecalloc(1, sizeof(client));
 
-	wa.cursor = XCreateFontCursor(dis, 68);
-	wa.event_mask = SubstructureRedirectMask|SubstructureNotifyMask
-		|ButtonPressMask|PointerMotionMask|EnterWindowMask
-		|LeaveWindowMask|StructureNotifyMask|PropertyChangeMask;
-	XChangeWindowAttributes(dis, root, CWEventMask|CWCursor, &wa);
-
 	/* Set up all desktops, default to 0 */
 	for (i=0;i < TABLENGTH(tags);i++){
 		desktops[i].master_size = master_size;
 		desktops[i].current_layout = current_layout;
 	}
-	const Arg arg = {.i = 0};
-	seldesks = current_desktop = 1 << arg.i;
-	changedesktop(arg);
+	seldesks = current_desktop = 1 << 0;
+	loaddesktop(0);
 	
 	// initmons();
-	
-	updatestatus();
 
-	/* Catch requests */
+	wa.cursor = XCreateFontCursor(dis, 68);
+	wa.event_mask = SubstructureRedirectMask|SubstructureNotifyMask
+		|ButtonPressMask|PointerMotionMask|EnterWindowMask
+		|StructureNotifyMask|PropertyChangeMask;
+	XChangeWindowAttributes(dis, root, CWEventMask|CWCursor, &wa);
 	XSelectInput(dis, root, wa.event_mask);
+
+	grabkeys();
+	drawbar();
 }
 
 /* dwm copypasta */
@@ -1207,7 +1211,7 @@ void start(){
 	XEvent ev;
 
 	XSync(dis, False);
-	while ( running && !XNextEvent(dis,&ev) ){
+	while ( running && !XNextEvent(dis, &ev) ){
 		if (events[ev.type])
 			events[ev.type](&ev);
 	}

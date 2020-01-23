@@ -104,13 +104,14 @@ You're on your own with the brightness and volume key situation. I had to do wha
 Bugs
 ----
  * Adjusting window sizes won't update the border size beyond the original dimensions, and will sometimes erase the contents - cmatrix or neofetch are examples of this _configurenotify/request?_
- * With programs like Krita, the popup window generates an unmap event upon completion of its task, so it stays around and takes up tiling space _somehow link unmap to destroy, but only for specific clients_
+ * With programs like Krita, the popup window generates an unmap event upon completion of its task, so it stays around and takes up tiling space _need unmap support?_
  * Function spawns don't play nice if they hang around and you try to kill them before they go poof
  * Mouse click should draw focus to a window
  * Sometimes, opening pictures in feh via vifm leads to insane tiling of the picture
  * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc.
  * Need to XFree() in applyrules, I think? Unclear
  * Implement just\_switched check to prevent the behavior in 0.8.7.4
+ * togglefs() might be broken? all that happens is the bar disappears
 
 To Do
 ----
