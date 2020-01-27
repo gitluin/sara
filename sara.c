@@ -150,9 +150,8 @@ void die(const char* e, ...){
 void* ecalloc(size_t nmemb, size_t size){
 	void* p;
 
-	if ( !(p = calloc(nmemb,size)) ){
-		die("ecalloc failed");
-	}
+	if (!(p = calloc(nmemb,size))) die("ecalloc failed");
+
 	return p;
 }
 
@@ -315,10 +314,10 @@ static void (*events[LASTEvent])(XEvent* e) = {
 ////	}
 //
 //	if ( (c = findclient(ev->window)) ){
-////		updateprev(c);
+//		updateprev(c);
 //		changecurrent(c, current_desktop);
 //		updatefocus();
-////		XAllowEvents(dis,ReplayPointer,CurrentTime);
+//		XAllowEvents(dis, ReplayPointer, CurrentTime);
 //	}
 //}
 
@@ -340,20 +339,14 @@ void configurenotify(XEvent* e){
 void configurerequest(XEvent* e){
 	client* c;
 	XConfigureRequestEvent* ev = &e->xconfigurerequest;
-	XWindowChanges wc;
 
+	/* only honor requests if they should be honored */
 	if ( (c = findclient(ev->window)) && c->is_float ){
 		if (ev->value_mask & CWX) c->x = 0 + ev->x;
-		if (ev->value_mask & CWY) /* c->y = sbar->height + ev->y; */ c->y = ev->y;
+		if (ev->value_mask & CWY) c->y = (ev->y < sbar->height) ? sbar->height : ev->y;
 		if (ev->value_mask & CWWidth) c->w = ev->width;
 		if (ev->value_mask & CWHeight) c->h = ev->height;
 		if ISVISIBLE(c) XMoveResizeWindow(dis, c->win, c->x, c->y, c->w, c->h);
-
-	} else {
-		wc.x = ev->x; wc.y = ev->y; wc.width = ev->width;
-		wc.height = ev->height; wc.sibling = ev->above;
-		wc.stack_mode = ev->detail;
-		XConfigureWindow(dis, ev->window, ev->value_mask, &wc);
 	}
 
 	XSync(dis, False);
@@ -899,9 +892,8 @@ void initbar(){
 		.event_mask = ExposureMask
 	};
 
-	if ( !(sbar->xfont = XftFontOpenName(dis, screen, fontname)) ){
+	if ( !(sbar->xfont = XftFontOpenName(dis, screen, fontname)) )
 		die("The font you tried to use was not found. Check the name.");
-	}
 
 	sbar->height = sbar->xfont->ascent + sbar->xfont->descent + 2;
 	sbar->width = sw;
@@ -1013,7 +1005,7 @@ void tile(){
 
 		/* Stack */
 		for EACHCLIENT(nf->next){
-			if (ISVISIBLE(ic) && !ic->is_float){
+			if (ISVISIBLE(ic) && !ic->is_float && !ic->is_full){
 				ic->x = master_size;
 				ic->y = y;
 				ic->w = sw - master_size;
@@ -1158,6 +1150,7 @@ void setup(){
 	/* set up bar */
 	sbar = ecalloc(1, sizeof(bar));
 	initbar();
+	updatestatus();
 	lrpad = sbar->xfont->ascent + sbar->xfont->descent;
 
 	head = NULL;

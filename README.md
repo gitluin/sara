@@ -111,7 +111,7 @@ Bugs
  * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc.
  * Need to XFree() in applyrules, I think? Unclear
  * Implement just\_switched check to prevent the behavior in 0.8.7.4
- * togglefs() might be broken? all that happens is the bar disappears
+ * spawning a floating window should put it in the same stacking order as it does in dwm
 
 To Do
 ----
