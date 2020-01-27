@@ -14,6 +14,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.8.7.6	- drawing focus with buttonpress() works!!!!
  * v0.8.7.5	- view() works like dwm now when you unview current\_desktop. Some code cleanup and variable adjustments.
  * v0.8.7.4	- enternotify works logically. Still not the same as dwm (focus does change on desktop switching), but I think this is acceptable. If it bugs me, I'll fix it. Doing so will require desktops to each have prev\_enter, though.
  * v0.8.7.3	- Memory freeing that doesn't cause layout changing to accidentally
@@ -106,10 +107,9 @@ Bugs
  * Adjusting window sizes won't update the border size beyond the original dimensions, and will sometimes erase the contents - cmatrix or neofetch are examples of this _configurenotify/request?_
  * With programs like Krita, the popup window generates an unmap event upon completion of its task, so it stays around and takes up tiling space _need unmap support?_
  * Function spawns don't play nice if they hang around and you try to kill them before they go poof
- * Mouse click should draw focus to a window
  * Sometimes, opening pictures in feh via vifm leads to insane tiling of the picture
  * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc.
- * Need to XFree() in applyrules, I think? Unclear
+ * Need to XFree() in applyrules, I think? T'is unclear
  * Implement just\_switched check to prevent the behavior in 0.8.7.4
  * spawning a floating window should put it in the same stacking order as it does in dwm
 

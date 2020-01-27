@@ -41,6 +41,7 @@
 //#include <X11/extensions/Xinerama.h>
 //#endif
 
+#define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
 #define ISVISIBLE(C)			((C->desktops & seldesks))
 #define TEXTW(X)			(gettextwidth(X, slen(X)) + lrpad)
@@ -171,7 +172,7 @@ int slen(const char* str){
  */
 
 /* X Event Processing */
-//static void buttonpress(XEvent* e);
+static void buttonpress(XEvent* e);
 static void configurenotify(XEvent* e);
 static void configurerequest(XEvent* e);
 static void destroynotify(XEvent* e);
@@ -283,7 +284,7 @@ static char xsetr_text[256];
 
 /* Events array */
 static void (*events[LASTEvent])(XEvent* e) = {
-	//[ButtonPress] = buttonpress,
+	[ButtonPress] = buttonpress,
 	[ConfigureNotify] = configurenotify,
 	[ConfigureRequest] = configurerequest,
 	[DestroyNotify] = destroynotify,
@@ -302,24 +303,24 @@ static void (*events[LASTEvent])(XEvent* e) = {
  */
 
 /* dwm copypasta */
-//void buttonpress(XEvent* e){
-//	client *c;
-//	XButtonPressedEvent* ev = &e->xbutton;
-//
-//	/* focus monitor if necessary */
-////	if ((m = wintomon(ev->window)) && m != selmon) {
-////		unfocus(selmon->sel, 1);
-////		selmon = m;
-////		focus(NULL);
-////	}
-//
-//	if ( (c = findclient(ev->window)) ){
-//		updateprev(c);
-//		changecurrent(c, current_desktop);
-//		updatefocus();
-//		XAllowEvents(dis, ReplayPointer, CurrentTime);
+void buttonpress(XEvent* e){
+	client *c;
+	XButtonPressedEvent* ev = &e->xbutton;
+
+	/* focus monitor if necessary */
+//	if ((m = wintomon(ev->window)) && m != selmon) {
+//		unfocus(selmon->sel, 1);
+//		selmon = m;
+//		focus(NULL);
 //	}
-//}
+
+	if ( (c = findclient(ev->window)) ){
+		updateprev(c);
+		changecurrent(c, current_desktop);
+		updatefocus();
+//		XAllowEvents(dis, ReplayPointer, CurrentTime);
+	}
+}
 
 /* dwm copypasta */
 void configurenotify(XEvent* e){
@@ -466,15 +467,20 @@ void attachaside(client* c){
 		}
 	}
 
-	XSelectInput(dis, c->win, EnterWindowMask|FocusChangeMask|StructureNotifyMask);
+	XSelectInput(dis, c->win, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
 	changecurrent(c, current_desktop);
 }
 
 void changecurrent(client* c, unsigned int desktopmask){
-	if (c) c->is_current ^= desktopmask;
+	if (c){
+		c->is_current ^= desktopmask;
+		XUngrabButton(dis, Button1, AnyModifier, c->win);
+	}
 	
 	for EACHCLIENT(head) if ( ic != c && (ic->is_current & desktopmask) ){
 			ic->is_current ^= desktopmask;
+			XGrabButton(dis, Button1, 0, ic->win, False, BUTTONMASK,
+					GrabModeAsync, GrabModeSync, None, None);
 		}
 
 	current = c;
@@ -1104,7 +1110,7 @@ void grabkeys(){
 	int i;
 	KeyCode code;
 
-	for (i=0;i<TABLENGTH(keys);i++){
+	for (i=0;i < TABLENGTH(keys);i++){
 		if ( (code = XKeysymToKeycode(dis, keys[i].keysym)) )
 			XGrabKey(dis, code, keys[i].mod, root, True, GrabModeAsync, GrabModeAsync);
 	}
