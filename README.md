@@ -116,7 +116,7 @@ Bugs
 To Do
 ----
  * Continuous:
-   * No bugs (just use XGH) (required for v1.0)
+   * No bugs (just use [XGH](https://gist.github.com/banaslee/4147370)) (required for v1.0)
    * Code cleanup (as a constant) - function naming conventions
    * Does it leak memory?
  * Discrete:
