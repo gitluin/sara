@@ -243,6 +243,7 @@ static Window root;
 static client* head;
 static client* current;
 static client* prev_enter;
+static int just_switched;
 
 /* Bar */
 static bar* sbar;
@@ -325,7 +326,7 @@ void configurerequest(XEvent* e){
 	XConfigureRequestEvent* ev = &e->xconfigurerequest;
 
 	/* only honor requests if they should be honored */
-	if ( (c = findclient(ev->window)) && c->is_float ){
+	if ( (c = findclient(ev->window)) && c->is_float){
 		if (ev->value_mask & CWX) c->x = 0 + ev->x;
 		if (ev->value_mask & CWY) c->y = (ev->y < sbar->height) ? sbar->height : ev->y;
 		if (ev->value_mask & CWWidth) c->w = ev->width;
@@ -353,11 +354,15 @@ void enternotify(XEvent* e){
 	if ( (ev->mode != NotifyNormal || ev->detail == NotifyInferior) && ev->window != root )
 		return;
 
-	if ( !(c = findclient(ev->window)) )
+	if ( !(c = findclient(ev->window)) || just_switched ){
+		just_switched = 0;
 		return;
+	}
 
-	/* if we haven't moved */
-	if (prev_enter && !ISOUTSIDE(getpointcoords(0), getpointcoords(1), prev_enter->x, prev_enter->y, prev_enter->w, prev_enter->h))
+	/* if we haven't moved, and the window is the same */
+	if (prev_enter && !ISOUTSIDE(getpointcoords(0), getpointcoords(1), prev_enter->x,
+				prev_enter->y, prev_enter->w, prev_enter->h))
+			//&& prev_enter->win == c->win)
 		return;
 
 	updateprev(c);
@@ -682,7 +687,7 @@ void toggledesktop(const Arg arg){
 void togglefloat(){
 	XWindowChanges wc;
 
-	if (!current) return;
+	if (!current || current->is_full) return;
 
 	current->is_float = !current->is_float;
 	current_layout->arrange();
@@ -735,7 +740,7 @@ void updatefocus(){
 	for EACHCLIENT(head) if (ic == current){
 			XSetInputFocus(dis, ic->win, RevertToPointerRoot, CurrentTime);
 			XRaiseWindow(dis, ic->win);
-		}
+	}
 }
 
 
@@ -927,6 +932,7 @@ void changedesktop(const Arg arg){
 		current = c;
 
 	current_layout->arrange();
+	just_switched = 1;
 	updatefocus();
 	updatestatus();
 }
@@ -952,8 +958,7 @@ void monocle(){
 	raisefloats();
 	for EACHCLIENT(head) if (ISVISIBLE(ic) && !ic->is_float){
 			ic->x = 0; ic->y = sbar->height;
-			ic->w = sw;
-			ic->h = mh;
+			ic->w = sw; ic->h = mh;
 			XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
 		} 
 }
@@ -995,10 +1000,8 @@ void tile(){
 		/* Stack */
 		for EACHCLIENT(nf->next){
 			if (ISVISIBLE(ic) && !ic->is_float && !ic->is_full){
-				ic->x = master_size;
-				ic->y = y;
-				ic->w = sw - master_size;
-				ic->h = mh / n;
+				ic->x = master_size; ic->y = y;
+				ic->w = sw - master_size; ic->h = mh / n;
 				XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
 
 				y += mh / n;
@@ -1145,6 +1148,7 @@ void setup(){
 	head = NULL;
 	current = NULL;
 	prev_enter = ecalloc(1, sizeof(client));
+	just_switched = 0;
 
 	/* Set up all desktops, default to 0 */
 	for (i=0;i < TABLENGTH(tags);i++){

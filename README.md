@@ -14,6 +14,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.8.7.7	- just\_switched flag prevents behavior I mentioned might bug me (0.8.7.4)
  * v0.8.7.6	- drawing focus with buttonpress() works!!!!
  * v0.8.7.5	- view() works like dwm now when you unview current\_desktop. Some code cleanup and variable adjustments.
  * v0.8.7.4	- enternotify works logically. Still not the same as dwm (focus does change on desktop switching), but I think this is acceptable. If it bugs me, I'll fix it. Doing so will require desktops to each have prev\_enter, though.
@@ -55,7 +56,7 @@ Features
 
 * No unmapping, just destroying. I don't like window decorations, so no minimizing, etc. possible.
 * No support for urgency coloring in the bar, because nothing I do is urgent.
-* No [ICCCM](https://web.archive.org/web/20190617214524/https://raw.githubusercontent.com/kfish/xsel/1a1c5edf0dc129055f7764c666da2dd468df6016/rant.txt) (found thanks to [dylan](https://github.com/dylanaraps/sowm))
+* No [ICCCM](https://web.archive.org/web/20190617214524/https://raw.githubusercontent.com/kfish/xsel/1a1c5edf0dc129055f7764c666da2dd468df6016/rant.txt) (found thanks to [dylan](https://github.com/dylanaraps/sowm)). This is mostly felt in the lack of the applysizehints behavior that dwm has (ex. cmatrix won't redraw using larger window bounds if you give it more space via togglefs, changemsize, etc.)
 * No EWMH support, because you're an adult and can fullscreen manually (see config.h), and it's too much work to deal with floating pop-up windows when they'll disappear anyway.
 * One bar. I don't like to look to a particular monitor for the time, just the same spot on any monitor. No Xinerama yet but we'll get there.
 * No unicode support. If you provide unicode characters to the bar, behavior is undefined. I get junk for symbols. You might crash. Behave yourself.
@@ -104,14 +105,10 @@ You're on your own with the brightness and volume key situation. I had to do wha
 
 Bugs
 ----
- * Adjusting window sizes won't update the border size beyond the original dimensions, and will sometimes erase the contents - cmatrix or neofetch are examples of this _configurenotify/request?_
  * With programs like Krita, the popup window generates an unmap event upon completion of its task, so it stays around and takes up tiling space _need unmap support?_
  * Function spawns don't play nice if they hang around and you try to kill them before they go poof
- * Sometimes, opening pictures in feh via vifm leads to insane tiling of the picture
  * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc.
  * Need to XFree() in applyrules, I think? T'is unclear
- * Implement just\_switched check to prevent the behavior in 0.8.7.4
- * spawning a floating window should put it in the same stacking order as it does in dwm
 
 To Do
 ----
