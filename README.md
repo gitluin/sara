@@ -6,14 +6,14 @@ sara
      (___`.|.'___)
      (   .'|`.   )
       `'/  |  \`'
-        `-' `-'                                                                    hjw, ascii.co.uk/art
-
+        `-' `-'                                                                    hjw, ascii.co.uk/art 
 What Is, Why Do
 -------
 sara is a very simple and lightweight tiling window manager, with the goal of making catwm actually work and paring down dwm. I will try to keep the source code as small and readable as possible.
 
 Recent Statii
 ------
+ * v0.9.2	- Multiple monitors! Stable, but buggy. Currently there are some weird focusing issues and tags in the bars are not per-monitor.
  * v0.8.7.7	- just\_switched flag prevents behavior I mentioned might bug me (0.8.7.4)
  * v0.8.7.6	- drawing focus with buttonpress() works!!!!
  * v0.8.7.5	- view() works like dwm now when you unview current\_desktop. Some code cleanup and variable adjustments.
@@ -117,7 +117,6 @@ To Do
    * Does it leak memory?
  * Discrete:
    * quit() should probably be more responsibly implemented
-   * Implement multiple monitors (0.5 points)
    * Implement rules (0.5 points)
    * Implement mouse move, resize support for clients (0.3 points)
    * My own art

@@ -172,9 +172,9 @@ static struct key keys[] = {
 	// Send focused window to previous and next monitor
 //	{ MOD|ShiftMask,             XK_comma,  tagmon,         	{.i = -1 } },
 //	{ MOD|ShiftMask,             XK_period, tagmon,         	{.i = +1 } },
-//	// Switch between monitors
-//	{ MOD,                       XK_comma,  focusmon,       	{.i = -1 } },
-//	{ MOD,                       XK_period, focusmon,       	{.i = +1 } },
+	// Switch between monitors
+	{ MOD,                       XK_comma,  focusmon,       	{.i = -1 } },
+	{ MOD,                       XK_period, focusmon,       	{.i = +1 } },
 
 	/* Movin aboot */
 	DESKTOPCHANGE(	 	     XK_1,                      	0)

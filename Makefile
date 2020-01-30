@@ -1,9 +1,9 @@
 PREFIX?= /usr
 BINDIR?= $(PREFIX)/bin
 
-CFLAGS= -std=c99 -Wall -Wno-deprecated-declarations -g # -Os
+CFLAGS= -std=c99 -Wall -Wno-deprecated-declarations -g -DXINERAMA # -Os
 INCFLAGS= -I/usr/include/freetype2
-LIBS= -lm -lX11 -lXft -lfontconfig
+LIBS= -lm -lX11 -lXft -lfontconfig -lXinerama
 
 SRC= sara.c
 OBJ= ${SRC:.c=.o}

@@ -20,9 +20,9 @@
 #include <X11/Xlib.h>
 #include <X11/Xproto.h>
 #include <X11/Xft/Xft.h>
-//#ifdef XINERAMA
-//#include <X11/extensions/Xinerama.h>
-//#endif
+#ifdef XINERAMA
+#include <X11/extensions/Xinerama.h>
+#endif
 
 #define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
@@ -103,18 +103,23 @@ typedef struct {
 	int x, y;
 } point;
 
-//typedef struct monitor monitor;
-//struct monitor {
-//	int x, y, h, w;
-//	int num;
-//	float master_size;
-//	unsigned int seldesks;
-//	client* head;
-//	client* current;
-//	desktop desktops[TABLENGTH(tags)];
-//	layout* current_layout;
-//	monitor* next;
-//};
+typedef struct monitor monitor;
+struct monitor {
+	/* monitor */
+	int x, y, h, w;
+	int num;
+	bar* bar;
+	monitor* next;
+	/* desktops */
+	float master_size;
+	unsigned int seldesks;
+	unsigned int current_desktop;
+	client* current;
+	client* head;
+	client* prev_enter;
+	desktop* desktops;
+	layout* current_layout;
+};
 
 
 /* ---------------------------------------
@@ -156,11 +161,11 @@ int slen(const char* str){
 
 /* X Event Processing */
 static void buttonpress(XEvent* e);
-static void configurenotify(XEvent* e);
+//static void configurenotify(XEvent* e);
 static void configurerequest(XEvent* e);
 static void destroynotify(XEvent* e);
 static void enternotify(XEvent* e);
-//static void expose(XEvent* e);
+static void expose(XEvent* e);
 static void keypress(XEvent* e);
 static void maprequest(XEvent* e);
 static void propertynotify(XEvent* e);
@@ -194,11 +199,12 @@ static client* findprevclient(client* c, int is_vis);
 static void updateprev(client* c);
 
 /* Bar */
-static void drawbar();
-static int drawbartext(int x, int y, int w, int h, unsigned int lpad, const char* text);
+static void drawbar(monitor* m);
+static void drawbars();
+static int drawbartext(monitor* m, int x, int y, int w, int h, unsigned int lpad, const char* text);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static int gettextwidth(const char* str, int len);
-static void initbar();
+static bar* initbar(monitor* m);
 static void updatestatus();
 
 /* Desktop Interfacing */
@@ -222,6 +228,13 @@ static void start();
 static void youviolatedmymother();
 static int xerror(Display* dis, XErrorEvent* ee);
 
+/* Monitors */
+static void changemon(monitor* m);
+static void createmon(monitor* m, int num, int x, int y, int w, int h);
+static void focusmon(const Arg arg);
+static void initmons();
+static void setcurrentmon(monitor* m);
+
 
 /* Make the above known */
 #include "config.h"
@@ -240,8 +253,8 @@ static Display* dis;
 static Window root;
 
 /* Client Interfacing */
-static client* head;
 static client* current;
+static client* head;
 static client* prev_enter;
 static int just_switched;
 
@@ -250,7 +263,7 @@ static bar* sbar;
 
 /* Desktop Interfacing */
 static layout* current_layout;
-static desktop desktops[TABLENGTH(tags)];
+static desktop* desktops;
 static float master_size;
 static unsigned int current_desktop;
 static unsigned int seldesks;
@@ -263,17 +276,17 @@ static XftColor** scheme;
 static char xsetr_text[256];
 
 /* Monitor Interfacing */
-//static monitor* head_mon;
-//static monitor* current_mon;
+static monitor* mhead;
+static monitor* current_mon;
 
 /* Events array */
 static void (*events[LASTEvent])(XEvent* e) = {
 	[ButtonPress] = buttonpress,
-	[ConfigureNotify] = configurenotify,
+	//[ConfigureNotify] = configurenotify,
 	[ConfigureRequest] = configurerequest,
 	[DestroyNotify] = destroynotify,
 	[EnterNotify] = enternotify,
-	//[Expose] = expose,
+	[Expose] = expose,
 	[KeyPress] = keypress,
 	[MapRequest] = maprequest,
 	[PropertyNotify] = propertynotify,
@@ -292,11 +305,8 @@ void buttonpress(XEvent* e){
 	XButtonPressedEvent* ev = &e->xbutton;
 
 	/* focus monitor if necessary */
-//	if ((m = wintomon(ev->window)) && m != selmon) {
-//		unfocus(selmon->sel, 1);
-//		selmon = m;
-//		focus(NULL);
-//	}
+//	if ( (m = wintomon(ev->window)) && m != currentmon )
+//		changemon(m);
 
 	if ( (c = findclient(ev->window)) ){
 		updateprev(c);
@@ -307,18 +317,20 @@ void buttonpress(XEvent* e){
 }
 
 /* dwm copypasta */
-void configurenotify(XEvent* e){
-	XConfigureEvent* ev = &e->xconfigure;
-
-	if (ev->window == root){
-		sbar->width = ev->width;
-		XFreePixmap(dis,sbar->d);
-		sbar->d = XCreatePixmap(dis, root, sbar->width, sbar->height, DefaultDepth(dis,screen));
-
-		XMoveResizeWindow(dis, sbar->win, 0, 0, sbar->width, sbar->height);
-		drawbar();
-	}
-}
+//void configurenotify(XEvent* e){
+//	XConfigureEvent* ev = &e->xconfigure;
+//
+//	if (ev->window == root){
+//		current_mon->bar->width = ev->width;
+//		XFreePixmap(dis, current_mon->bar->d);
+//		current_mon->bar->d = XCreatePixmap(dis, root, current_mon->bar->width,
+//				current_mon->bar->height, DefaultDepth(dis,screen));
+//
+//		XMoveResizeWindow(dis, current_mon->bar->win, 0, 0, current_mon->bar->width,
+//				current_mon->bar->height);
+//		drawbar(current_mon);
+//	}
+//}
 
 /* dwm copypasta */
 void configurerequest(XEvent* e){
@@ -343,7 +355,7 @@ void destroynotify(XEvent* e){
 
 	if ( (c = findclient(ev->window)) ){
 		unmanage(c);
-		drawbar();
+		drawbars();
 	}
 }
 
@@ -371,12 +383,12 @@ void enternotify(XEvent* e){
 }
 
 /* dwm copypasta */
-//void expose(XEvent* e){
-//	XExposeEvent* ev = &e->xexpose;
-//
-//	if (ev->count == 0 && findclient(ev->window))
-//		drawbar();
-//}
+void expose(XEvent* e){
+	XExposeEvent* ev = &e->xexpose;
+
+	if (ev->count == 0 && findclient(ev->window))
+		drawbars();
+}
 
 void keypress(XEvent* e){
 	int i;
@@ -399,6 +411,17 @@ void maprequest(XEvent* e){
 		updatefocus();
 	}
 }
+
+//void motionnotify(XEvent* e){
+//	Monitor *m;
+//	XMotionEvent *ev = &e->xmotion;
+//
+//	if (ev->window != root)
+//		return;
+//
+//	if ( (m = recttomon(ev->x_root, ev->y_root, 1, 1)) && m != current_mon)
+//		changemon(m);
+//}
 
 /* dwm copypasta */
 void propertynotify(XEvent* e){
@@ -539,7 +562,7 @@ void manage(Window parent, XWindowAttributes* wa){
 	 * current_layout->arrange();
 	 */
 	XMapWindow(dis, c->win);
-	drawbar();
+	drawbars();
 }
 
 void mapclients(){
@@ -581,7 +604,7 @@ void moveclient(const Arg arg){
 
 	current_layout->arrange();
 	updatefocus();
-	drawbar();
+	drawbars();
 }
 
 /* some dwm copypasta */
@@ -609,7 +632,7 @@ void movefocus(const Arg arg){
 	updateprev(c);
 	changecurrent(c, current_desktop);
 	updatefocus();
-	drawbar();
+	drawbars();
 }
 
 void raisefloats(){
@@ -714,21 +737,22 @@ void togglefs(){
 	current->is_float = 0;
 
 	if (current->is_full){
-		current->x = 0; current->y = 0;
-		current->w = sw; current->h = sh;
+		current->x = current_mon->x; current->y = 0;
+		current->w = current_mon->w; current->h = current_mon->h + current_mon->bar->height;
 		XMoveResizeWindow(dis, current->win, current->x, current->y, current->w, current->h);
 		XRaiseWindow(dis, current->win);
 
-		XUnmapWindow(dis, sbar->win);
+		XUnmapWindow(dis, current_mon->bar->win);
 
 	} else {
 		current_layout->arrange();
 
-		XMapRaised(dis, sbar->win);
-		drawbar();
+		XMapRaised(dis, current_mon->bar->win);
+		drawbars();
 	}
 }
 
+/* TODO: Change monitors if necessary */
 void unmanage(client* c){
 	detach(c);
 	free(c);
@@ -736,11 +760,12 @@ void unmanage(client* c){
 	updatefocus();
 }
 
+/* TODO: Weirdness when killing last client on another monitor */
 void updatefocus(){
 	for EACHCLIENT(head) if (ic == current){
 			XSetInputFocus(dis, ic->win, RevertToPointerRoot, CurrentTime);
 			XRaiseWindow(dis, ic->win);
-	}
+		}
 }
 
 
@@ -798,21 +823,26 @@ void updateprev(client* c){
  * ---------------------------------------
  */
 
+/* TODO: monitor support */
+/* TODO: tags are not monitor-independent at the moment */
 /* part dwm copypasta */
-void drawbar(){
+void drawbar(monitor* m){
 	int j, x = 2, xsetr_text_w = 0, is_sel; /* 2px left padding */
+	monitor* old_monitor = current_mon;
 	unsigned int occ = 0;
 
 	/* draw background */
-	sbar->scheme = scheme[SchNorm];
-	XSetForeground(dis, sbar->gc, sbar->scheme[ColBg].pixel);
-	XFillRectangle(dis, sbar->d, sbar->gc, 0, 0, sw, sbar->height);
+	m->bar->scheme = scheme[SchNorm];
+	XSetForeground(dis, m->bar->gc, m->bar->scheme[ColBg].pixel);
+	XFillRectangle(dis, m->bar->d, m->bar->gc, 0, 0, sw, m->bar->height);
 
 	/* draw status */
 	xsetr_text_w = TEXTW(xsetr_text) - lrpad + 2; /* 2px right padding */
-	drawbartext(sbar->width - xsetr_text_w, 0, xsetr_text_w, sbar->height, 0, xsetr_text);
+	drawbartext(m, m->bar->width - xsetr_text_w, 0, xsetr_text_w, m->bar->height, 0, xsetr_text);
 
+	changemon(m);
 	for EACHCLIENT(head) occ |= ic->desktops;
+	changemon(old_monitor);
 
 	/* draw tags */
 	for (j=0;j<TABLENGTH(tags);j++){
@@ -821,23 +851,28 @@ void drawbar(){
 		if ( !(occ & 1 << j) && !is_sel )
 			continue;
 
-		sbar->scheme = scheme[is_sel ? SchSel : SchNorm];
+		m->bar->scheme = scheme[is_sel ? SchSel : SchNorm];
 
-		x = drawbartext(x, 0, TEXTW(syms[SymLeft]) + 1, sbar->height, 0, is_sel ? syms[SymLeft] : " ") - lrpad;
-		x = drawbartext(x, 0, TEXTW(tags[j]), sbar->height, 0, tags[j]) - lrpad + 2;
-		x = drawbartext(x, 0, TEXTW(syms[SymRight]), sbar->height, 0, is_sel ? syms[SymRight] : " ") - lrpad / 2;
+		x = drawbartext(m, x, 0, TEXTW(syms[SymLeft]) + 1, m->bar->height, 0, is_sel ? syms[SymLeft] : " ") - lrpad;
+		x = drawbartext(m, x, 0, TEXTW(tags[j]), m->bar->height, 0, tags[j]) - lrpad + 2;
+		x = drawbartext(m, x, 0, TEXTW(syms[SymRight]), m->bar->height, 0, is_sel ? syms[SymRight] : " ") - lrpad / 2;
 	}
 	x -= lrpad / 2;
-	sbar->scheme = scheme[SchNorm];
-	drawbartext(x, 0, TEXTW(current_layout->symbol), sbar->height, lrpad / 2, current_layout->symbol);
+	m->bar->scheme = scheme[SchNorm];
+	drawbartext(m, x, 0, TEXTW(current_layout->symbol), m->bar->height, lrpad / 2, current_layout->symbol);
 
-	XCopyArea(dis, sbar->d, sbar->win, sbar->gc, 0, 0, sbar->width, sbar->height, 0, 0);
+	XCopyArea(dis, m->bar->d, m->bar->win, m->bar->gc, 0, 0, m->bar->width, m->bar->height, 0, 0);
 	XSync(dis, False);
 }
 
-int drawbartext(int x, int y, int w, int h, unsigned int lpad, const char* text){
-	int ty = y + (h - (sbar->xfont->ascent + sbar->xfont->descent)) / 2 + sbar->xfont->ascent;
-	XftDrawString8(sbar->xd, &sbar->scheme[ColFg], sbar->xfont, x + lpad, ty, (XftChar8*)text, slen(text));
+void drawbars(){
+	monitor* im;
+	for (im=mhead;im;im=im->next) drawbar(im);
+}
+
+int drawbartext(monitor* m, int x, int y, int w, int h, unsigned int lpad, const char* text){
+	int ty = y + (h - (m->bar->xfont->ascent + m->bar->xfont->descent)) / 2 + m->bar->xfont->ascent;
+	XftDrawString8(m->bar->xd, &m->bar->scheme[ColFg], m->bar->xfont, x + lpad, ty, (XftChar8*)text, slen(text));
 
 	return x + w;
 }
@@ -879,28 +914,33 @@ int gettextwidth(const char* str, int len){
 	return xgi.width;
 }
 
-void initbar(){
+bar* initbar(monitor* m){
 	XSetWindowAttributes wa = {
 		.override_redirect = True,
 		.background_pixmap = ParentRelative,
 		.event_mask = ExposureMask
 	};
 
+	sbar = ecalloc(1, sizeof(bar));
 	if ( !(sbar->xfont = XftFontOpenName(dis, screen, fontname)) )
 		die("The font you tried to use was not found. Check the name.");
 
+	lrpad = sbar->xfont->ascent + sbar->xfont->descent;
+
 	sbar->height = sbar->xfont->ascent + sbar->xfont->descent + 2;
-	sbar->width = sw;
-	sbar->d = XCreatePixmap(dis, root, sw, sh, DefaultDepth(dis, screen));
+	sbar->width = m->w;
+	sbar->d = XCreatePixmap(dis, root, m->w, m->h, DefaultDepth(dis, screen));
 	sbar->gc = XCreateGC(dis, sbar->d, 0, NULL);
 	sbar->xd = XftDrawCreate(dis, sbar->d, DefaultVisual(dis,screen), DefaultColormap(dis,screen));
 
-	sbar->win = XCreateWindow(dis, root, 0, 0, sbar->width, sbar->height, 0, 
+	sbar->win = XCreateWindow(dis, root, m->x, m->y, sbar->width, sbar->height, 0, 
 			DefaultDepth(dis, screen), InputOutput, DefaultVisual(dis,screen), 
 			CWOverrideRedirect|CWBackPixel|CWBorderPixel|CWColormap|CWEventMask, &wa);
 
 	XDefineCursor(dis, sbar->win, XCreateFontCursor(dis, 68));
 	XMapRaised(dis, sbar->win);
+
+	return sbar;
 }
 
 /* dwm copypasta */
@@ -908,7 +948,7 @@ void updatestatus(){
 	if (!gettextprop(root, XA_WM_NAME, xsetr_text, sizeof(xsetr_text)))
 		strcpy(xsetr_text, "where's the leak, ma'am?");
 
-	drawbar();
+	drawbars();
 }
 
 
@@ -938,8 +978,9 @@ void changedesktop(const Arg arg){
 }
 
 void changemsize(const Arg arg){
-	master_size += ( ((master_size < 0.95 * sw) && (arg.f > 0))
-			|| ((master_size > 0.05 * sw) && (arg.f < 0))  ) ? arg.f * sw : 0;
+	int mw = current_mon->w;
+	master_size += ( ((master_size < 0.95 * mw) && (arg.f > 0))
+			|| ((master_size > 0.05 * mw) && (arg.f < 0))  ) ? arg.f * mw : 0;
 
 	current_layout->arrange();
 }
@@ -953,12 +994,15 @@ void loaddesktop(int i){
 }
 
 void monocle(){
-	int mh = sh - sbar->height;
+	//int mh = sh - sbar->height;
+	int mh = current_mon->h;
+	int mw = current_mon->w;
+	int y = current_mon->y;
 
 	raisefloats();
 	for EACHCLIENT(head) if (ISVISIBLE(ic) && !ic->is_float){
-			ic->x = 0; ic->y = sbar->height;
-			ic->w = sw; ic->h = mh;
+			ic->x = 0; ic->y = y;
+			ic->w = mw; ic->h = mh;
 			XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
 		} 
 }
@@ -966,14 +1010,18 @@ void monocle(){
 void setlayout(const Arg arg){
 	current_layout = (layout*) arg.v;
 	current_layout->arrange();
-	drawbar();
+	drawbars();
 }
 
 void tile(){
 	client* nf = NULL;
 	int n = 0;
-	int mh = sh - sbar->height;
-	int y = sbar->height;
+	//int mh = sh - sbar->height;
+	int mh = current_mon->h;
+	int mw = current_mon->w;
+	int y = current_mon->y;
+	int x = current_mon->x;
+	//int y = sbar->height;
 
 	/* Find the first non-floating, visible window and tally non-floating, visible windows */
 	for EACHCLIENT(head) if (!ic->is_float && ISVISIBLE(ic)){
@@ -984,8 +1032,8 @@ void tile(){
 	raisefloats();
 
 	if (nf && n == 1){
-		nf->x = 0; nf->y = y;
-		nf->w = sw; nf->h = mh;
+		nf->x = x; nf->y = y;
+		nf->w = mw; nf->h = mh;
 		XMoveResizeWindow(dis, nf->win, nf->x, nf->y, nf->w, nf->h);
 
 	} else if (nf){
@@ -993,15 +1041,15 @@ void tile(){
 		n--;
 
 		/* Master window */
-		nf->x = 0; nf->y = y;
+		nf->x = x; nf->y = y;
 		nf->w = master_size; nf->h = mh;
 		XMoveResizeWindow(dis, nf->win, nf->x, nf->y, nf->w, nf->h);
 
 		/* Stack */
 		for EACHCLIENT(nf->next){
 			if (ISVISIBLE(ic) && !ic->is_float && !ic->is_full){
-				ic->x = master_size; ic->y = y;
-				ic->w = sw - master_size; ic->h = mh / n;
+				ic->x = x + master_size; ic->y = y;
+				ic->w = mw - master_size; ic->h = mh / n;
 				XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
 
 				y += mh / n;
@@ -1046,27 +1094,36 @@ void view(const Arg arg){
  */
 void cleanup(){
 	int i;
+	monitor* m, * tmp;
 
 	while (current) killclient();
 
-//	m = head_mon;
-//	while (m){
-//		free(m->desktops);
-//		tmp = m->next;
-//		free(m);
-//		m = tmp;
-//	}
+	m = mhead;
+	while (m){
+		free(m->desktops);
+		XftDrawDestroy(m->bar->xd);
+		XFreeGC(dis, m->bar->gc);
+		XftFontClose(dis, m->bar->xfont);
+		XFreePixmap(dis, m->bar->d);
+		XUnmapWindow(dis, m->bar->win);
+		XDestroyWindow(dis, m->bar->win);
+		free(m->bar);
+
+		tmp = m->next;
+		free(m);
+		m = tmp;
+	}
 
 	/* This ain't pretty, but it gets the job done (Without memory leak? Not sure) */
-	XUnmapWindow(dis, sbar->win);
-	XDestroyWindow(dis, sbar->win);
+//	XUnmapWindow(dis, sbar->win);
+//	XDestroyWindow(dis, sbar->win);
 	XUngrabKey(dis, AnyKey, AnyModifier, root);
 
-	XftDrawDestroy(sbar->xd);
-	XFreeGC(dis, sbar->gc);
-	XftFontClose(dis, sbar->xfont);
-	XFreePixmap(dis, sbar->d);
-	free(sbar);
+//	XftDrawDestroy(sbar->xd);
+//	XFreeGC(dis, sbar->gc);
+//	XftFontClose(dis, sbar->xfont);
+//	XFreePixmap(dis, sbar->d);
+//	free(sbar);
 
 	free(prev_enter);
 
@@ -1129,36 +1186,18 @@ void setup(){
 
 	sw = XDisplayWidth(dis, screen);
 	sh = XDisplayHeight(dis, screen);
-	master_size = sw * MASTER_SIZE;
-
-	/* Default to first layout */
-	current_layout = (layout*) &layouts[0];
 
 	scheme = ecalloc(TABLENGTH(colors), sizeof(XftColor*));
 	for (i=0;i < TABLENGTH(colors);i++) scheme[i] = scheme_create(colors[i], 2);
 
 	running = 1;
 
-	/* set up bar */
-	sbar = ecalloc(1, sizeof(bar));
-	initbar();
-	updatestatus();
-	lrpad = sbar->xfont->ascent + sbar->xfont->descent;
-
-	head = NULL;
-	current = NULL;
+	mhead = NULL;
+	current_mon = NULL;
 	prev_enter = ecalloc(1, sizeof(client));
-	just_switched = 0;
 
-	/* Set up all desktops, default to 0 */
-	for (i=0;i < TABLENGTH(tags);i++){
-		desktops[i].master_size = master_size;
-		desktops[i].current_layout = current_layout;
-	}
-	seldesks = current_desktop = 1 << 0;
+	initmons();
 	loaddesktop(0);
-	
-	// initmons();
 
 	wa.cursor = XCreateFontCursor(dis, 68);
 	wa.event_mask = SubstructureRedirectMask|SubstructureNotifyMask
@@ -1168,7 +1207,8 @@ void setup(){
 	XSelectInput(dis, root, wa.event_mask);
 
 	grabkeys();
-	drawbar();
+//	drawbar();
+	updatestatus();
 }
 
 /* dwm copypasta */
@@ -1236,63 +1276,145 @@ int main(){
 	return 0;
 }
 
-//void initmons(){
-//	int i, ns;
-//	monitor* m;
-//
-//	XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
-//	
-//	/* what is the "unique geometries" problem in dwm?" */
-//	for (i=0;i < ns;i++){
-//		m = ecalloc(1, sizeof(monitor));
-//		m->x = info[i].x_org;
-//		m->y = info[i].y_org;
-//		m->w = info[i].width;
-//		m->h = info[i].height;
-//		m->num = i; 
-//
-//		m->bar = sbar;
-//
-//		/* will be filled in when you save for the first time */
-//		m->desktops = ecalloc(TABLENGTH(tags), sizeof(desktop));
-//		m->seldesks = seldesks;
-//
-//		m->current_desktop = current_desktop;
-//		m->current_layout = current_layout;
-//		m->master_size = master_size;
-//
-//		m->head = head;
-//		m->current = current;
-//		m->prev_enter = prev_enter;
-//
-//		attach_mon(m);
-//	}
-//
-//	XFree(info);
-//}
+void changemon(monitor* m){
+	/* save current */
+	current_mon->desktops = desktops;
+	current_mon->current_layout = current_layout;
+	current_mon->master_size = master_size;
 
-//void loadmon(monitor* m){
-//	/* save current */
-//	current_mon->desktops = desktops;
-//	current_mon->seldesks = seldesks;
-//
-//	current_mon->current_desktop = current_desktop;
-//	current_mon->current_layout = current_layout;
-//	current_mon->master_size = master_size;
-//
-//	current_mon->head = head;
-//	current_mon->current = current;
-//	current_mon->prev_enter = prev_enter;
-//
-//	/* select m */
-//	desktops = m->desktops;
-//	seldesks = m->seldesks;
-//
-//	current_desktop = m->current_desktop;
-//	current_layout = m->current_layout;
-//	master_size = m->master_size;
-//	
-//	head = m->head;
-//	current = m->current;
-//	prev_enter = m->prev_enter;
-//}
+	current_mon->seldesks = seldesks;
+	current_mon->current_desktop = current_desktop;
+	current_mon->current = current;
+	current_mon->head = head;
+	current_mon->prev_enter = prev_enter;
+
+	/* select m */
+	setcurrentmon(m);
+
+	updatefocus();
+	//updatestatus();
+}
+
+void createmon(monitor* m, int num, int x, int y, int w, int h){
+	int i;
+
+	m->num = num;
+	m->x = x; m->y = y;
+	m->w = w; m->h = h;
+
+	m->bar = initbar(m);
+
+	m->y = y + m->bar->height;
+	m->h = h - m->bar->height;
+
+
+	/* Default to first layout */
+	m->current_layout = (layout*) &layouts[0];
+	m->master_size = m->w * MASTER_SIZE;
+
+	m->desktops = ecalloc(TABLENGTH(tags), sizeof(desktop));
+	for (i=0;i < TABLENGTH(tags);i++){
+		m->desktops[i].current_layout = m->current_layout;
+		m->desktops[i].master_size = m->master_size;
+	}
+
+	/* Default to first desktop */
+	m->seldesks = m->current_desktop = 1 << 0;
+
+	m->head = NULL;
+	m->current = NULL;
+	m->prev_enter = prev_enter;
+}
+
+void focusmon(const Arg arg){
+	monitor* m = NULL;
+
+	if (arg.i > 0){
+		if (current_mon->next) m = current_mon->next;
+
+	} else {
+		for (m=mhead;m && m->next != current_mon;m=m->next);
+	}
+
+	if (m) changemon(m);
+}
+
+/* dwm copypasta */
+#ifdef XINERAMA
+static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo* info){
+	while (n--)
+		if (unique[n].x_org == info->x_org && unique[n].y_org == info->y_org
+		&& unique[n].width == info->width && unique[n].height == info->height)
+			return 0;
+	return 1;
+}
+#endif
+
+///* TODO: Support adding/removing monitors and transferring the clients */
+/* some dwm copypasta */
+void initmons(){
+	monitor* m;
+
+#ifdef XINERAMA
+	if (XineramaIsActive(dis)){
+		int i, j, ns;
+		monitor* im, * tmp;
+
+		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
+//		XineramaScreenInfo* unique;
+
+		/* only consider unique geometries as separate screens */
+//		unique = ecalloc(ns, sizeof(XineramaScreenInfo));
+//		for (i = 0, j = 0; i < ns; i++)
+//			if (isuniquegeom(unique, j, &info[i]))
+//				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
+//		XFree(info);
+		
+		for (i=0;i < ns;i++){
+			m = ecalloc(1, sizeof(monitor));
+			//createmon(m, i, unique[i].x_org, unique[i].y_org, unique[i].width,
+			//		unique[i].height, sbar);
+			createmon(m, i, info[i].x_org, info[i].y_org, info[i].width, info[i].height);
+	
+			if (!mhead){
+				mhead = m;
+	
+			/* works for me because I only use 2 monitors */
+			} else if (m->x < mhead->x){
+				tmp = mhead;
+				mhead = m;
+				mhead->next = tmp;
+
+			} else {
+				for (im=mhead;im->next;im=im->next);
+				im->next = m;
+			}
+		}
+
+		setcurrentmon(mhead);
+//		free(unique);
+		XFree(info);
+	}
+#endif
+	if (!mhead){
+		m = ecalloc(1, sizeof(monitor));
+		mhead = m;
+		createmon(m, 0, 0, 0, sw, sh);
+		setcurrentmon(m);
+	}
+}
+
+void setcurrentmon(monitor* m){
+	desktops = m->desktops;
+	current_layout = m->current_layout;
+	master_size = m->master_size;
+	
+	seldesks = m->seldesks;
+	current_desktop = m->current_desktop;
+	current = m->current;
+	head = m->head;
+	prev_enter = m->prev_enter;
+	just_switched = 0;
+	
+	current_mon = m;
+}
