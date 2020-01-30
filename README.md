@@ -75,7 +75,6 @@ Need Xlib, then sudo make install clean
 
 Keys
 ------------
-You're on your own with the brightness and volume key situation. I had to do what I did for dwm as well, so comment out entries in config.h as necessary. If you're lucky, your keys Just Work (TM).
 
 | Key				| Function 						|
 | -----------------------------	| -----------------------------------------------------	|
