@@ -201,7 +201,7 @@ static void setcurrentmon(monitor* m);
 
 /* Client Interfacing */
 static client* findcurrent();
-static client* findclient();
+static client* findclient(Window w);
 static client* findvisclient(client* c);
 static client* findprevclient(client* c, int wantvis);
 static void updateprev(client* c);
