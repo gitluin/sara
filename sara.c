@@ -113,7 +113,7 @@ struct monitor {
 	/* desktops */
 	float master_size;
 	unsigned int seldesks;
-	unsigned int current_desktop;
+	unsigned int curdesk;
 	client* current;
 	client* head;
 	client* prev_enter;
@@ -191,6 +191,14 @@ static void togglefs();
 static void unmanage(client* c);
 static void updatefocus();
 
+/* Monitor Manipulation */
+static void changemon(monitor* m, int focus);
+static void createmon(monitor* m, int num, int x, int y, int w, int h);
+static monitor* findmon(Window w);
+static void focusmon(const Arg arg);
+static void initmons();
+static void setcurrentmon(monitor* m);
+
 /* Client Interfacing */
 static client* findcurrent();
 static client* findclient();
@@ -229,14 +237,6 @@ static void start();
 static void youviolatedmymother();
 static int xerror(Display* dis, XErrorEvent* ee);
 
-/* Monitors */
-static void changemon(monitor* m, int focus);
-static void createmon(monitor* m, int num, int x, int y, int w, int h);
-static monitor* findmon(Window w);
-static void focusmon(const Arg arg);
-static void initmons();
-static void setcurrentmon(monitor* m);
-
 
 /* Make the above known */
 #include "config.h"
@@ -257,12 +257,6 @@ static Window root;
 /* Client Interfacing */
 static client* prev_enter;
 static int just_switched;
-
-/* Desktop Interfacing */
-static layout* current_layout;
-static desktop* desktops;
-static float master_size;
-static unsigned int current_desktop;
 
 /* Backend */
 static client* ic; /* for EACHCLIENT iterating */
@@ -307,7 +301,7 @@ void buttonpress(XEvent* e){
 
 	if ( (c = findclient(ev->window)) ){
 		updateprev(c);
-		changecurrent(c, curmon->current_desktop);
+		changecurrent(c, curmon->curdesk);
 		updatefocus();
 //		XAllowEvents(dis, ReplayPointer, CurrentTime);
 	}
@@ -377,7 +371,7 @@ void enternotify(XEvent* e){
 		return;
 
 	updateprev(c);
-	changecurrent(c, curmon->current_desktop);
+	changecurrent(c, curmon->curdesk);
 	updatefocus();
 }
 
@@ -406,7 +400,7 @@ void maprequest(XEvent* e){
 
 	if ( XGetWindowAttributes(dis, ev->window, &wa) && !wa.override_redirect && !findclient(ev->window) ){
 		manage(ev->window, &wa);
-		current_layout->arrange();
+		curmon->current_layout->arrange();
 		updatefocus();
 	}
 }
@@ -478,7 +472,7 @@ void attachaside(client* c){
 	}
 
 	XSelectInput(dis, c->win, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
-	changecurrent(c, curmon->current_desktop);
+	changecurrent(c, curmon->curdesk);
 }
 
 void changecurrent(client* c, unsigned int desktopmask){
@@ -544,7 +538,7 @@ void manage(Window parent, XWindowAttributes* wa){
 	c->is_float = 0;
 	c->is_full = 0;
 	c->is_current = 0;
-	c->desktops = curmon->current_desktop;
+	c->desktops = curmon->curdesk;
 
 	c->x = wa->x; c->y = wa->y;
 	c->w = wa->width; c->h = wa->height;
@@ -558,7 +552,7 @@ void manage(Window parent, XWindowAttributes* wa){
 	 * 	hide_client(c);
 	 *	refocus(curmon->current->next, curmon->current);
 	 * }
-	 * current_layout->arrange();
+	 * curmon->current_layout->arrange();
 	 */
 	XMapWindow(dis, c->win);
 	drawbars();
@@ -601,7 +595,7 @@ void moveclient(const Arg arg){
 			p->next = n;
 	}
 
-	current_layout->arrange();
+	curmon->current_layout->arrange();
 	updatefocus();
 	drawbars();
 }
@@ -629,7 +623,7 @@ void movefocus(const Arg arg){
 	}
 
 	updateprev(c);
-	changecurrent(c, curmon->current_desktop);
+	changecurrent(c, curmon->curdesk);
 	updatefocus();
 	drawbars();
 }
@@ -645,7 +639,7 @@ void raisefloats(){
 void refocus(client* n, client* p){
 	client* vis;
 	vis = (vis = findvisclient(n)) ? vis : findprevclient(p,YesVis);
-	changecurrent(vis, curmon->current_desktop);
+	changecurrent(vis, curmon->curdesk);
 }
 
 void swapmaster(){
@@ -662,13 +656,13 @@ void swapmaster(){
 		curmon->current->next = tmp;
 		curmon->head = curmon->current;
 
-		current_layout->arrange();
+		curmon->current_layout->arrange();
 		updatefocus();
 	}
 }
 
 void todesktop(const Arg arg){
-	if (curmon->current_desktop & 1 << arg.i) return;
+	if (curmon->curdesk & 1 << arg.i) return;
 
 	curmon->current->desktops = 1 << arg.i;
 	curmon->current->is_current = 0;
@@ -678,7 +672,7 @@ void todesktop(const Arg arg){
 	XSync(dis, False);
 
 	refocus(curmon->current->next, curmon->current);
-	current_layout->arrange();
+	curmon->current_layout->arrange();
 	updatefocus();
 	updatestatus();
 }
@@ -700,7 +694,7 @@ void toggledesktop(const Arg arg){
 			refocus(curmon->current->next, curmon->current);
 		}
 
-		current_layout->arrange();
+		curmon->current_layout->arrange();
 		updatefocus();
 		updatestatus();
 	}
@@ -712,7 +706,7 @@ void togglefloat(){
 	if (!curmon->current || curmon->current->is_full) return;
 
 	curmon->current->is_float = !curmon->current->is_float;
-	current_layout->arrange();
+	curmon->current_layout->arrange();
 
 	if (curmon->current->is_float){
 		wc.sibling = curmon->current->win;
@@ -747,7 +741,7 @@ void togglefs(){
 		XUnmapWindow(dis, curmon->bar->win);
 
 	} else {
-		current_layout->arrange();
+		curmon->current_layout->arrange();
 
 		XMapRaised(dis, curmon->bar->win);
 		drawbars();
@@ -758,7 +752,7 @@ void togglefs(){
 void unmanage(client* c){
 	detach(c);
 	free(c);
-	current_layout->arrange();
+	curmon->current_layout->arrange();
 	updatefocus();
 }
 
@@ -772,12 +766,160 @@ void updatefocus(){
 
 
 /* ---------------------------------------
+ * Monitors
+ * ---------------------------------------
+ */
+
+void changemon(monitor* m, int focus){
+	/* save current */
+	curmon->prev_enter = prev_enter;
+
+	/* select m */
+	setcurrentmon(m);
+
+	if (focus) updatefocus();
+	// this causes a crash
+	//updatestatus();
+}
+
+void createmon(monitor* m, int num, int x, int y, int w, int h){
+	int i;
+
+	m->num = num;
+	m->x = x; m->y = y;
+	m->w = w; m->h = h;
+
+	m->bar = initbar(m);
+
+	m->y = y + m->bar->height;
+	m->h = h - m->bar->height;
+
+	/* Default to first layout */
+	m->current_layout = (layout*) &layouts[0];
+	m->master_size = m->w * MASTER_SIZE;
+
+	m->desktops = ecalloc(TABLENGTH(tags), sizeof(desktop));
+	for (i=0;i < TABLENGTH(tags);i++){
+		m->desktops[i].current_layout = m->current_layout;
+		m->desktops[i].master_size = m->master_size;
+	}
+
+	/* Default to first desktop */
+	m->seldesks = m->curdesk = 1 << 0;
+
+	m->head = NULL;
+	m->current = NULL;
+	m->prev_enter = prev_enter;
+}
+
+monitor* findmon(Window w){
+	monitor* im, * old_monitor = curmon;
+
+	for (im=mhead;im;im=im->next){
+		changemon(im, 0);
+		for EACHCLIENT(curmon->head){
+			if (ic->win == w){
+				changemon(old_monitor, 1);
+				return im;
+			}
+		}
+	}
+
+	return curmon;
+}
+
+void focusmon(const Arg arg){
+	monitor* m = NULL;
+
+	if (arg.i > 0){
+		if (curmon->next) m = curmon->next;
+
+	} else {
+		for (m=mhead;m && m->next != curmon;m=m->next);
+	}
+
+	if (m) changemon(m, 1);
+}
+
+/* TODO: Is this required for mirroring displays to work? */
+/* dwm copypasta */
+#ifdef XINERAMA
+static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo* info){
+	while (n--)
+		if (unique[n].x_org == info->x_org && unique[n].y_org == info->y_org
+		&& unique[n].width == info->width && unique[n].height == info->height)
+			return 0;
+	return 1;
+}
+#endif
+
+/* TODO: Support adding/removing monitors and transferring the clients */
+/* some dwm copypasta */
+void initmons(){
+	monitor* m;
+
+#ifdef XINERAMA
+	if (XineramaIsActive(dis)){
+		int i, j, ns;
+		monitor* im, * tmp;
+
+		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
+//		XineramaScreenInfo* unique;
+
+		/* only consider unique geometries as separate screens */
+//		unique = ecalloc(ns, sizeof(XineramaScreenInfo));
+//		for (i = 0, j = 0; i < ns; i++)
+//			if (isuniquegeom(unique, j, &info[i]))
+//				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
+//		XFree(info);
+		
+		for (i=0;i < ns;i++){
+			m = ecalloc(1, sizeof(monitor));
+			createmon(m, i, info[i].x_org, info[i].y_org, info[i].width, info[i].height);
+	
+			if (!mhead){
+				mhead = m;
+	
+			/* works for me because I only use 2 monitors */
+			} else if (m->x < mhead->x){
+				tmp = mhead;
+				mhead = m;
+				mhead->next = tmp;
+
+			} else {
+				for (im=mhead;im->next;im=im->next);
+				im->next = m;
+			}
+		}
+
+		setcurrentmon(mhead);
+//		free(unique);
+		XFree(info);
+	}
+#endif
+	if (!mhead){
+		m = ecalloc(1, sizeof(monitor));
+		mhead = m;
+		createmon(m, 0, 0, 0, sw, sh);
+		setcurrentmon(m);
+	}
+}
+
+void setcurrentmon(monitor* m){
+	prev_enter = m->prev_enter;
+	just_switched = 0;
+	
+	curmon = m;
+}
+
+
+/* ---------------------------------------
  * Client Interfacing
  * ---------------------------------------
  */
 
 client* findcurrent(){
-	for EACHCLIENT(curmon->head) if ( ISVISIBLE(ic) && (ic->is_current & curmon->current_desktop) ){
+	for EACHCLIENT(curmon->head) if ( ISVISIBLE(ic) && (ic->is_current & curmon->curdesk) ){
 			return ic;
 		}
 
@@ -869,7 +1011,7 @@ void drawbar(monitor* m){
 	}
 	x -= lrpad / 2;
 	m->bar->scheme = scheme[SchNorm];
-	drawbartext(m, x, 0, TEXTW(m, current_layout->symbol), m->bar->height, lrpad / 2, current_layout->symbol);
+	drawbartext(m, x, 0, TEXTW(m, curmon->current_layout->symbol), m->bar->height, lrpad / 2, curmon->current_layout->symbol);
 
 	XCopyArea(dis, m->bar->d, m->bar->win, m->bar->gc, 0, 0, m->bar->width, m->bar->height, 0, 0);
 	XSync(dis, False);
@@ -972,10 +1114,10 @@ void updatestatus(){
 void changedesktop(const Arg arg){
 	client* c;
 
-//	if (curmon->current_desktop & 1 << arg.i) return;
+//	if (curmon->curdesk & 1 << arg.i) return;
 
 	loaddesktop(arg.i);
-	curmon->seldesks = curmon->current_desktop = 1 << arg.i;
+	curmon->seldesks = curmon->curdesk = 1 << arg.i;
 
 	mapclients();
 
@@ -983,7 +1125,7 @@ void changedesktop(const Arg arg){
 	if ( !(curmon->current = findcurrent()) && (c = findvisclient(curmon->head)) )
 		curmon->current = c;
 
-	current_layout->arrange();
+	curmon->current_layout->arrange();
 	just_switched = 1;
 	updatefocus();
 	updatestatus();
@@ -991,18 +1133,18 @@ void changedesktop(const Arg arg){
 
 void changemsize(const Arg arg){
 	int mw = curmon->w;
-	master_size += ( ((master_size < 0.95 * mw) && (arg.f > 0))
-			|| ((master_size > 0.05 * mw) && (arg.f < 0))  ) ? arg.f * mw : 0;
+	curmon->master_size += ( ((curmon->master_size < 0.95 * mw) && (arg.f > 0))
+			|| ((curmon->master_size > 0.05 * mw) && (arg.f < 0))  ) ? arg.f * mw : 0;
 
-	current_layout->arrange();
+	curmon->current_layout->arrange();
 }
 
 void loaddesktop(int i){
-	desktops[POSTOINT(curmon->current_desktop)].master_size = master_size;
-	desktops[POSTOINT(curmon->current_desktop)].current_layout = current_layout;
+	curmon->desktops[POSTOINT(curmon->curdesk)].master_size = curmon->master_size;
+	curmon->desktops[POSTOINT(curmon->curdesk)].current_layout = curmon->current_layout;
 
-	master_size = desktops[i].master_size;
-	current_layout = desktops[i].current_layout;
+	curmon->master_size = curmon->desktops[i].master_size;
+	curmon->current_layout = curmon->desktops[i].current_layout;
 }
 
 void monocle(){
@@ -1021,8 +1163,8 @@ void monocle(){
 }
 
 void setlayout(const Arg arg){
-	current_layout = (layout*) arg.v;
-	current_layout->arrange();
+	curmon->current_layout = (layout*) arg.v;
+	curmon->current_layout->arrange();
 	drawbars();
 }
 
@@ -1053,14 +1195,14 @@ void tile(){
 
 		/* Master window */
 		nf->x = x; nf->y = y;
-		nf->w = master_size; nf->h = mh;
+		nf->w = curmon->master_size; nf->h = mh;
 		XMoveResizeWindow(dis, nf->win, nf->x, nf->y, nf->w, nf->h);
 
 		/* Stack */
 		for EACHCLIENT(nf->next){
 			if (ISVISIBLE(ic) && !ic->is_float && !ic->is_full){
-				ic->x = x + master_size; ic->y = y;
-				ic->w = mw - master_size; ic->h = mh / n;
+				ic->x = x + curmon->master_size; ic->y = y;
+				ic->w = mw - curmon->master_size; ic->h = mh / n;
 				XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
 
 				y += mh / n;
@@ -1080,17 +1222,17 @@ void toggleview(const Arg arg){
 	curmon->seldesks ^= 1 << arg.i;
 	mapclients();
 
-	if (!(curmon->current_desktop & curmon->seldesks)){
+	if (!(curmon->curdesk & curmon->seldesks)){
 		for (i=0;i < TABLENGTH(tags);i++){
 			if (curmon->seldesks & 1 << i){
 				loaddesktop(i);
-				curmon->current_desktop = curmon->seldesks;
+				curmon->curdesk = curmon->seldesks;
 				break;
 			}
 		}
 	}
 
-	current_layout->arrange();
+	curmon->current_layout->arrange();
 	updatefocus();
 	updatestatus();
 }
@@ -1103,7 +1245,7 @@ void viewall(){
 	mapclients();
 	raisefloats();
 
-	current_layout->arrange();
+	curmon->current_layout->arrange();
 	updatefocus();
 	updatestatus();
 }
@@ -1301,160 +1443,4 @@ int main(){
 	cleanup();
 
 	return 0;
-}
-
-
-/* ---------------------------------------
- * Monitors
- * ---------------------------------------
- */
-
-void changemon(monitor* m, int focus){
-	/* save current */
-	curmon->desktops = desktops;
-	curmon->current_layout = current_layout;
-	curmon->master_size = master_size;
-
-	curmon->prev_enter = prev_enter;
-
-	/* select m */
-	setcurrentmon(m);
-
-	if (focus) updatefocus();
-	// this causes a crash
-	//updatestatus();
-}
-
-void createmon(monitor* m, int num, int x, int y, int w, int h){
-	int i;
-
-	m->num = num;
-	m->x = x; m->y = y;
-	m->w = w; m->h = h;
-
-	m->bar = initbar(m);
-
-	m->y = y + m->bar->height;
-	m->h = h - m->bar->height;
-
-	/* Default to first layout */
-	m->current_layout = (layout*) &layouts[0];
-	m->master_size = m->w * MASTER_SIZE;
-
-	m->desktops = ecalloc(TABLENGTH(tags), sizeof(desktop));
-	for (i=0;i < TABLENGTH(tags);i++){
-		m->desktops[i].current_layout = m->current_layout;
-		m->desktops[i].master_size = m->master_size;
-	}
-
-	/* Default to first desktop */
-	m->seldesks = m->current_desktop = 1 << 0;
-
-	m->head = NULL;
-	m->current = NULL;
-	m->prev_enter = prev_enter;
-}
-
-monitor* findmon(Window w){
-	monitor* im, * old_monitor = curmon;
-
-	for (im=mhead;im;im=im->next){
-		changemon(im, 0);
-		for EACHCLIENT(curmon->head){
-			if (ic->win == w){
-				changemon(old_monitor, 1);
-				return im;
-			}
-		}
-	}
-
-	return curmon;
-}
-
-void focusmon(const Arg arg){
-	monitor* m = NULL;
-
-	if (arg.i > 0){
-		if (curmon->next) m = curmon->next;
-
-	} else {
-		for (m=mhead;m && m->next != curmon;m=m->next);
-	}
-
-	if (m) changemon(m, 1);
-}
-
-/* TODO: Is this required for mirroring displays to work? */
-/* dwm copypasta */
-#ifdef XINERAMA
-static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo* info){
-	while (n--)
-		if (unique[n].x_org == info->x_org && unique[n].y_org == info->y_org
-		&& unique[n].width == info->width && unique[n].height == info->height)
-			return 0;
-	return 1;
-}
-#endif
-
-/* TODO: Support adding/removing monitors and transferring the clients */
-/* some dwm copypasta */
-void initmons(){
-	monitor* m;
-
-#ifdef XINERAMA
-	if (XineramaIsActive(dis)){
-		int i, j, ns;
-		monitor* im, * tmp;
-
-		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
-//		XineramaScreenInfo* unique;
-
-		/* only consider unique geometries as separate screens */
-//		unique = ecalloc(ns, sizeof(XineramaScreenInfo));
-//		for (i = 0, j = 0; i < ns; i++)
-//			if (isuniquegeom(unique, j, &info[i]))
-//				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
-//		XFree(info);
-		
-		for (i=0;i < ns;i++){
-			m = ecalloc(1, sizeof(monitor));
-			createmon(m, i, info[i].x_org, info[i].y_org, info[i].width, info[i].height);
-	
-			if (!mhead){
-				mhead = m;
-	
-			/* works for me because I only use 2 monitors */
-			} else if (m->x < mhead->x){
-				tmp = mhead;
-				mhead = m;
-				mhead->next = tmp;
-
-			} else {
-				for (im=mhead;im->next;im=im->next);
-				im->next = m;
-			}
-		}
-
-		setcurrentmon(mhead);
-//		free(unique);
-		XFree(info);
-	}
-#endif
-	if (!mhead){
-		m = ecalloc(1, sizeof(monitor));
-		mhead = m;
-		createmon(m, 0, 0, 0, sw, sh);
-		setcurrentmon(m);
-	}
-}
-
-void setcurrentmon(monitor* m){
-	desktops = m->desktops;
-	current_layout = m->current_layout;
-	master_size = m->master_size;
-	
-	prev_enter = m->prev_enter;
-	just_switched = 0;
-	
-	curmon = m;
 }
