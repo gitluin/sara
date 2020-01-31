@@ -27,7 +27,7 @@
 #define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
 #define ISVISIBLE(C)			((C->desktops & seldesks))
-#define TEXTW(X)			(gettextwidth(X, slen(X)) + lrpad)
+#define TEXTW(M,X)			(gettextwidth(M, X, slen(X)) + lrpad)
 #define EACHCLIENT(_I)			(ic=_I;ic;ic=ic->next) /* ic is a global */
 #define ISOUTSIDE(PX,PY,X,Y,W,H)	((PX > X + W || PX < X || PY > Y + H || PY < Y))
 #define POSTOINT(X)			((int)(ceil(log2(X)) == floor(log2(X)) ? ceil(log2(X)) : 0))
@@ -192,8 +192,8 @@ static void unmanage(client* c);
 static void updatefocus();
 
 /* Client Interfacing */
-static client* findclient(Window w);
 static client* findcurrent();
+static client* findclient();
 static client* findvisclient(client* c);
 static client* findprevclient(client* c, int is_vis);
 static void updateprev(client* c);
@@ -203,7 +203,7 @@ static void drawbar(monitor* m);
 static void drawbars();
 static int drawbartext(monitor* m, int x, int y, int w, int h, unsigned int lpad, const char* text);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
-static int gettextwidth(const char* str, int len);
+static int gettextwidth(monitor* m, const char* str, int len);
 static bar* initbar(monitor* m);
 static void updatestatus();
 
@@ -230,8 +230,9 @@ static void youviolatedmymother();
 static int xerror(Display* dis, XErrorEvent* ee);
 
 /* Monitors */
-static void changemon(monitor* m);
+static void changemon(monitor* m, int focus);
 static void createmon(monitor* m, int num, int x, int y, int w, int h);
+static monitor* findmon(Window w);
 static void focusmon(const Arg arg);
 static void initmons();
 static void setcurrentmon(monitor* m);
@@ -258,9 +259,6 @@ static client* current;
 static client* head;
 static client* prev_enter;
 static int just_switched;
-
-/* Bar */
-static bar* sbar;
 
 /* Desktop Interfacing */
 static layout* current_layout;
@@ -303,11 +301,12 @@ static void (*events[LASTEvent])(XEvent* e) = {
 /* dwm copypasta */
 void buttonpress(XEvent* e){
 	client *c;
+	monitor* m;
 	XButtonPressedEvent* ev = &e->xbutton;
 
 	/* focus monitor if necessary */
-//	if ( (m = wintomon(ev->window)) && m != currentmon )
-//		changemon(m);
+	if ( (m = findmon(ev->window)) && m != current_mon )
+		changemon(m, 1);
 
 	if ( (c = findclient(ev->window)) ){
 		updateprev(c);
@@ -336,12 +335,14 @@ void buttonpress(XEvent* e){
 /* dwm copypasta */
 void configurerequest(XEvent* e){
 	client* c;
+	monitor* m;
 	XConfigureRequestEvent* ev = &e->xconfigurerequest;
 
 	/* only honor requests if they should be honored */
 	if ( (c = findclient(ev->window)) && c->is_float){
-		if (ev->value_mask & CWX) c->x = 0 + ev->x;
-		if (ev->value_mask & CWY) c->y = (ev->y < sbar->height) ? sbar->height : ev->y;
+		m = findmon(c->win);
+		if (ev->value_mask & CWX) c->x = m->x + ev->x;
+		if (ev->value_mask & CWY) c->y = (ev->y < m->bar->height) ? m->bar->height : ev->y;
 		if (ev->value_mask & CWWidth) c->w = ev->width;
 		if (ev->value_mask & CWHeight) c->h = ev->height;
 		if ISVISIBLE(c) XMoveResizeWindow(dis, c->win, c->x, c->y, c->w, c->h);
@@ -421,7 +422,7 @@ void maprequest(XEvent* e){
 //		return;
 //
 //	if ( (m = recttomon(ev->x_root, ev->y_root, 1, 1)) && m != current_mon)
-//		changemon(m);
+//		changemon(m, 1);
 //}
 
 /* dwm copypasta */
@@ -724,7 +725,7 @@ void togglefloat(){
 	}
 
 	if (!current->is_float){
-		wc.sibling = sbar->win;
+		wc.sibling = current_mon->bar->win;
 		wc.stack_mode = Below;
 		XConfigureWindow(dis, current->win, CWSibling|CWStackMode, &wc);
 	}
@@ -775,16 +776,27 @@ void updatefocus(){
  * ---------------------------------------
  */
 
-client* findclient(Window w){
-	for EACHCLIENT(head) if (ic->win == w) return ic;
-
-	return NULL;
-}
-
 client* findcurrent(){
 	for EACHCLIENT(head) if ( ISVISIBLE(ic) && (ic->is_current & current_desktop) ){
 			return ic;
 		}
+
+	return NULL;
+}
+
+client* findclient(Window w){
+	monitor* im, * old_monitor = current_mon;
+
+	for (im=mhead;im;im=im->next){
+		changemon(im, 0);
+		for EACHCLIENT(head){
+			if (ic->win == w){
+				changemon(old_monitor, 1);
+				return ic;
+			}
+		}
+	}
+	changemon(old_monitor, 1);
 
 	return NULL;
 }
@@ -838,12 +850,12 @@ void drawbar(monitor* m){
 	XFillRectangle(dis, m->bar->d, m->bar->gc, 0, 0, sw, m->bar->height);
 
 	/* draw status */
-	xsetr_text_w = TEXTW(xsetr_text) - lrpad + 2; /* 2px right padding */
+	xsetr_text_w = TEXTW(m, xsetr_text) - lrpad + 2; /* 2px right padding */
 	drawbartext(m, m->bar->width - xsetr_text_w, 0, xsetr_text_w, m->bar->height, 0, xsetr_text);
 
-	changemon(m);
+	changemon(m, 0);
 	for EACHCLIENT(head) occ |= ic->desktops;
-	changemon(old_monitor);
+	changemon(old_monitor, 1);
 
 	/* draw tags */
 	for (j=0;j<TABLENGTH(tags);j++){
@@ -854,13 +866,15 @@ void drawbar(monitor* m){
 
 		m->bar->scheme = scheme[is_sel ? SchSel : SchNorm];
 
-		x = drawbartext(m, x, 0, TEXTW(syms[SymLeft]) + 1, m->bar->height, 0, is_sel ? syms[SymLeft] : " ") - lrpad;
-		x = drawbartext(m, x, 0, TEXTW(tags[j]), m->bar->height, 0, tags[j]) - lrpad + 2;
-		x = drawbartext(m, x, 0, TEXTW(syms[SymRight]), m->bar->height, 0, is_sel ? syms[SymRight] : " ") - lrpad / 2;
+		x = drawbartext(m, x, 0, TEXTW(m, syms[SymLeft]) + 1, m->bar->height, 0,
+				is_sel ? syms[SymLeft] : " ") - lrpad;
+		x = drawbartext(m, x, 0, TEXTW(m, tags[j]), m->bar->height, 0, tags[j]) - lrpad + 2;
+		x = drawbartext(m, x, 0, TEXTW(m, syms[SymRight]), m->bar->height, 0,
+				is_sel ? syms[SymRight] : " ") - lrpad / 2;
 	}
 	x -= lrpad / 2;
 	m->bar->scheme = scheme[SchNorm];
-	drawbartext(m, x, 0, TEXTW(current_layout->symbol), m->bar->height, lrpad / 2, current_layout->symbol);
+	drawbartext(m, x, 0, TEXTW(m, current_layout->symbol), m->bar->height, lrpad / 2, current_layout->symbol);
 
 	XCopyArea(dis, m->bar->d, m->bar->win, m->bar->gc, 0, 0, m->bar->width, m->bar->height, 0, 0);
 	XSync(dis, False);
@@ -908,14 +922,16 @@ int gettextprop(Window w, Atom atom, char *text, unsigned int size){
 }
 
 /* does anything here need to be free() or XFree()? */
-int gettextwidth(const char* str, int len){
+int gettextwidth(monitor* m, const char* str, int len){
 	XGlyphInfo xgi;
-	XftTextExtents8(dis, sbar->xfont, (XftChar8*)str, len, &xgi);
+	XftTextExtents8(dis, m->bar->xfont, (XftChar8*)str, len, &xgi);
 
 	return xgi.width;
 }
 
 bar* initbar(monitor* m){
+	bar* sbar;
+
 	XSetWindowAttributes wa = {
 		.override_redirect = True,
 		.background_pixmap = ParentRelative,
@@ -1292,7 +1308,13 @@ int main(){
 	return 0;
 }
 
-void changemon(monitor* m){
+
+/* ---------------------------------------
+ * Monitors
+ * ---------------------------------------
+ */
+
+void changemon(monitor* m, int focus){
 	/* save current */
 	current_mon->desktops = desktops;
 	current_mon->current_layout = current_layout;
@@ -1307,7 +1329,7 @@ void changemon(monitor* m){
 	/* select m */
 	setcurrentmon(m);
 
-	updatefocus();
+	if (focus) updatefocus();
 	// this causes a crash
 	//updatestatus();
 }
@@ -1323,7 +1345,6 @@ void createmon(monitor* m, int num, int x, int y, int w, int h){
 
 	m->y = y + m->bar->height;
 	m->h = h - m->bar->height;
-
 
 	/* Default to first layout */
 	m->current_layout = (layout*) &layouts[0];
@@ -1343,6 +1364,22 @@ void createmon(monitor* m, int num, int x, int y, int w, int h){
 	m->prev_enter = prev_enter;
 }
 
+monitor* findmon(Window w){
+	monitor* im, * old_monitor = current_mon;
+
+	for (im=mhead;im;im=im->next){
+		changemon(im, 0);
+		for EACHCLIENT(head){
+			if (ic->win == w){
+				changemon(old_monitor, 1);
+				return im;
+			}
+		}
+	}
+
+	return current_mon;
+}
+
 void focusmon(const Arg arg){
 	monitor* m = NULL;
 
@@ -1353,9 +1390,10 @@ void focusmon(const Arg arg){
 		for (m=mhead;m && m->next != current_mon;m=m->next);
 	}
 
-	if (m) changemon(m);
+	if (m) changemon(m, 1);
 }
 
+/* TODO: Is this required for mirroring displays to work? */
 /* dwm copypasta */
 #ifdef XINERAMA
 static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo* info){
@@ -1389,8 +1427,6 @@ void initmons(){
 		
 		for (i=0;i < ns;i++){
 			m = ecalloc(1, sizeof(monitor));
-			//createmon(m, i, unique[i].x_org, unique[i].y_org, unique[i].width,
-			//		unique[i].height, sbar);
 			createmon(m, i, info[i].x_org, info[i].y_org, info[i].width, info[i].height);
 	
 			if (!mhead){

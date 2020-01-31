@@ -67,7 +67,6 @@ static const layout layouts[] = {
 	{ "[M]",      monocle  },
 };
 
-/* change desktop, add to desktop, move to only desktop */
 /* dwm copypasta */
 #define DESKTOPCHANGE(K,N) \
     {  MOD,             	    K,	changedesktop, 		{.i = N}}, \
