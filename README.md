@@ -13,6 +13,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.9.2.2	- No more global current, head, seldesks, current\_desktop. Tag drawing in bars duly fixed.
  * v0.9.2.1	- viewall desktops at once (MOD + XK\_0)
  * v0.9.2	- Multiple monitors! Stable, but buggy. Currently there are some weird focusing issues and tags in the bars are not per-monitor.
  * v0.8.7.7	- just\_switched flag prevents behavior I mentioned might bug me (0.8.7.4)
