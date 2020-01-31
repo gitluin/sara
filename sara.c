@@ -405,6 +405,7 @@ void maprequest(XEvent* e){
 	}
 }
 
+/* TODO: implement recttomon */
 //void motionnotify(XEvent* e){
 //	Monitor *m;
 //	XMotionEvent *ev = &e->xmotion;
