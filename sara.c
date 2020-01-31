@@ -214,7 +214,8 @@ static void loaddesktop(int i);
 static void monocle();
 static void setlayout(const Arg arg);
 static void tile();
-static void view(const Arg arg);
+static void toggleview(const Arg arg);
+static void viewall();
 
 /* Backend */
 static void cleanup();
@@ -960,7 +961,7 @@ void updatestatus(){
 void changedesktop(const Arg arg){
 	client* c;
 
-	if (current_desktop & 1 << arg.i) return;
+//	if (current_desktop & 1 << arg.i) return;
 
 	loaddesktop(arg.i);
 	seldesks = current_desktop = 1 << arg.i;
@@ -999,12 +1000,13 @@ void monocle(){
 	int mw = current_mon->w;
 	int y = current_mon->y;
 
-	raisefloats();
 	for EACHCLIENT(head) if (ISVISIBLE(ic) && !ic->is_float){
 			ic->x = 0; ic->y = y;
 			ic->w = mw; ic->h = mh;
 			XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
 		} 
+
+	raisefloats();
 }
 
 void setlayout(const Arg arg){
@@ -1028,8 +1030,6 @@ void tile(){
 			nf = (!nf) ? ic : nf;
 			n++;
 		}
-
-	raisefloats();
 
 	if (nf && n == 1){
 		nf->x = x; nf->y = y;
@@ -1056,9 +1056,11 @@ void tile(){
 			}
 		}
 	}
+
+	raisefloats();
 }
 
-void view(const Arg arg){
+void toggleview(const Arg arg){
 	int i;
 
 	/* if this would leave nothing visible */
@@ -1082,6 +1084,19 @@ void view(const Arg arg){
 	updatestatus();
 }
 
+void viewall(){
+	int i;
+	seldesks = 0;
+	for (i=0;i < TABLENGTH(tags);i++) seldesks ^= 1 << i;
+
+	mapclients();
+	raisefloats();
+
+	current_layout->arrange();
+	updatefocus();
+	updatestatus();
+}
+
 
 /* ---------------------------------------
  * Backend
@@ -1096,10 +1111,10 @@ void cleanup(){
 	int i;
 	monitor* m, * tmp;
 
-	while (current) killclient();
-
 	m = mhead;
 	while (m){
+		while (current) killclient();
+
 		free(m->desktops);
 		XftDrawDestroy(m->bar->xd);
 		XFreeGC(dis, m->bar->gc);
@@ -1112,6 +1127,7 @@ void cleanup(){
 		tmp = m->next;
 		free(m);
 		m = tmp;
+		setcurrentmon(m);
 	}
 
 	/* This ain't pretty, but it gets the job done (Without memory leak? Not sure) */
@@ -1292,6 +1308,7 @@ void changemon(monitor* m){
 	setcurrentmon(m);
 
 	updatefocus();
+	// this causes a crash
 	//updatestatus();
 }
 

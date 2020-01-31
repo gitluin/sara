@@ -13,6 +13,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.9.2.1	- viewall desktops at once (MOD + XK\_0)
  * v0.9.2	- Multiple monitors! Stable, but buggy. Currently there are some weird focusing issues and tags in the bars are not per-monitor.
  * v0.8.7.7	- just\_switched flag prevents behavior I mentioned might bug me (0.8.7.4)
  * v0.8.7.6	- drawing focus with buttonpress() works!!!!
@@ -80,8 +81,9 @@ Keys
 | -----------------------------	| -----------------------------------------------------	|
 | Mod+NUMKEY			| Switch to desktop NUMKEY				|
 | Mod+Shift+NUMKEY		| Add focused client to desktop NUMKEY			|
-| Mod+Control+NUMKEY		| Add desktop NUMKEY to current view			|
+| Mod+Control+NUMKEY		| Toggle desktop NUMKEY to current view			|
 | Mod+Shift+Control+NUMKEY	| Put focused client on only desktop NUMKEY		|
+| Mod+XK\_0			| View all desktops					|
 | Mod+T				| Spawn st						|
 | Mod+W				| Spawn firefox						|
 | Mod+F				| Spawn vifm						|
@@ -108,6 +110,7 @@ Bugs
  * Function spawns don't play nice if they hang around and you try to kill them before they go poof
  * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc.
  * Need to XFree() in applyrules, I think? T'is unclear
+ * Sometimes, download dialogs from Firefox end up in 9th hellspace
 
 To Do
 ----

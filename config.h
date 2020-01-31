@@ -72,7 +72,7 @@ static const layout layouts[] = {
 #define DESKTOPCHANGE(K,N) \
     {  MOD,             	    K,	changedesktop, 		{.i = N}}, \
     {  MOD|ShiftMask,   	    K,  toggledesktop, 		{.i = N}}, \
-    {  MOD|ControlMask,   	    K,  view,		 	{.i = N}}, \
+    {  MOD|ControlMask,   	    K,  toggleview,		{.i = N}}, \
     {  MOD|ControlMask|ShiftMask,   K,  todesktop, 		{.i = N}},
 
 #define XK_BDOWN 	XF86XK_MonBrightnessDown
@@ -145,6 +145,8 @@ static struct key keys[] = {
 	{ MOD,             	     XK_Return, 	swapmaster,   		{0} },
 	/* Go fullscreen, my dude */
 	{ MOD|ShiftMask,	     XK_Return,		togglefs,		{0} },
+	/* view all desktops */
+	{ MOD,                       XK_0,      	viewall,          	{0} },
 	/* Custom commands */
 	{ MOD,                       XK_d,      	spawn,         		{.v = dmenucmd } },
 	{ MOD,	                     XK_t, 		spawn,         		{.v = termcmd } },
