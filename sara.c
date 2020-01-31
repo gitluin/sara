@@ -26,7 +26,7 @@
 
 #define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
-#define ISVISIBLE(C)			((C->desktops & curmon->seldesks))
+#define ISVISIBLE(C)			((C->desks & curmon->seldesks))
 #define TEXTW(M,X)			(gettextwidth(M, X, slen(X)) + lrpad)
 #define EACHCLIENT(_I)			(ic=_I;ic;ic=ic->next) /* ic is a global */
 #define ISOUTSIDE(PX,PY,X,Y,W,H)	((PX > X + W || PX < X || PY > Y + H || PY < Y))
@@ -50,6 +50,11 @@ typedef union {
  * ---------------------------------------
  */
 
+typedef struct bar bar;
+typedef struct client client;
+typedef struct desktop desktop;
+typedef struct monitor monitor;
+
 struct key {
 	unsigned int mod;
 	KeySym keysym;
@@ -57,10 +62,8 @@ struct key {
 	const Arg arg;
 };
 
-typedef struct bar bar;
 struct bar {
-	int width;
-	int height;
+	int w, h;
 	XftColor* scheme;
 	Drawable d;
 	XftFont* xfont;
@@ -69,56 +72,53 @@ struct bar {
 	XftDraw* xd;
 };
 
-typedef struct client client;
 struct client {
 	client* next;
 	Window win;
-	unsigned int desktops;
-	unsigned int is_current;
+	unsigned int desks;
+	unsigned int iscur;
 	int x, y, w, h;
 	/* being in monocle is not considered floating */
-	int is_float;
-	int is_full;
+	int isfloat;
+	int isfull;
 	//int no_focus;
 }; 
 
 typedef struct {
 	const char* symbol;
-	void (*arrange)();
+	void (*arrange)(monitor*);
 } layout;
 
-typedef struct desktop desktop;
 struct desktop {
-	float master_size;
-	layout* current_layout;
+	float msize;
+	layout* curlayout;
 };
 
 typedef struct {
 	const char* title;
-	int desktopmask;
-	int is_float;
+	int deskmask;
+	int isfloat;
 } rule;
 
 typedef struct {
 	int x, y;
 } point;
 
-typedef struct monitor monitor;
 struct monitor {
 	/* monitor */
 	int x, y, h, w;
 	int num;
 	bar* bar;
 	monitor* next;
-	/* desktops */
-	float master_size;
+	/* desks */
+	float msize;
 	unsigned int seldesks;
 	unsigned int curdesk;
 	client* current;
 	client* head;
-	client* prev_enter;
-	desktop* desktops;
-	layout* current_layout;
+	client* preventer;
+	desktop* desks;
+	layout* curlayout;
 };
 
 
@@ -174,7 +174,7 @@ static void propertynotify(XEvent* e);
 /* Client & Linked List Manipulation */
 static void applyrules(client* c);
 static void attachaside(client* c);
-static void changecurrent(client* c, unsigned int desktopmask);
+static void changecurrent(client* c, unsigned int deskmask);
 static void detach(client* c);
 static void killclient();
 static void manage(Window parent, XWindowAttributes* wa);
@@ -203,7 +203,7 @@ static void setcurrentmon(monitor* m);
 static client* findcurrent();
 static client* findclient();
 static client* findvisclient(client* c);
-static client* findprevclient(client* c, int is_vis);
+static client* findprevclient(client* c, int wantvis);
 static void updateprev(client* c);
 
 /* Bar */
@@ -227,7 +227,7 @@ static void viewall();
 
 /* Backend */
 static void cleanup();
-static int getpointcoords(int ret_y);
+static int getpointcoords(int rety);
 static void grabkeys();
 static XftColor* scheme_create(const char* clrnames[], size_t clrcount);
 static void setup();
@@ -255,8 +255,8 @@ static Display* dis;
 static Window root;
 
 /* Client Interfacing */
-static client* prev_enter;
-static int just_switched;
+static client* preventer;
+static int justswitch;
 
 /* Backend */
 static client* ic; /* for EACHCLIENT iterating */
@@ -312,13 +312,13 @@ void buttonpress(XEvent* e){
 //	XConfigureEvent* ev = &e->xconfigure;
 //
 //	if (ev->window == root){
-//		curmon->bar->width = ev->width;
+//		curmon->bar->w = ev->width;
 //		XFreePixmap(dis, curmon->bar->d);
-//		curmon->bar->d = XCreatePixmap(dis, root, curmon->bar->width,
-//				curmon->bar->height, DefaultDepth(dis,screen));
+//		curmon->bar->d = XCreatePixmap(dis, root, curmon->bar->w,
+//				curmon->bar->h, DefaultDepth(dis,screen));
 //
-//		XMoveResizeWindow(dis, curmon->bar->win, 0, 0, curmon->bar->width,
-//				curmon->bar->height);
+//		XMoveResizeWindow(dis, curmon->bar->win, 0, 0, curmon->bar->w,
+//				curmon->bar->h);
 //		drawbar(curmon);
 //	}
 //}
@@ -330,10 +330,10 @@ void configurerequest(XEvent* e){
 	XConfigureRequestEvent* ev = &e->xconfigurerequest;
 
 	/* only honor requests if they should be honored */
-	if ( (c = findclient(ev->window)) && c->is_float){
+	if ( (c = findclient(ev->window)) && c->isfloat){
 		m = findmon(c->win);
 		if (ev->value_mask & CWX) c->x = m->x + ev->x;
-		if (ev->value_mask & CWY) c->y = (ev->y < m->bar->height) ? m->bar->height : ev->y;
+		if (ev->value_mask & CWY) c->y = (ev->y < m->bar->h) ? m->bar->h : ev->y;
 		if (ev->value_mask & CWWidth) c->w = ev->width;
 		if (ev->value_mask & CWHeight) c->h = ev->height;
 		if ISVISIBLE(c) XMoveResizeWindow(dis, c->win, c->x, c->y, c->w, c->h);
@@ -359,15 +359,15 @@ void enternotify(XEvent* e){
 	if ( (ev->mode != NotifyNormal || ev->detail == NotifyInferior) && ev->window != root )
 		return;
 
-	if ( !(c = findclient(ev->window)) || just_switched ){
-		just_switched = 0;
+	if ( !(c = findclient(ev->window)) || justswitch ){
+		justswitch = 0;
 		return;
 	}
 
 	/* if we haven't moved, and the window is the same */
-	if (prev_enter && !ISOUTSIDE(getpointcoords(0), getpointcoords(1), prev_enter->x,
-				prev_enter->y, prev_enter->w, prev_enter->h))
-			//&& prev_enter->win == c->win)
+	if (preventer && !ISOUTSIDE(getpointcoords(0), getpointcoords(1), preventer->x,
+				preventer->y, preventer->w, preventer->h))
+			//&& preventer->win == c->win)
 		return;
 
 	updateprev(c);
@@ -400,7 +400,7 @@ void maprequest(XEvent* e){
 
 	if ( XGetWindowAttributes(dis, ev->window, &wa) && !wa.override_redirect && !findclient(ev->window) ){
 		manage(ev->window, &wa);
-		curmon->current_layout->arrange();
+		curmon->curlayout->arrange(curmon);
 		updatefocus();
 	}
 }
@@ -444,8 +444,8 @@ void applyrules(client* c){
 	for (i=0;i<TABLENGTH(rules);i++){
 		r = &rules[i];
 		if ( !r->title || (tp.value && strstr(r->title, (const char*)tp.value)) ){
-			if (r->desktopmask > 0) c->desktops = 1 << r->desktopmask;
-			c->is_float = r->is_float;
+			if (r->deskmask > 0) c->desks = 1 << r->deskmask;
+			c->isfloat = r->isfloat;
 		}
 	}
 
@@ -475,14 +475,14 @@ void attachaside(client* c){
 	changecurrent(c, curmon->curdesk);
 }
 
-void changecurrent(client* c, unsigned int desktopmask){
+void changecurrent(client* c, unsigned int deskmask){
 	if (c){
-		c->is_current ^= desktopmask;
+		c->iscur ^= deskmask;
 		XUngrabButton(dis, Button1, AnyModifier, c->win);
 	}
 	
-	for EACHCLIENT(curmon->head) if ( ic != c && (ic->is_current & desktopmask) ){
-			ic->is_current ^= desktopmask;
+	for EACHCLIENT(curmon->head) if ( ic != c && (ic->iscur & deskmask) ){
+			ic->iscur ^= deskmask;
 			XGrabButton(dis, Button1, 0, ic->win, False, BUTTONMASK,
 					GrabModeAsync, GrabModeSync, None, None);
 		}
@@ -535,15 +535,15 @@ void manage(Window parent, XWindowAttributes* wa){
 		die("Error while callocing new client!");
 
 	c->win = parent;
-	c->is_float = 0;
-	c->is_full = 0;
-	c->is_current = 0;
-	c->desktops = curmon->curdesk;
+	c->isfloat = 0;
+	c->isfull = 0;
+	c->iscur = 0;
+	c->desks = curmon->curdesk;
 
 	c->x = wa->x; c->y = wa->y;
 	c->w = wa->width; c->h = wa->height;
 
-	if (!(prev_enter->win) || !findclient(prev_enter->win))
+	if (!(preventer->win) || !findclient(preventer->win))
 		updateprev(c);
 
 	applyrules(c);
@@ -552,7 +552,7 @@ void manage(Window parent, XWindowAttributes* wa){
 	 * 	hide_client(c);
 	 *	refocus(curmon->current->next, curmon->current);
 	 * }
-	 * curmon->current_layout->arrange();
+	 * curmon->curlayout->arrange(curmon);
 	 */
 	XMapWindow(dis, c->win);
 	drawbars();
@@ -565,7 +565,7 @@ void mapclients(){
 void moveclient(const Arg arg){
 	client* p, * mp, * n;
 
-	if (!curmon->current || curmon->current->is_full)
+	if (!curmon->current || curmon->current->isfull)
 		return;
 
 	p = findprevclient(curmon->current, NoVis);
@@ -595,7 +595,7 @@ void moveclient(const Arg arg){
 			p->next = n;
 	}
 
-	curmon->current_layout->arrange();
+	curmon->curlayout->arrange(curmon);
 	updatefocus();
 	drawbars();
 }
@@ -604,7 +604,7 @@ void moveclient(const Arg arg){
 void movefocus(const Arg arg){
 	client* j, * c = NULL;
 
-	if ( !curmon->current || curmon->current->is_full )
+	if ( !curmon->current || curmon->current->isfull )
 		return;
 
 	/* up stack */
@@ -629,7 +629,7 @@ void movefocus(const Arg arg){
 }
 
 void raisefloats(){
-	for EACHCLIENT(curmon->head) if (ISVISIBLE(ic) && ic->is_float){
+	for EACHCLIENT(curmon->head) if (ISVISIBLE(ic) && ic->isfloat){
 			XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
 			XRaiseWindow(dis, ic->win);
 		}
@@ -656,7 +656,7 @@ void swapmaster(){
 		curmon->current->next = tmp;
 		curmon->head = curmon->current;
 
-		curmon->current_layout->arrange();
+		curmon->curlayout->arrange(curmon);
 		updatefocus();
 	}
 }
@@ -664,28 +664,28 @@ void swapmaster(){
 void todesktop(const Arg arg){
 	if (curmon->curdesk & 1 << arg.i) return;
 
-	curmon->current->desktops = 1 << arg.i;
-	curmon->current->is_current = 0;
+	curmon->current->desks = 1 << arg.i;
+	curmon->current->iscur = 0;
 	changecurrent(curmon->current, 1 << arg.i);
 
 	XUnmapWindow(dis, curmon->current->win);
 	XSync(dis, False);
 
 	refocus(curmon->current->next, curmon->current);
-	curmon->current_layout->arrange();
+	curmon->curlayout->arrange(curmon);
 	updatefocus();
 	updatestatus();
 }
 
 void toggledesktop(const Arg arg){
-	unsigned int new_desktops;
+	unsigned int new_desks;
 
 	if (!curmon->current) return;
 
-	new_desktops = curmon->current->desktops ^ 1 << arg.i;
-	if (new_desktops){
-		curmon->current->desktops = new_desktops;
-		curmon->current->is_current = 0;
+	new_desks = curmon->current->desks ^ 1 << arg.i;
+	if (new_desks){
+		curmon->current->desks = new_desks;
+		curmon->current->iscur = 0;
 		changecurrent(curmon->current, 1 << arg.i);
 
 		if ( !(ISVISIBLE(curmon->current)) ){
@@ -694,7 +694,7 @@ void toggledesktop(const Arg arg){
 			refocus(curmon->current->next, curmon->current);
 		}
 
-		curmon->current_layout->arrange();
+		curmon->curlayout->arrange(curmon);
 		updatefocus();
 		updatestatus();
 	}
@@ -703,19 +703,19 @@ void toggledesktop(const Arg arg){
 void togglefloat(){
 	XWindowChanges wc;
 
-	if (!curmon->current || curmon->current->is_full) return;
+	if (!curmon->current || curmon->current->isfull) return;
 
-	curmon->current->is_float = !curmon->current->is_float;
-	curmon->current_layout->arrange();
+	curmon->current->isfloat = !curmon->current->isfloat;
+	curmon->curlayout->arrange(curmon);
 
-	if (curmon->current->is_float){
+	if (curmon->current->isfloat){
 		wc.sibling = curmon->current->win;
 		wc.stack_mode = Below;
 
 		for EACHCLIENT(curmon->head) XConfigureWindow(dis, ic->win, CWSibling|CWStackMode, &wc);
 	}
 
-	if (!curmon->current->is_float){
+	if (!curmon->current->isfloat){
 		wc.sibling = curmon->bar->win;
 		wc.stack_mode = Below;
 		XConfigureWindow(dis, curmon->current->win, CWSibling|CWStackMode, &wc);
@@ -725,15 +725,15 @@ void togglefloat(){
 void togglefs(){
 	if (!curmon->current) return;
 
-	curmon->current->is_full = !curmon->current->is_full;
+	curmon->current->isfull = !curmon->current->isfull;
 	/* a pecularity of my implementation - will remain as such unless I decide to implement oldx, oldy, etc. for clients */
-	curmon->current->is_float = 0;
+	curmon->current->isfloat = 0;
 
-	if (curmon->current->is_full){
+	if (curmon->current->isfull){
 		curmon->current->x = curmon->x;
 		curmon->current->y = 0;
 		curmon->current->w = curmon->w;
-		curmon->current->h = curmon->h + curmon->bar->height;
+		curmon->current->h = curmon->h + curmon->bar->h;
 		XMoveResizeWindow(dis, curmon->current->win, curmon->current->x, curmon->current->y,
 				curmon->current->w, curmon->current->h);
 		XRaiseWindow(dis, curmon->current->win);
@@ -741,7 +741,7 @@ void togglefs(){
 		XUnmapWindow(dis, curmon->bar->win);
 
 	} else {
-		curmon->current_layout->arrange();
+		curmon->curlayout->arrange(curmon);
 
 		XMapRaised(dis, curmon->bar->win);
 		drawbars();
@@ -752,7 +752,7 @@ void togglefs(){
 void unmanage(client* c){
 	detach(c);
 	free(c);
-	curmon->current_layout->arrange();
+	curmon->curlayout->arrange(curmon);
 	updatefocus();
 }
 
@@ -772,7 +772,7 @@ void updatefocus(){
 
 void changemon(monitor* m, int focus){
 	/* save current */
-	curmon->prev_enter = prev_enter;
+	curmon->preventer = preventer;
 
 	/* select m */
 	setcurrentmon(m);
@@ -791,17 +791,17 @@ void createmon(monitor* m, int num, int x, int y, int w, int h){
 
 	m->bar = initbar(m);
 
-	m->y = y + m->bar->height;
-	m->h = h - m->bar->height;
+	m->y = y + m->bar->h;
+	m->h = h - m->bar->h;
 
 	/* Default to first layout */
-	m->current_layout = (layout*) &layouts[0];
-	m->master_size = m->w * MASTER_SIZE;
+	m->curlayout = (layout*) &layouts[0];
+	m->msize = m->w * MASTER_SIZE;
 
-	m->desktops = ecalloc(TABLENGTH(tags), sizeof(desktop));
+	m->desks = ecalloc(TABLENGTH(tags), sizeof(desktop));
 	for (i=0;i < TABLENGTH(tags);i++){
-		m->desktops[i].current_layout = m->current_layout;
-		m->desktops[i].master_size = m->master_size;
+		m->desks[i].curlayout = m->curlayout;
+		m->desks[i].msize = m->msize;
 	}
 
 	/* Default to first desktop */
@@ -809,7 +809,7 @@ void createmon(monitor* m, int num, int x, int y, int w, int h){
 
 	m->head = NULL;
 	m->current = NULL;
-	m->prev_enter = prev_enter;
+	m->preventer = preventer;
 }
 
 monitor* findmon(Window w){
@@ -906,8 +906,8 @@ void initmons(){
 }
 
 void setcurrentmon(monitor* m){
-	prev_enter = m->prev_enter;
-	just_switched = 0;
+	preventer = m->preventer;
+	justswitch = 0;
 	
 	curmon = m;
 }
@@ -919,7 +919,7 @@ void setcurrentmon(monitor* m){
  */
 
 client* findcurrent(){
-	for EACHCLIENT(curmon->head) if ( ISVISIBLE(ic) && (ic->is_current & curmon->curdesk) ){
+	for EACHCLIENT(curmon->head) if ( ISVISIBLE(ic) && (ic->iscur & curmon->curdesk) ){
 			return ic;
 		}
 
@@ -943,14 +943,14 @@ client* findclient(Window w){
 	return NULL;
 }
 
-client* findprevclient(client* c, int is_vis){
+client* findprevclient(client* c, int wantvis){
 	client* i, * ret = NULL;
 	for (i=curmon->head;i && i != c;i=i->next){
-		if (is_vis)
+		if (wantvis)
 			if ISVISIBLE(i) ret = i;
 
 		if (i->next == c){
-			if (is_vis)
+			if (wantvis)
 				return ISVISIBLE(i) ? i : ret;
 			else
 				return i;
@@ -967,9 +967,9 @@ client* findvisclient(client* c){
 }
 
 void updateprev(client* c){
-	prev_enter->win = c->win;
-	prev_enter->x = c->x; prev_enter->y = c->y;
-	prev_enter->w = c->w; prev_enter->h = c->h;
+	preventer->win = c->win;
+	preventer->x = c->x; preventer->y = c->y;
+	preventer->w = c->w; preventer->h = c->h;
 }
 
 
@@ -986,13 +986,13 @@ void drawbar(monitor* m){
 	/* draw background */
 	m->bar->scheme = scheme[SchNorm];
 	XSetForeground(dis, m->bar->gc, m->bar->scheme[ColBg].pixel);
-	XFillRectangle(dis, m->bar->d, m->bar->gc, 0, 0, sw, m->bar->height);
+	XFillRectangle(dis, m->bar->d, m->bar->gc, 0, 0, sw, m->bar->h);
 
 	/* draw status */
 	xsetr_text_w = TEXTW(m, xsetr_text) - lrpad + 2; /* 2px right padding */
-	drawbartext(m, m->bar->width - xsetr_text_w, 0, xsetr_text_w, m->bar->height, 0, xsetr_text);
+	drawbartext(m, m->bar->w - xsetr_text_w, 0, xsetr_text_w, m->bar->h, 0, xsetr_text);
 
-	for EACHCLIENT(m->head) occ |= ic->desktops;
+	for EACHCLIENT(m->head) occ |= ic->desks;
 
 	/* draw tags */
 	for (j=0;j<TABLENGTH(tags);j++){
@@ -1003,17 +1003,17 @@ void drawbar(monitor* m){
 
 		m->bar->scheme = scheme[is_sel ? SchSel : SchNorm];
 
-		x = drawbartext(m, x, 0, TEXTW(m, syms[SymLeft]) + 1, m->bar->height, 0,
+		x = drawbartext(m, x, 0, TEXTW(m, syms[SymLeft]) + 1, m->bar->h, 0,
 				is_sel ? syms[SymLeft] : " ") - lrpad;
-		x = drawbartext(m, x, 0, TEXTW(m, tags[j]), m->bar->height, 0, tags[j]) - lrpad + 2;
-		x = drawbartext(m, x, 0, TEXTW(m, syms[SymRight]), m->bar->height, 0,
+		x = drawbartext(m, x, 0, TEXTW(m, tags[j]), m->bar->h, 0, tags[j]) - lrpad + 2;
+		x = drawbartext(m, x, 0, TEXTW(m, syms[SymRight]), m->bar->h, 0,
 				is_sel ? syms[SymRight] : " ") - lrpad / 2;
 	}
 	x -= lrpad / 2;
 	m->bar->scheme = scheme[SchNorm];
-	drawbartext(m, x, 0, TEXTW(m, curmon->current_layout->symbol), m->bar->height, lrpad / 2, curmon->current_layout->symbol);
+	drawbartext(m, x, 0, TEXTW(m, curmon->curlayout->symbol), m->bar->h, lrpad / 2, curmon->curlayout->symbol);
 
-	XCopyArea(dis, m->bar->d, m->bar->win, m->bar->gc, 0, 0, m->bar->width, m->bar->height, 0, 0);
+	XCopyArea(dis, m->bar->d, m->bar->win, m->bar->gc, 0, 0, m->bar->w, m->bar->h, 0, 0);
 	XSync(dis, False);
 }
 
@@ -1081,13 +1081,13 @@ bar* initbar(monitor* m){
 
 	lrpad = sbar->xfont->ascent + sbar->xfont->descent;
 
-	sbar->height = sbar->xfont->ascent + sbar->xfont->descent + 2;
-	sbar->width = m->w;
+	sbar->h = sbar->xfont->ascent + sbar->xfont->descent + 2;
+	sbar->w = m->w;
 	sbar->d = XCreatePixmap(dis, root, m->w, m->h, DefaultDepth(dis, screen));
 	sbar->gc = XCreateGC(dis, sbar->d, 0, NULL);
 	sbar->xd = XftDrawCreate(dis, sbar->d, DefaultVisual(dis,screen), DefaultColormap(dis,screen));
 
-	sbar->win = XCreateWindow(dis, root, m->x, m->y, sbar->width, sbar->height, 0, 
+	sbar->win = XCreateWindow(dis, root, m->x, m->y, sbar->w, sbar->h, 0, 
 			DefaultDepth(dis, screen), InputOutput, DefaultVisual(dis,screen), 
 			CWOverrideRedirect|CWBackPixel|CWBorderPixel|CWColormap|CWEventMask, &wa);
 
@@ -1125,37 +1125,32 @@ void changedesktop(const Arg arg){
 	if ( !(curmon->current = findcurrent()) && (c = findvisclient(curmon->head)) )
 		curmon->current = c;
 
-	curmon->current_layout->arrange();
-	just_switched = 1;
+	curmon->curlayout->arrange(curmon);
+	justswitch = 1;
 	updatefocus();
 	updatestatus();
 }
 
 void changemsize(const Arg arg){
 	int mw = curmon->w;
-	curmon->master_size += ( ((curmon->master_size < 0.95 * mw) && (arg.f > 0))
-			|| ((curmon->master_size > 0.05 * mw) && (arg.f < 0))  ) ? arg.f * mw : 0;
+	curmon->msize += ( ((curmon->msize < 0.95 * mw) && (arg.f > 0))
+			|| ((curmon->msize > 0.05 * mw) && (arg.f < 0))  ) ? arg.f * mw : 0;
 
-	curmon->current_layout->arrange();
+	curmon->curlayout->arrange(curmon);
 }
 
 void loaddesktop(int i){
-	curmon->desktops[POSTOINT(curmon->curdesk)].master_size = curmon->master_size;
-	curmon->desktops[POSTOINT(curmon->curdesk)].current_layout = curmon->current_layout;
+	curmon->desks[POSTOINT(curmon->curdesk)].msize = curmon->msize;
+	curmon->desks[POSTOINT(curmon->curdesk)].curlayout = curmon->curlayout;
 
-	curmon->master_size = curmon->desktops[i].master_size;
-	curmon->current_layout = curmon->desktops[i].current_layout;
+	curmon->msize = curmon->desks[i].msize;
+	curmon->curlayout = curmon->desks[i].curlayout;
 }
 
-void monocle(){
-	//int mh = sh - sbar->height;
-	int mh = curmon->h;
-	int mw = curmon->w;
-	int y = curmon->y;
-
-	for EACHCLIENT(curmon->head) if (ISVISIBLE(ic) && !ic->is_float){
-			ic->x = 0; ic->y = y;
-			ic->w = mw; ic->h = mh;
+void monocle(monitor* m){
+	for EACHCLIENT(curmon->head) if (ISVISIBLE(ic) && !ic->isfloat){
+			ic->x = 0; ic->y = m->y;
+			ic->w = m->w; ic->h = m->h;
 			XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
 		} 
 
@@ -1163,30 +1158,26 @@ void monocle(){
 }
 
 void setlayout(const Arg arg){
-	curmon->current_layout = (layout*) arg.v;
-	curmon->current_layout->arrange();
+	curmon->curlayout = (layout*) arg.v;
+	curmon->curlayout->arrange(curmon);
 	drawbars();
 }
 
-void tile(){
+void tile(monitor* m){
 	client* nf = NULL;
 	int n = 0;
-	//int mh = sh - sbar->height;
-	int mh = curmon->h;
-	int mw = curmon->w;
 	int y = curmon->y;
 	int x = curmon->x;
-	//int y = sbar->height;
 
 	/* Find the first non-floating, visible window and tally non-floating, visible windows */
-	for EACHCLIENT(curmon->head) if (!ic->is_float && ISVISIBLE(ic)){
+	for EACHCLIENT(curmon->head) if (!ic->isfloat && ISVISIBLE(ic)){
 			nf = (!nf) ? ic : nf;
 			n++;
 		}
 
 	if (nf && n == 1){
 		nf->x = x; nf->y = y;
-		nf->w = mw; nf->h = mh;
+		nf->w = m->w; nf->h = m->h;
 		XMoveResizeWindow(dis, nf->win, nf->x, nf->y, nf->w, nf->h);
 
 	} else if (nf){
@@ -1195,17 +1186,17 @@ void tile(){
 
 		/* Master window */
 		nf->x = x; nf->y = y;
-		nf->w = curmon->master_size; nf->h = mh;
+		nf->w = curmon->msize; nf->h = m->h;
 		XMoveResizeWindow(dis, nf->win, nf->x, nf->y, nf->w, nf->h);
 
 		/* Stack */
 		for EACHCLIENT(nf->next){
-			if (ISVISIBLE(ic) && !ic->is_float && !ic->is_full){
-				ic->x = x + curmon->master_size; ic->y = y;
-				ic->w = mw - curmon->master_size; ic->h = mh / n;
+			if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull){
+				ic->x = x + curmon->msize; ic->y = y;
+				ic->w = m->w - curmon->msize; ic->h = m->h / n;
 				XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
 
-				y += mh / n;
+				y += m->h / n;
 			}
 		}
 	}
@@ -1232,7 +1223,7 @@ void toggleview(const Arg arg){
 		}
 	}
 
-	curmon->current_layout->arrange();
+	curmon->curlayout->arrange(curmon);
 	updatefocus();
 	updatestatus();
 }
@@ -1245,7 +1236,7 @@ void viewall(){
 	mapclients();
 	raisefloats();
 
-	curmon->current_layout->arrange();
+	curmon->curlayout->arrange(curmon);
 	updatefocus();
 	updatestatus();
 }
@@ -1268,7 +1259,7 @@ void cleanup(){
 	while (m){
 		while (curmon->current) killclient();
 
-		free(m->desktops);
+		free(m->desks);
 		XftDrawDestroy(m->bar->xd);
 		XFreeGC(dis, m->bar->gc);
 		XftFontClose(dis, m->bar->xfont);
@@ -1294,7 +1285,7 @@ void cleanup(){
 //	XFreePixmap(dis, sbar->d);
 //	free(sbar);
 
-	free(prev_enter);
+	free(preventer);
 
 	for (i=0;i < TABLENGTH(colors);i++) free(scheme[i]);
 	free(scheme);
@@ -1308,14 +1299,14 @@ void cleanup(){
         XCloseDisplay(dis);
 }
 
-int getpointcoords(int ret_y){
+int getpointcoords(int rety){
 	int x, y, dwx, dwy;
 	unsigned int dmr;
 	Window drret, dcret;
 
 	XQueryPointer(dis, root, &drret, &dcret, &x, &y, &dwx, &dwy, &dmr);
 
-	return ret_y ? y : x;
+	return rety ? y : x;
 }
 
 void grabkeys(){
@@ -1363,7 +1354,7 @@ void setup(){
 
 	mhead = NULL;
 	curmon = NULL;
-	prev_enter = ecalloc(1, sizeof(client));
+	preventer = ecalloc(1, sizeof(client));
 
 	initmons();
 	loaddesktop(0);
