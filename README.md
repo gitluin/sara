@@ -112,7 +112,8 @@ Bugs
  * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc.
  * Need to XFree() in applyrules, I think? T'is unclear
  * Sometimes, download dialogs from Firefox end up in 9th hellspace
- * There are some bugs with moving clients in the stack - can take a lot of mod+key-ing to get them to go
+ * buttonpress doesn't draw focus to new monitors
+ * justswitch doesn't always work?
 
 To Do
 ----

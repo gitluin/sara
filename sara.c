@@ -24,7 +24,7 @@
 #include <X11/extensions/Xinerama.h>
 #endif
 
-#define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
+#define BUTTONMASK              	(ButtonPressMask|ButtonReleaseMask)
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
 #define ISVISIBLE(C)			((C->desks & curmon->seldesks))
 #define TEXTW(M,X)			(gettextwidth(M, X, slen(X)) + lrpad)
@@ -116,7 +116,6 @@ struct monitor {
 	unsigned int curdesk;
 	client* current;
 	client* head;
-	client* preventer;
 	desktop* desks;
 	layout* curlayout;
 };
@@ -197,7 +196,7 @@ static void createmon(monitor* m, int num, int x, int y, int w, int h);
 static monitor* findmon(Window w);
 static void focusmon(const Arg arg);
 static void initmons();
-static void setcurrentmon(monitor* m);
+static void setcurmon(monitor* m);
 
 /* Client Interfacing */
 static client* findcurrent();
@@ -234,8 +233,9 @@ static void setup();
 static void sigchld(int unused);
 static void spawn(const Arg arg);
 static void start();
-static void youviolatedmymother();
 static int xerror(Display* dis, XErrorEvent* ee);
+static void xsendkill(Window w);
+static void youviolatedmymother();
 
 
 /* Make the above known */
@@ -289,21 +289,21 @@ static void (*events[LASTEvent])(XEvent* e) = {
  * ---------------------------------------
  */
 
+/* TODO: monitor support */
 /* dwm copypasta */
 void buttonpress(XEvent* e){
 	client *c;
 	monitor* m;
 	XButtonPressedEvent* ev = &e->xbutton;
 
-	/* focus monitor if necessary */
-	if ( (m = findmon(ev->window)) && m != curmon )
-		changemon(m, 1);
+	if ( (m = findmon(ev->window)) != curmon)
+		changemon(m, 0);
 
 	if ( (c = findclient(ev->window)) ){
 		updateprev(c);
 		changecurrent(c, curmon->curdesk);
 		updatefocus();
-//		XAllowEvents(dis, ReplayPointer, CurrentTime);
+		XAllowEvents(dis, ReplayPointer, CurrentTime);
 	}
 }
 
@@ -354,6 +354,7 @@ void destroynotify(XEvent* e){
 
 void enternotify(XEvent* e){
 	client* c;
+	monitor* m;
 	XCrossingEvent* ev = &e->xcrossing;
 
 	if ( (ev->mode != NotifyNormal || ev->detail == NotifyInferior) && ev->window != root )
@@ -361,6 +362,14 @@ void enternotify(XEvent* e){
 
 	if ( !(c = findclient(ev->window)) || justswitch ){
 		justswitch = 0;
+		return;
+	}
+
+	if ( (m = findmon(ev->window)) && m != curmon){
+		changemon(m, 0);
+		updateprev(c);
+		changecurrent(c, curmon->curdesk);
+		updatefocus();
 		return;
 	}
 
@@ -510,20 +519,11 @@ void detach(client* c){
 
 void killclient(){
 	Window w;
-	XEvent ev;
 
 	if (curmon->current){
 		w = curmon->current->win;
 		unmanage(curmon->current);
-
-		/* send X Kill signal */
-		ev.type = ClientMessage;
-		ev.xclient.window = w;
-		ev.xclient.message_type = XInternAtom(dis, "WM_PROTOCOLS", True);
-		ev.xclient.format = 32;
-		ev.xclient.data.l[0] = XInternAtom(dis, "WM_DELETE_WINDOW", True);
-		ev.xclient.data.l[1] = CurrentTime;
-		XSendEvent(dis, w, False, NoEventMask, &ev);
+		xsendkill(w);
 	}
 
 	updatestatus();
@@ -772,15 +772,8 @@ void updatefocus(){
  */
 
 void changemon(monitor* m, int focus){
-	/* save current */
-	curmon->preventer = preventer;
-
-	/* select m */
-	setcurrentmon(m);
-
+	setcurmon(m);
 	if (focus) updatefocus();
-	// this causes a crash
-	//updatestatus();
 }
 
 void createmon(monitor* m, int num, int x, int y, int w, int h){
@@ -810,17 +803,14 @@ void createmon(monitor* m, int num, int x, int y, int w, int h){
 
 	m->head = NULL;
 	m->current = NULL;
-	m->preventer = preventer;
 }
 
 monitor* findmon(Window w){
-	monitor* im, * old_monitor = curmon;
+	monitor* im;
 
 	for (im=mhead;im;im=im->next){
-		changemon(im, 0);
-		for EACHCLIENT(curmon->head){
+		for EACHCLIENT(im->head){
 			if (ic->win == w){
-				changemon(old_monitor, 1);
 				return im;
 			}
 		}
@@ -834,12 +824,17 @@ void focusmon(const Arg arg){
 
 	if (arg.i > 0){
 		if (curmon->next) m = curmon->next;
+		fprintf(stderr, "moving to curmon->next!\n");
 
 	} else {
 		for (m=mhead;m && m->next != curmon;m=m->next);
+		fprintf(stderr, "going up!\n");
 	}
 
-	if (m) changemon(m, 1);
+	if (m){
+		fprintf(stderr, "found an m!\n");
+		changemon(m, 1);
+	}
 }
 
 /* TODO: Is this required for mirroring displays to work? */
@@ -875,6 +870,7 @@ void initmons(){
 //		XFree(info);
 		
 		for (i=0;i < ns;i++){
+			fprintf(stderr, "init-ing on monitor %d\n", i);
 			m = ecalloc(1, sizeof(monitor));
 			createmon(m, i, info[i].x_org, info[i].y_org, info[i].width, info[i].height);
 	
@@ -893,7 +889,7 @@ void initmons(){
 			}
 		}
 
-		setcurrentmon(mhead);
+		setcurmon(mhead);
 //		free(unique);
 		XFree(info);
 	}
@@ -902,12 +898,11 @@ void initmons(){
 		m = ecalloc(1, sizeof(monitor));
 		mhead = m;
 		createmon(m, 0, 0, 0, sw, sh);
-		setcurrentmon(m);
+		setcurmon(m);
 	}
 }
 
-void setcurrentmon(monitor* m){
-	preventer = m->preventer;
+void setcurmon(monitor* m){
 	justswitch = 0;
 	
 	curmon = m;
@@ -928,18 +923,15 @@ client* findcurrent(){
 }
 
 client* findclient(Window w){
-	monitor* im, * old_monitor = curmon;
+	monitor* im;
 
 	for (im=mhead;im;im=im->next){
-		changemon(im, 0);
-		for EACHCLIENT(curmon->head){
+		for EACHCLIENT(im->head){
 			if (ic->win == w){
-				changemon(old_monitor, 1);
 				return ic;
 			}
 		}
 	}
-	changemon(old_monitor, 1);
 
 	return NULL;
 }
@@ -1115,8 +1107,6 @@ void updatestatus(){
 void changedesktop(const Arg arg){
 	client* c;
 
-//	if (curmon->curdesk & 1 << arg.i) return;
-
 	loaddesktop(arg.i);
 	curmon->seldesks = curmon->curdesk = 1 << arg.i;
 
@@ -1149,7 +1139,7 @@ void loaddesktop(int i){
 }
 
 void monocle(monitor* m){
-	for EACHCLIENT(curmon->head) if (ISVISIBLE(ic) && !ic->isfloat){
+	for EACHCLIENT(m->head) if (ISVISIBLE(ic) && !ic->isfloat){
 			ic->x = 0; ic->y = m->y;
 			ic->w = m->w; ic->h = m->h;
 			XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
@@ -1167,11 +1157,11 @@ void setlayout(const Arg arg){
 void tile(monitor* m){
 	client* nf = NULL;
 	int n = 0;
-	int y = curmon->y;
-	int x = curmon->x;
+	int y = m->y;
+	int x = m->x;
 
 	/* Find the first non-floating, visible window and tally non-floating, visible windows */
-	for EACHCLIENT(curmon->head) if (!ic->isfloat && ISVISIBLE(ic)){
+	for EACHCLIENT(m->head) if (!ic->isfloat && ISVISIBLE(ic)){
 			nf = (!nf) ? ic : nf;
 			n++;
 		}
@@ -1187,14 +1177,14 @@ void tile(monitor* m){
 
 		/* Master window */
 		nf->x = x; nf->y = y;
-		nf->w = curmon->msize; nf->h = m->h;
+		nf->w = m->msize; nf->h = m->h;
 		XMoveResizeWindow(dis, nf->win, nf->x, nf->y, nf->w, nf->h);
 
 		/* Stack */
 		for EACHCLIENT(nf->next){
 			if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull){
-				ic->x = x + curmon->msize; ic->y = y;
-				ic->w = m->w - curmon->msize; ic->h = m->h / n;
+				ic->x = x + m->msize; ic->y = y;
+				ic->w = m->w - m->msize; ic->h = m->h / n;
 				XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
 
 				y += m->h / n;
@@ -1253,26 +1243,48 @@ void viewall(){
  * Free all the things
  */
 void cleanup(){
-	int i;
+	int i, j;
 	monitor* m, * tmp;
+	client* tc;
+	Window w;
 
 	m = mhead;
+	j = 0;
 	while (m){
-		while (curmon->current) killclient();
+		i = 0;
+		while (m->head){
+			w = m->head->win;
+			tc = m->head->next;
 
+			i++;
+
+			fprintf(stderr, "about to kill client #%d\n", i);
+			free(m->head);
+			fprintf(stderr, "just killed client #%d\n", i);
+
+			m->head = tc;
+			xsendkill(w);
+		}
+		fprintf(stderr, "just killed clients for monitor %d\n", j);
+		j++;
+
+		XUngrabKey(dis, AnyKey, AnyModifier, root);
+		fprintf(stderr, "about to free m->desks\n");
 		free(m->desks);
+		XUnmapWindow(dis, m->bar->win);
+		XDestroyWindow(dis, m->bar->win);
 		XftDrawDestroy(m->bar->xd);
 		XFreeGC(dis, m->bar->gc);
 		XftFontClose(dis, m->bar->xfont);
 		XFreePixmap(dis, m->bar->d);
-		XUnmapWindow(dis, m->bar->win);
-		XDestroyWindow(dis, m->bar->win);
+		fprintf(stderr, "about to free m->bar\n");
 		free(m->bar);
 
 		tmp = m->next;
+		fprintf(stderr, "about to free m\n");
 		free(m);
 		m = tmp;
-		setcurrentmon(m);
+		setcurmon(m);
 	}
 
 	/* This ain't pretty, but it gets the job done (Without memory leak? Not sure) */
@@ -1291,7 +1303,7 @@ void cleanup(){
 	for (i=0;i < TABLENGTH(colors);i++) free(scheme[i]);
 	free(scheme);
 
-	fprintf(stdout, "sara: Thanks for using!\n");
+	fprintf(stderr, "sara: Thanks for using!\n");
 	XDestroySubwindows(dis, root);
 
 	XSync(dis, False);
@@ -1419,6 +1431,18 @@ int xerror(Display* dis, XErrorEvent* e){
 
 	die("xerror handler had trouble! I'm too lazy to tell you what went wrong.");
 	return -1;
+}
+
+void xsendkill(Window w){
+	XEvent ev;
+
+	ev.type = ClientMessage;
+	ev.xclient.window = w;
+	ev.xclient.message_type = XInternAtom(dis, "WM_PROTOCOLS", True);
+	ev.xclient.format = 32;
+	ev.xclient.data.l[0] = XInternAtom(dis, "WM_DELETE_WINDOW", True);
+	ev.xclient.data.l[1] = CurrentTime;
+	XSendEvent(dis, w, False, NoEventMask, &ev);
 }
 
 void youviolatedmymother(){
