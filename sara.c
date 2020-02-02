@@ -292,19 +292,25 @@ static void (*events[LASTEvent])(XEvent* e) = {
 /* TODO: monitor support */
 /* dwm copypasta */
 void buttonpress(XEvent* e){
-	client *c;
+	client* c;
 	monitor* m;
 	XButtonPressedEvent* ev = &e->xbutton;
 
-	if ( (m = findmon(ev->window)) != curmon)
-		changemon(m, 0);
+	if ( !(c = findclient(ev->window)) )
+		return;
 
-	if ( (c = findclient(ev->window)) ){
+	if ( (m = findmon(ev->window)) && m != curmon){
+		changemon(m, 0);
 		updateprev(c);
 		changecurrent(c, curmon->curdesk);
 		updatefocus();
 		XAllowEvents(dis, ReplayPointer, CurrentTime);
 	}
+
+	updateprev(c);
+	changecurrent(c, curmon->curdesk);
+	updatefocus();
+	XAllowEvents(dis, ReplayPointer, CurrentTime);
 }
 
 /* dwm copypasta */
@@ -759,10 +765,13 @@ void unmanage(client* c){
 
 /* TODO: Weirdness when killing last client on another monitor */
 void updatefocus(){
-	for EACHCLIENT(curmon->head) if (ic == curmon->current){
-			XSetInputFocus(dis, ic->win, RevertToPointerRoot, CurrentTime);
-			XRaiseWindow(dis, ic->win);
-		}
+	if (curmon->current){
+		XSetInputFocus(dis, ic->win, RevertToPointerRoot, CurrentTime);
+		XRaiseWindow(dis, ic->win);
+
+	} else {
+		XSetInputFocus(dis, root, RevertToPointerRoot, CurrentTime);
+	}
 }
 
 
@@ -1394,6 +1403,8 @@ void sigchld(int unused){
 
 /* dwm copypasta */
 void spawn(const Arg arg){
+	if (arg.v == dmenucmd)
+		dmenumon[0] = '0' + curmon->num;
 	if (fork()) return;
 	if (dis) close(ConnectionNumber(dis));
 

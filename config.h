@@ -94,29 +94,29 @@ static const char dmenufont[]	= "Misc Termsyn:size=10";
  * ---------------------------------------
  */
 
-//static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
-//const char* dmenucmd[]	= { "dmenu_run", "-m", dmenumon, "-b", "-l", "4", "-p", "Run", "-fn", dmenufont, "-nb", "#282a36", "-nf", "#f8f8f2", "-sb", "#1E88E5", "-sf", "#202020" , NULL};
+static char dmenumon[2]			= "0"; /* component of dmenucmd, manipulated in spawn() */
+static const char* dmenucmd[]		= { "dmenu_run", "-m", dmenumon, "-b", "-l", "4", "-p", "Run", "-fn", dmenufont, "-nb", "#282a36", "-nf", "#f8f8f2", "-sb", "#1E88E5", "-sf", "#202020" , NULL};
 
 /* Program Spawning Keys */
 /* dwm copypasta */
-const char* dmenucmd[]		= { "dmenu_run", "-m", "0", "-b", "-l", "4", "-p", "Run", "-fn", dmenufont, "-nb", "#282a36", "-nf", "#f8f8f2", "-sb", "#1E88E5", "-sf", "#202020" , NULL};
-const char* termcmd[] 		= { "st", NULL};
-const char* browscmd[] 	 	= { "firefox", NULL };
-const char* fbrowscmd[]		= { "st", "-e", "vifm", NULL };
-const char* rcalccmd[]  	= { "st", "-t", "rcalc",    "-g", "80x24+625+325", "-e", "R", "--vanilla", "-q", NULL };
-const char* calcmd[] 	 	= { "st", "-t", "cal",      "-g", "26x14+855", "-e", "check_cal", NULL };
+//const char* dmenucmd[]		= { "dmenu_run", "-m", "0", "-b", "-l", "4", "-p", "Run", "-fn", dmenufont, "-nb", "#282a36", "-nf", "#f8f8f2", "-sb", "#1E88E5", "-sf", "#202020" , NULL};
+static const char* termcmd[] 		= { "st", NULL};
+static const char* browscmd[] 	 	= { "firefox", NULL };
+static const char* fbrowscmd[]		= { "st", "-e", "vifm", NULL };
+static const char* rcalccmd[]  		= { "st", "-t", "rcalc",    "-g", "80x24+625+325", "-e", "R", "--vanilla", "-q", NULL };
+static const char* calcmd[] 	 	= { "st", "-t", "cal",      "-g", "26x14+855", "-e", "check_cal", NULL };
 
 /* Function Keys */
-const char* brightdown[]  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_bright.sh", "-U", "5", NULL };
-const char* brightup[]	  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_bright.sh", "-A", "5", NULL };
-const char* brightdownsmall[]  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_bright.sh", "-U", "1", NULL };
-const char* brightupsmall[]  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_bright.sh", "-A", "1", NULL };
-const char* volmute[] 		= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_audio.sh", "mute", "NULL", NULL };
-const char* voldown[] 		= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_audio.sh", "-", "5", NULL };
-const char* volup[]  		= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_audio.sh", "+", "5", NULL };
-const char* voldownsmall[]  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_audio.sh", "-", "1", NULL };
-const char* volupsmall[]  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_audio.sh", "+", "1", NULL };
-const char* prtsc[]	  	= { "st", "-t", "funkey", "-e", "scrot", "-q", "100", NULL };
+static const char* brightdown[]  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_bright.sh", "-U", "5", NULL };
+static const char* brightup[]	  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_bright.sh", "-A", "5", NULL };
+static const char* brightdownsmall[]  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_bright.sh", "-U", "1", NULL };
+static const char* brightupsmall[]  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_bright.sh", "-A", "1", NULL };
+static const char* volmute[] 		= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_audio.sh", "mute", "NULL", NULL };
+static const char* voldown[] 		= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_audio.sh", "-", "5", NULL };
+static const char* volup[]  		= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_audio.sh", "+", "5", NULL };
+static const char* voldownsmall[]  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_audio.sh", "-", "1", NULL };
+static const char* volupsmall[]  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_audio.sh", "+", "1", NULL };
+static const char* prtsc[]	  	= { "st", "-t", "funkey", "-e", "scrot", "-q", "100", NULL };
 
 
 /* ---------------------------------------

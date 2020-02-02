@@ -113,7 +113,6 @@ Bugs
  * Need to XFree() in applyrules, I think? T'is unclear
  * Sometimes, download dialogs from Firefox end up in 9th hellspace
  * buttonpress doesn't draw focus to new monitors
- * justswitch doesn't always work?
 
 To Do
 ----
