@@ -1013,7 +1013,7 @@ void drawbar(monitor* m){
 	}
 	x -= lrpad / 2;
 	m->bar->scheme = scheme[SchNorm];
-	drawbartext(m, x, 0, TEXTW(m, curmon->curlayout->symbol), m->bar->h, lrpad / 2, curmon->curlayout->symbol);
+	drawbartext(m, x, 0, TEXTW(m, m->curlayout->symbol), m->bar->h, lrpad / 2, m->curlayout->symbol);
 
 	XCopyArea(dis, m->bar->d, m->bar->win, m->bar->gc, 0, 0, m->bar->w, m->bar->h, 0, 0);
 	XSync(dis, False);
@@ -1149,7 +1149,7 @@ void loaddesktop(int i){
 
 void monocle(monitor* m){
 	for EACHCLIENT(m->head) if (ISVISIBLE(ic) && !ic->isfloat){
-			ic->x = 0; ic->y = m->y;
+			ic->x = m->x; ic->y = m->y;
 			ic->w = m->w; ic->h = m->h;
 			XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
 		} 
