@@ -16,17 +16,7 @@ Recent Statii
  * v0.9.2.2	- No more global current, head, seldesks, current\_desktop. Tag drawing in bars duly fixed.
  * v0.9.2.1	- viewall desktops at once (MOD + XK\_0)
  * v0.9.2	- Multiple monitors! Stable, but buggy. Currently there are some weird focusing issues and tags in the bars are not per-monitor.
- * v0.8.7.7	- just\_switched flag prevents behavior I mentioned might bug me (0.8.7.4)
- * v0.8.7.6	- drawing focus with buttonpress() works!!!!
- * v0.8.7.5	- view() works like dwm now when you unview current\_desktop. Some code cleanup and variable adjustments.
- * v0.8.7.4	- enternotify works logically. Still not the same as dwm (focus does change on desktop switching), but I think this is acceptable. If it bugs me, I'll fix it. Doing so will require desktops to each have prev\_enter, though.
- * v0.8.7.3	- Memory freeing that doesn't cause layout changing to accidentally
- * v0.8.7.2	- Cutting out excess code. No more cursorfont.h dependency - a normal cursor for resizing will be fine.
- * v0.8.7.1	- No gaps, no window borders, no bar boxes. You can customize selected tags symbols, though. Deal! Working on code style cleanup.
- * v0.8.7	- enternotify works (I think)!
- * v0.8.2	- Can now view multiple tags at once. I probably won't, but you can (not much extra code, so big whoop).
- * v0.8.1	- Can now send clients to just a specific desktop (removes it from others).
- * v0.8		- No drw and no alpha behavior for the bar. We are a single .c file once more. Rules still don't work.
+ * v0.8.{1-7.7} - No drw and no alpha behavior for the bar. Can send clients to just a desktop, can view multiple desktops at once, enternotify works (maybe), gaps, window borders, bar boxes removed. Code cleanup. Memory freeing fixed. buttonpress works!
  * v0.7		- The dwm way of clients has been implemented, bug-free (I think)!
  * v0.6.{0-5}	- There's a bar with alpha support! Tags in the bar are updated properly by client movement, floating windows always appear raised, manual fullscreen toggling, no more swindows (the buggy version).
  * v0.5.{0-5}	- Windows can be destroyed any damn way, name change, better master_size, modular layouts, gaps implemented, individual client floating behavior.
