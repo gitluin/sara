@@ -113,6 +113,7 @@ Bugs
  * Need to XFree() in applyrules, I think? T'is unclear
  * Sometimes, download dialogs from Firefox end up in 9th hellspace
  * buttonpress doesn't draw focus to new monitors
+ * enternotify is not as snappy as it is in dwm. if you move the pointer slowly, it won't work, and sometimes it gets "stuck" on a window if you move back and forth quickly. buttonpress always refocuses, though.
 
 To Do
 ----

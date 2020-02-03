@@ -167,6 +167,7 @@ static void enternotify(XEvent* e);
 static void expose(XEvent* e);
 static void keypress(XEvent* e);
 static void maprequest(XEvent* e);
+static void motionnotify(XEvent* e);
 static void propertynotify(XEvent* e);
 //static void unmapnotify(XEvent* e);
 
@@ -182,6 +183,7 @@ static void moveclient(const Arg arg);
 static void movefocus(const Arg arg);
 static void raisefloats();
 static void refocus(client* n, client* p);
+static void resizeclient(client* c, int x, int y, int w, int h);
 static void swapmaster();
 static void todesktop(const Arg arg);
 static void toggledesktop(const Arg arg);
@@ -196,7 +198,6 @@ static void createmon(monitor* m, int num, int x, int y, int w, int h);
 static monitor* findmon(Window w);
 static void focusmon(const Arg arg);
 static void initmons();
-static void setcurmon(monitor* m);
 
 /* Client Interfacing */
 static client* findcurrent();
@@ -218,15 +219,14 @@ static void updatestatus();
 static void changedesktop(const Arg arg);
 static void changemsize(const Arg arg);
 static void loaddesktop(int i);
-static void monocle();
+static void monocle(monitor* m);
 static void setlayout(const Arg arg);
-static void tile();
+static void tile(monitor* m);
 static void toggleview(const Arg arg);
 static void viewall();
 
 /* Backend */
 static void cleanup();
-static int getpointcoords(int rety);
 static void grabkeys();
 static XftColor* scheme_create(const char* clrnames[], size_t clrcount);
 static void setup();
@@ -279,6 +279,7 @@ static void (*events[LASTEvent])(XEvent* e) = {
 	[Expose] = expose,
 	[KeyPress] = keypress,
 	[MapRequest] = maprequest,
+	[MotionNotify] = motionnotify,
 	[PropertyNotify] = propertynotify,
 	//[UnmapNotify] = unmapnotify
 };
@@ -296,21 +297,15 @@ void buttonpress(XEvent* e){
 	monitor* m;
 	XButtonPressedEvent* ev = &e->xbutton;
 
-	if ( !(c = findclient(ev->window)) )
-		return;
-
-	if ( (m = findmon(ev->window)) && m != curmon){
+	if ( (m = findmon(ev->window)) && m != curmon)
 		changemon(m, 0);
+
+	if ( (c = findclient(ev->window)) ){
 		updateprev(c);
 		changecurrent(c, curmon->curdesk);
 		updatefocus();
 		XAllowEvents(dis, ReplayPointer, CurrentTime);
 	}
-
-	updateprev(c);
-	changecurrent(c, curmon->curdesk);
-	updatefocus();
-	XAllowEvents(dis, ReplayPointer, CurrentTime);
 }
 
 /* dwm copypasta */
@@ -336,7 +331,7 @@ void configurerequest(XEvent* e){
 	XConfigureRequestEvent* ev = &e->xconfigurerequest;
 
 	/* only honor requests if they should be honored */
-	if ( (c = findclient(ev->window)) && c->isfloat){
+	if ((c = findclient(ev->window))){
 		m = findmon(c->win);
 		if (ev->value_mask & CWX) c->x = m->x + ev->x;
 		if (ev->value_mask & CWY) c->y = (ev->y < m->bar->h) ? m->bar->h : ev->y;
@@ -379,10 +374,9 @@ void enternotify(XEvent* e){
 		return;
 	}
 
-	/* if we haven't moved, and the window is the same */
-	if (preventer && !ISOUTSIDE(getpointcoords(0), getpointcoords(1), preventer->x,
+	/* if we haven't moved from the confines of the window */
+	if (preventer && !ISOUTSIDE(ev->x_root, ev->y_root, preventer->x,
 				preventer->y, preventer->w, preventer->h))
-			//&& preventer->win == c->win)
 		return;
 
 	updateprev(c);
@@ -420,17 +414,20 @@ void maprequest(XEvent* e){
 	}
 }
 
-/* TODO: implement recttomon */
-//void motionnotify(XEvent* e){
-//	Monitor *m;
-//	XMotionEvent *ev = &e->xmotion;
-//
-//	if (ev->window != root)
-//		return;
-//
-//	if ( (m = recttomon(ev->x_root, ev->y_root, 1, 1)) && m != curmon)
-//		changemon(m, 1);
-//}
+void motionnotify(XEvent* e){
+	monitor* m;
+	XMotionEvent *ev = &e->xmotion;
+
+	if (ev->window != root)
+		return;
+
+	for (m=mhead;m;m=m->next){
+		if (m != curmon && !ISOUTSIDE(ev->x_root, ev->y_root, m->x, m->y, m->w, m->h)){
+			changemon(m, 1);
+			return;
+		}
+	}
+}
 
 /* dwm copypasta */
 void propertynotify(XEvent* e){
@@ -637,7 +634,7 @@ void movefocus(const Arg arg){
 
 void raisefloats(){
 	for EACHCLIENT(curmon->head) if (ISVISIBLE(ic) && ic->isfloat){
-			XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
+			resizeclient(ic, ic->x, ic->y, ic->w, ic->h);
 			XRaiseWindow(dis, ic->win);
 		}
 }
@@ -647,6 +644,16 @@ void refocus(client* n, client* p){
 	client* vis;
 	vis = (vis = findvisclient(n)) ? vis : findprevclient(p,YesVis);
 	changecurrent(vis, curmon->curdesk);
+}
+
+void resizeclient(client* c, int x, int y, int w, int h){
+	XWindowChanges wc;
+
+	c->x = wc.x = x;
+	c->y = wc.y = y;
+	c->w = wc.width = w;
+	c->h = wc.height = h;
+	XConfigureWindow(dis, c->win, CWX|CWY|CWWidth|CWHeight, &wc);
 }
 
 void swapmaster(){
@@ -737,12 +744,7 @@ void togglefs(){
 	curmon->current->isfloat = 0;
 
 	if (curmon->current->isfull){
-		curmon->current->x = curmon->x;
-		curmon->current->y = 0;
-		curmon->current->w = curmon->w;
-		curmon->current->h = curmon->h + curmon->bar->h;
-		XMoveResizeWindow(dis, curmon->current->win, curmon->current->x, curmon->current->y,
-				curmon->current->w, curmon->current->h);
+		resizeclient(curmon->current, curmon->x, 0, curmon->w, curmon->h + curmon->bar->h);
 		XRaiseWindow(dis, curmon->current->win);
 
 		XUnmapWindow(dis, curmon->bar->win);
@@ -766,8 +768,8 @@ void unmanage(client* c){
 /* TODO: Weirdness when killing last client on another monitor */
 void updatefocus(){
 	if (curmon->current){
-		XSetInputFocus(dis, ic->win, RevertToPointerRoot, CurrentTime);
-		XRaiseWindow(dis, ic->win);
+		XSetInputFocus(dis, curmon->current->win, RevertToPointerRoot, CurrentTime);
+		XRaiseWindow(dis, curmon->current->win);
 
 	} else {
 		XSetInputFocus(dis, root, RevertToPointerRoot, CurrentTime);
@@ -781,7 +783,8 @@ void updatefocus(){
  */
 
 void changemon(monitor* m, int focus){
-	setcurmon(m);
+	justswitch = 0;
+	curmon = m;
 	if (focus) updatefocus();
 }
 
@@ -833,15 +836,12 @@ void focusmon(const Arg arg){
 
 	if (arg.i > 0){
 		if (curmon->next) m = curmon->next;
-		fprintf(stderr, "moving to curmon->next!\n");
 
 	} else {
 		for (m=mhead;m && m->next != curmon;m=m->next);
-		fprintf(stderr, "going up!\n");
 	}
 
 	if (m){
-		fprintf(stderr, "found an m!\n");
 		changemon(m, 1);
 	}
 }
@@ -879,7 +879,6 @@ void initmons(){
 //		XFree(info);
 		
 		for (i=0;i < ns;i++){
-			fprintf(stderr, "init-ing on monitor %d\n", i);
 			m = ecalloc(1, sizeof(monitor));
 			createmon(m, i, info[i].x_org, info[i].y_org, info[i].width, info[i].height);
 	
@@ -898,7 +897,7 @@ void initmons(){
 			}
 		}
 
-		setcurmon(mhead);
+		changemon(mhead, 0);
 //		free(unique);
 		XFree(info);
 	}
@@ -907,14 +906,8 @@ void initmons(){
 		m = ecalloc(1, sizeof(monitor));
 		mhead = m;
 		createmon(m, 0, 0, 0, sw, sh);
-		setcurmon(m);
+		changemon(m, 0);
 	}
-}
-
-void setcurmon(monitor* m){
-	justswitch = 0;
-	
-	curmon = m;
 }
 
 
@@ -1049,7 +1042,7 @@ int gettextprop(Window w, Atom atom, char *text, unsigned int size){
 		strncpy(text, (char *) name.value, size - 1);
 
 	} else {
-		if ( XmbTextPropertyToTextList(dis,&name,&list,&n) >= Success && n > 0 && *list ){
+		if ( XmbTextPropertyToTextList(dis, &name, &list, &n) >= Success && n > 0 && *list ){
 			strncpy(text, *list, size - 1);
 			XFreeStringList(list);
 		}
@@ -1132,9 +1125,8 @@ void changedesktop(const Arg arg){
 }
 
 void changemsize(const Arg arg){
-	int mw = curmon->w;
-	curmon->msize += ( ((curmon->msize < 0.95 * mw) && (arg.f > 0))
-			|| ((curmon->msize > 0.05 * mw) && (arg.f < 0))  ) ? arg.f * mw : 0;
+	curmon->msize += ( ((curmon->msize < 0.95 * curmon->w) && (arg.f > 0))
+			|| ((curmon->msize > 0.05 * curmon->w) && (arg.f < 0))  ) ? arg.f * curmon->w : 0;
 
 	curmon->curlayout->arrange(curmon);
 }
@@ -1149,9 +1141,7 @@ void loaddesktop(int i){
 
 void monocle(monitor* m){
 	for EACHCLIENT(m->head) if (ISVISIBLE(ic) && !ic->isfloat){
-			ic->x = m->x; ic->y = m->y;
-			ic->w = m->w; ic->h = m->h;
-			XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
+			resizeclient(ic, m->x, m->y, m->w, m->h);
 		} 
 
 	raisefloats();
@@ -1165,9 +1155,7 @@ void setlayout(const Arg arg){
 
 void tile(monitor* m){
 	client* nf = NULL;
-	int n = 0;
-	int y = m->y;
-	int x = m->x;
+	int n = 0, x = m->x, y = m->y;
 
 	/* Find the first non-floating, visible window and tally non-floating, visible windows */
 	for EACHCLIENT(m->head) if (!ic->isfloat && ISVISIBLE(ic)){
@@ -1176,25 +1164,19 @@ void tile(monitor* m){
 		}
 
 	if (nf && n == 1){
-		nf->x = x; nf->y = y;
-		nf->w = m->w; nf->h = m->h;
-		XMoveResizeWindow(dis, nf->win, nf->x, nf->y, nf->w, nf->h);
+		resizeclient(nf, x, y, m->w, m->h);
 
 	} else if (nf){
 		/* so having a master doesn't affect stack splitting */
 		n--;
 
 		/* Master window */
-		nf->x = x; nf->y = y;
-		nf->w = m->msize; nf->h = m->h;
-		XMoveResizeWindow(dis, nf->win, nf->x, nf->y, nf->w, nf->h);
+		resizeclient(nf, x, y, m->msize, m->h);
 
 		/* Stack */
 		for EACHCLIENT(nf->next){
 			if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull){
-				ic->x = x + m->msize; ic->y = y;
-				ic->w = m->w - m->msize; ic->h = m->h / n;
-				XMoveResizeWindow(dis, ic->win, ic->x, ic->y, ic->w, ic->h);
+				resizeclient(ic, x + m->msize, y, m->w - m->msize, m->h / n);
 
 				y += m->h / n;
 			}
@@ -1252,83 +1234,54 @@ void viewall(){
  * Free all the things
  */
 void cleanup(){
-	int i, j;
+	int i;
 	monitor* m, * tmp;
 	client* tc;
 	Window w;
 
+	XUngrabKey(dis, AnyKey, AnyModifier, root);
+
 	m = mhead;
-	j = 0;
 	while (m){
-		i = 0;
 		while (m->head){
 			w = m->head->win;
 			tc = m->head->next;
 
-			i++;
-
-			fprintf(stderr, "about to kill client #%d\n", i);
 			free(m->head);
-			fprintf(stderr, "just killed client #%d\n", i);
 
 			m->head = tc;
 			xsendkill(w);
 		}
-		fprintf(stderr, "just killed clients for monitor %d\n", j);
-		j++;
 
-		XUngrabKey(dis, AnyKey, AnyModifier, root);
-		fprintf(stderr, "about to free m->desks\n");
 		free(m->desks);
+
 		XUnmapWindow(dis, m->bar->win);
 		XDestroyWindow(dis, m->bar->win);
 		XftDrawDestroy(m->bar->xd);
 		XFreeGC(dis, m->bar->gc);
 		XftFontClose(dis, m->bar->xfont);
 		XFreePixmap(dis, m->bar->d);
-		fprintf(stderr, "about to free m->bar\n");
+
 		free(m->bar);
 
 		tmp = m->next;
-		fprintf(stderr, "about to free m\n");
 		free(m);
 		m = tmp;
-		setcurmon(m);
+		changemon(m, 0);
 	}
-
-	/* This ain't pretty, but it gets the job done (Without memory leak? Not sure) */
-//	XUnmapWindow(dis, sbar->win);
-//	XDestroyWindow(dis, sbar->win);
-	XUngrabKey(dis, AnyKey, AnyModifier, root);
-
-//	XftDrawDestroy(sbar->xd);
-//	XFreeGC(dis, sbar->gc);
-//	XftFontClose(dis, sbar->xfont);
-//	XFreePixmap(dis, sbar->d);
-//	free(sbar);
 
 	free(preventer);
 
 	for (i=0;i < TABLENGTH(colors);i++) free(scheme[i]);
 	free(scheme);
 
-	fprintf(stderr, "sara: Thanks for using!\n");
+	fprintf(stdout, "sara: Thanks for using!\n");
 	XDestroySubwindows(dis, root);
 
 	XSync(dis, False);
 	XSetInputFocus(dis, PointerRoot, RevertToPointerRoot, CurrentTime);
 
         XCloseDisplay(dis);
-}
-
-int getpointcoords(int rety){
-	int x, y, dwx, dwy;
-	unsigned int dmr;
-	Window drret, dcret;
-
-	XQueryPointer(dis, root, &drret, &dcret, &x, &y, &dwx, &dwy, &dmr);
-
-	return rety ? y : x;
 }
 
 void grabkeys(){
