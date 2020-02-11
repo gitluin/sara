@@ -1106,10 +1106,6 @@ void changedesktop(const Arg arg){
 
 	mapclients();
 
-	/* why is this not changecurrent? */
-//	if ( !(curmon->current = findcurrent()) && (c = findvisclient(curmon->head)) )
-//		curmon->current = c;
-
 	if ( (c = findcurrent()) || (c = findvisclient(curmon->head)) )
 		changecurrent(c, curmon->curdesk);
 
