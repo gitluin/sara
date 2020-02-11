@@ -81,7 +81,7 @@ struct client {
 	/* being in monocle is not considered floating */
 	int isfloat;
 	int isfull;
-	//int no_focus;
+	//int nofocus;
 }; 
 
 typedef struct {
@@ -258,16 +258,16 @@ static Window root;
 static client* preventer;
 static int justswitch;
 
+/* Monitor Interfacing */
+static monitor* mhead;
+static monitor* curmon;
+
 /* Backend */
 static client* ic; /* for EACHCLIENT iterating */
 static int lrpad;
 static int running;
 static XftColor** scheme;
 static char xsetr_text[256];
-
-/* Monitor Interfacing */
-static monitor* mhead;
-static monitor* curmon;
 
 /* Events array */
 static void (*events[LASTEvent])(XEvent* e) = {
@@ -330,7 +330,6 @@ void configurerequest(XEvent* e){
 	monitor* m;
 	XConfigureRequestEvent* ev = &e->xconfigurerequest;
 
-	/* only honor requests if they should be honored */
 	if ((c = findclient(ev->window))){
 		m = findmon(c->win);
 		if (ev->value_mask & CWX) c->x = m->x + ev->x;
@@ -366,18 +365,13 @@ void enternotify(XEvent* e){
 		return;
 	}
 
-	if ( (m = findmon(ev->window)) && m != curmon){
-		changemon(m, 0);
-		updateprev(c);
-		changecurrent(c, curmon->curdesk);
-		updatefocus();
-		return;
-	}
-
 	/* if we haven't moved from the confines of the window */
 	if (preventer && !ISOUTSIDE(ev->x_root, ev->y_root, preventer->x,
 				preventer->y, preventer->w, preventer->h))
 		return;
+
+	if ( (m = findmon(ev->window)) && m != curmon )
+		changemon(m, 0);
 
 	updateprev(c);
 	changecurrent(c, curmon->curdesk);
@@ -397,10 +391,9 @@ void keypress(XEvent* e){
 	XKeyEvent ke = e->xkey;
 	KeySym keysym = XKeycodeToKeysym(dis, ke.keycode, 0);
 
-	for (i=0;i<TABLENGTH(keys);i++){
+	for (i=0;i<TABLENGTH(keys);i++)
 		if (keys[i].keysym == keysym && keys[i].mod == ke.state)
 			keys[i].function(keys[i].arg);
-	}
 }
 
 void maprequest(XEvent* e){
@@ -484,7 +477,8 @@ void attachaside(client* c){
 		}
 	}
 
-	XSelectInput(dis, c->win, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
+	//XSelectInput(dis, c->win, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
+	XSelectInput(dis, c->win, ButtonPressMask|EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
 	changecurrent(c, curmon->curdesk);
 }
 
@@ -539,9 +533,7 @@ void manage(Window parent, XWindowAttributes* wa){
 		die("Error while callocing new client!");
 
 	c->win = parent;
-	c->isfloat = 0;
-	c->isfull = 0;
-	c->iscur = 0;
+	c->isfloat = c->isfull = c->iscur = 0;
 	c->desks = curmon->curdesk;
 
 	c->x = wa->x; c->y = wa->y;
@@ -552,8 +544,8 @@ void manage(Window parent, XWindowAttributes* wa){
 
 	applyrules(c);
 	attachaside(c);
-	/* if (c->no_focus){
-	 * 	hide_client(c);
+	/* if (c->nofocus){
+	 * 	hideclient(c);
 	 *	refocus(curmon->current->next, curmon->current);
 	 * }
 	 * curmon->curlayout->arrange(curmon);
@@ -642,7 +634,7 @@ void raisefloats(){
 /* focus moves down if possible, else up */
 void refocus(client* n, client* p){
 	client* vis;
-	vis = (vis = findvisclient(n)) ? vis : findprevclient(p,YesVis);
+	vis = (vis = findvisclient(n)) ? vis : findprevclient(p, YesVis);
 	changecurrent(vis, curmon->curdesk);
 }
 
@@ -692,13 +684,13 @@ void todesktop(const Arg arg){
 }
 
 void toggledesktop(const Arg arg){
-	unsigned int new_desks;
+	unsigned int newdesks;
 
 	if (!curmon->current) return;
 
-	new_desks = curmon->current->desks ^ 1 << arg.i;
-	if (new_desks){
-		curmon->current->desks = new_desks;
+	newdesks = curmon->current->desks ^ 1 << arg.i;
+	if (newdesks){
+		curmon->current->desks = newdesks;
 		curmon->current->iscur = 0;
 		changecurrent(curmon->current, 1 << arg.i);
 
@@ -760,7 +752,7 @@ void togglefs(){
 /* TODO: Change monitors if necessary */
 void unmanage(client* c){
 	detach(c);
-	free(c);
+	if (c) free(c);
 	curmon->curlayout->arrange(curmon);
 	updatefocus();
 }
@@ -1115,8 +1107,11 @@ void changedesktop(const Arg arg){
 	mapclients();
 
 	/* why is this not changecurrent? */
-	if ( !(curmon->current = findcurrent()) && (c = findvisclient(curmon->head)) )
-		curmon->current = c;
+//	if ( !(curmon->current = findcurrent()) && (c = findvisclient(curmon->head)) )
+//		curmon->current = c;
+
+	if ( (c = findcurrent()) || (c = findvisclient(curmon->head)) )
+		changecurrent(c, curmon->curdesk);
 
 	curmon->curlayout->arrange(curmon);
 	justswitch = 1;
@@ -1199,7 +1194,7 @@ void toggleview(const Arg arg){
 		for (i=0;i < TABLENGTH(tags);i++){
 			if (curmon->seldesks & 1 << i){
 				loaddesktop(i);
-				curmon->curdesk = curmon->seldesks;
+				curmon->curdesk = 1 << i;
 				break;
 			}
 		}
@@ -1356,9 +1351,10 @@ void sigchld(int unused){
 
 /* dwm copypasta */
 void spawn(const Arg arg){
-	if (arg.v == dmenucmd)
-		dmenumon[0] = '0' + curmon->num;
+	if (arg.v == dmenucmd) dmenumon[0] = '0' + curmon->num;
+
 	if (fork()) return;
+
 	if (dis) close(ConnectionNumber(dis));
 
 	setsid();
