@@ -1,9 +1,5 @@
----
-title: "__Things I've Learned__"
-author: its me your brother
-geometry: margin=2cm
-output: pdf_document
---- 
+Things I've Learned
+=====================
 
 # General things
 

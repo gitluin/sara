@@ -477,8 +477,7 @@ void attachaside(client* c){
 		}
 	}
 
-	//XSelectInput(dis, c->win, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
-	XSelectInput(dis, c->win, ButtonPressMask|EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
+	XSelectInput(dis, c->win, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
 	changecurrent(c, curmon->curdesk);
 }
 
@@ -1131,7 +1130,7 @@ void loaddesktop(int i){
 }
 
 void monocle(monitor* m){
-	for EACHCLIENT(m->head) if (ISVISIBLE(ic) && !ic->isfloat){
+	for EACHCLIENT(m->head) if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull){
 			resizeclient(ic, m->x, m->y, m->w, m->h);
 		} 
 
@@ -1155,14 +1154,14 @@ void tile(monitor* m){
 		}
 
 	if (nf && n == 1){
-		resizeclient(nf, x, y, m->w, m->h);
+		if (!nf->isfull) resizeclient(nf, x, y, m->w, m->h);
 
 	} else if (nf){
 		/* so having a master doesn't affect stack splitting */
 		n--;
 
 		/* Master window */
-		resizeclient(nf, x, y, m->msize, m->h);
+		if (!nf->isfull) resizeclient(nf, x, y, m->msize, m->h);
 
 		/* Stack */
 		for EACHCLIENT(nf->next){
@@ -1347,7 +1346,8 @@ void sigchld(int unused){
 
 /* dwm copypasta */
 void spawn(const Arg arg){
-	if (arg.v == dmenucmd) dmenumon[0] = '0' + curmon->num;
+	if (arg.v == dmenucmd)
+		dmenumon[0] = '0' + curmon->num;
 
 	if (fork()) return;
 

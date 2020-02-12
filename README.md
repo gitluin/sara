@@ -13,6 +13,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.9.2.3	- Nasty bug go bye-bye, and fixed resizing mistake with fullscreen windows.
  * v0.9.2.2	- No more global current, head, seldesks, current\_desktop. Tag drawing in bars duly fixed.
  * v0.9.2.1	- viewall desktops at once (MOD + XK\_0)
  * v0.9.2	- Multiple monitors! Stable, but buggy. Currently there are some weird focusing issues and tags in the bars are not per-monitor.
@@ -49,8 +50,8 @@ Features
 * No unmapping, just destroying. I don't like window decorations, so no minimizing, etc. possible.
 * No support for urgency coloring in the bar, because nothing I do is urgent.
 * No [ICCCM](https://web.archive.org/web/20190617214524/https://raw.githubusercontent.com/kfish/xsel/1a1c5edf0dc129055f7764c666da2dd468df6016/rant.txt) (found thanks to [dylan](https://github.com/dylanaraps/sowm)). This is mostly felt in the lack of the applysizehints behavior that dwm has (ex. cmatrix won't redraw using larger window bounds if you give it more space via togglefs, changemsize, etc.)
-* No EWMH support, because you're an adult and can fullscreen manually (see config.h), and it's too much work to deal with floating pop-up windows when they'll disappear anyway.
-* One bar. I don't like to look to a particular monitor for the time, just the same spot on any monitor. No Xinerama yet but we'll get there.
+* No EWMH support, because fullscreening manually isn't so bad (see config.h).
+* One bar. I don't like to look to a particular monitor for the time, just the same spot on any monitor.
 * No unicode support. If you provide unicode characters to the bar, behavior is undefined. I get junk for symbols. You might crash. Behave yourself.
 
 ### Why Use Sara Over Other Small WM, X?
@@ -102,7 +103,7 @@ Bugs
  * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc.
  * Need to XFree() in applyrules, I think? T'is unclear
  * Sometimes, download dialogs from Firefox end up in 9th hellspace
- * buttonpress doesn't draw focus to new monitors
+ * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when
  * enternotify is not as snappy as it is in dwm. if you move the pointer slowly, it won't work, and sometimes it gets "stuck" on a window if you move back and forth quickly. buttonpress always refocuses, though.
  * spawning when selecting all tags should work like dwm.
 
