@@ -1346,8 +1346,7 @@ void sigchld(int unused){
 
 /* dwm copypasta */
 void spawn(const Arg arg){
-	if (arg.v == dmenucmd)
-		dmenumon[0] = '0' + curmon->num;
+	if (arg.v == dmenucmd) dmenumon[0] = '0' + curmon->num;
 
 	if (fork()) return;
 
