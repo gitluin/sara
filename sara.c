@@ -24,14 +24,12 @@
 #include <X11/extensions/Xinerama.h>
 #endif
 
-#define BUTTONMASK              	(ButtonPressMask|ButtonReleaseMask)
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
 #define ISVISIBLE(C)			((C->desks & curmon->seldesks))
 #define TEXTW(M,X)			(gettextwidth(M, X, slen(X)) + lrpad)
 #define EACHCLIENT(_I)			(ic=_I;ic;ic=ic->next) /* ic is a global */
 #define ISOUTSIDE(PX,PY,X,Y,W,H)	((PX > X + W || PX < X || PY > Y + H || PY < Y))
 #define POSTOINT(X)			((int)(ceil(log2(X)) == floor(log2(X)) ? ceil(log2(X)) : 0))
-#define ISPOSTOINT(X)			((X == 0 ? 0 : ceil(log2(X)) == floor(log2(X))))
 
 enum { SchNorm, SchSel };
 enum { ColFg, ColBg };
@@ -489,7 +487,7 @@ void changecurrent(client* c, unsigned int deskmask){
 	
 	for EACHCLIENT(curmon->head) if ( ic != c && (ic->iscur & deskmask) ){
 			ic->iscur ^= deskmask;
-			XGrabButton(dis, Button1, 0, ic->win, False, BUTTONMASK,
+			XGrabButton(dis, Button1, 0, ic->win, False, ButtonPressMask,
 					GrabModeAsync, GrabModeSync, None, None);
 		}
 
@@ -533,7 +531,7 @@ void manage(Window parent, XWindowAttributes* wa){
 
 	c->win = parent;
 	c->isfloat = c->isfull = c->iscur = 0;
-	c->desks = curmon->curdesk;
+	c->desks = curmon->seldesks;
 
 	c->x = wa->x; c->y = wa->y;
 	c->w = wa->width; c->h = wa->height;

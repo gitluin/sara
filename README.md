@@ -105,7 +105,6 @@ Bugs
  * Sometimes, download dialogs from Firefox end up in 9th hellspace
  * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when
  * enternotify is not as snappy as it is in dwm. if you move the pointer slowly, it won't work, and sometimes it gets "stuck" on a window if you move back and forth quickly. buttonpress always refocuses, though.
- * spawning when selecting all tags should work like dwm.
 
 To Do
 ----
@@ -114,7 +113,6 @@ To Do
    * Code cleanup (as a constant) - function naming conventions
    * Does it leak memory?
  * Discrete:
-   * quit() should probably be more responsibly implemented
    * Implement rules (0.5 points)
    * Implement mouse move, resize support for clients (0.3 points)
    * My own art
