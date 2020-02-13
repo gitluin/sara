@@ -1348,16 +1348,26 @@ void sigchld(int unused){
 void spawn(const Arg arg){
 	if (arg.v == dmenucmd) dmenumon[0] = '0' + curmon->num;
 
-	if (fork()) return;
+//	if (fork()) return;
+//
+//	if (dis) close(ConnectionNumber(dis));
+//
+//	setsid();
+//	execvp( ((char **) arg.v)[0], (char **) arg.v);
+//	
+//	fprintf(stderr, "sara: execvp %s", ((char **) arg.v)[0]);
+//	perror(" failed");
+//	exit(EXIT_SUCCESS);
 
-	if (dis) close(ConnectionNumber(dis));
+	if (fork() == 0){
+		if (dis) close(ConnectionNumber(dis));
 
-	setsid();
-	execvp( ((char**) arg.v)[0], (char**) arg.v);
-	
-	fprintf(stderr, "sara: execvp %s", ((char **) arg.v)[0]);
-	perror(" failed");
-	exit(EXIT_SUCCESS);
+		setsid();
+		execvp( ((char **) arg.v)[0], (char **) arg.v);
+		fprintf(stderr, "sara: execvp %s", ((char **) arg.v)[0]);
+		perror(" failed");
+		exit(EXIT_SUCCESS);
+	}
 }
 
 /* dwm copypasta */

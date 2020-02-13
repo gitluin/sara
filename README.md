@@ -80,7 +80,7 @@ Keys
 | Mod+W				| Spawn firefox						|
 | Mod+F				| Spawn vifm						|
 | Mod+R				| Spawn R session					|
-| Mod+C				| Spawn calender (broke)				|
+| Mod+C				| Spawn calendar					|
 | Mod+D				| Spawn dmenu						|
 | Mod+K				| Move focus up						|
 | Mod+J				| Move focus down					|

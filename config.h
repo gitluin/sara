@@ -103,7 +103,7 @@ static const char* termcmd[] 		= { "st", NULL};
 static const char* browscmd[] 	 	= { "firefox", NULL };
 static const char* fbrowscmd[]		= { "st", "-e", "vifm", NULL };
 static const char* rcalccmd[]  		= { "st", "-t", "rcalc",    "-g", "80x24+625+325", "-e", "R", "--vanilla", "-q", NULL };
-static const char* calcmd[] 	 	= { "st", "-t", "cal",      "-g", "26x14+855", "-e", "check_cal", NULL };
+static const char* calcmd[] 	 	= { "st", "-t", "cal",      "-g", "20x10+880", "-e", "/kbin/check_cal.sh", NULL };
 
 /* Function Keys */
 static const char* brightdown[]  	= { "st", "-t", "funkey", "-e", "/bin/sbar/sbar_bright.sh", "-U", "5", NULL };
