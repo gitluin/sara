@@ -69,10 +69,10 @@ static const layout layouts[] = {
 
 /* dwm copypasta */
 #define DESKTOPCHANGE(K,N) \
-    {  MOD,             	    K,	changedesktop, 		{.i = N}}, \
-    {  MOD|ShiftMask,   	    K,  toggledesktop, 		{.i = N}}, \
-    {  MOD|ControlMask,   	    K,  toggleview,		{.i = N}}, \
-    {  MOD|ControlMask|ShiftMask,   K,  todesktop, 		{.i = N}},
+    {  MOD,             	    K,	view, 		{.i = N}}, \
+    {  MOD|ShiftMask,   	    K,  toggledesktop, 	{.i = N}}, \
+    {  MOD|ControlMask,   	    K,  toggleview,	{.i = N}}, \
+    {  MOD|ControlMask|ShiftMask,   K,  todesktop, 	{.i = N}},
 
 #define XK_BDOWN 	XF86XK_MonBrightnessDown
 #define XK_BUP 		XF86XK_MonBrightnessUp

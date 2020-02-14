@@ -13,6 +13,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.9.2.4	- enternotify is snappy!
  * v0.9.2.3	- Nasty bug go bye-bye, and fixed resizing mistake with fullscreen windows.
  * v0.9.2.2	- No more global current, head, seldesks, current\_desktop. Tag drawing in bars duly fixed.
  * v0.9.2.1	- viewall desktops at once (MOD + XK\_0)
@@ -104,7 +105,6 @@ Bugs
  * Need to XFree() in applyrules, I think? T'is unclear
  * Sometimes, download dialogs from Firefox end up in 9th hellspace
  * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when
- * enternotify is not as snappy as it is in dwm. if you move the pointer slowly, it won't work, and sometimes it gets "stuck" on a window if you move back and forth quickly. buttonpress always refocuses, though.
 
 To Do
 ----

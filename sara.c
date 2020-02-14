@@ -167,7 +167,7 @@ static void keypress(XEvent* e);
 static void maprequest(XEvent* e);
 static void motionnotify(XEvent* e);
 static void propertynotify(XEvent* e);
-//static void unmapnotify(XEvent* e);
+static void unmapnotify(XEvent* e);
 
 /* Client & Linked List Manipulation */
 static void applyrules(client* c);
@@ -214,13 +214,13 @@ static bar* initbar(monitor* m);
 static void updatestatus();
 
 /* Desktop Interfacing */
-static void changedesktop(const Arg arg);
 static void changemsize(const Arg arg);
 static void loaddesktop(int i);
 static void monocle(monitor* m);
 static void setlayout(const Arg arg);
 static void tile(monitor* m);
 static void toggleview(const Arg arg);
+static void view(const Arg arg);
 static void viewall();
 
 /* Backend */
@@ -279,7 +279,7 @@ static void (*events[LASTEvent])(XEvent* e) = {
 	[MapRequest] = maprequest,
 	[MotionNotify] = motionnotify,
 	[PropertyNotify] = propertynotify,
-	//[UnmapNotify] = unmapnotify
+	[UnmapNotify] = unmapnotify
 };
 
 
@@ -358,15 +358,13 @@ void enternotify(XEvent* e){
 	if ( (ev->mode != NotifyNormal || ev->detail == NotifyInferior) && ev->window != root )
 		return;
 
-	if ( !(c = findclient(ev->window)) || justswitch ){
+	if ( !(c = findclient(ev->window)) || c == curmon->current )
+		return;
+
+	if (justswitch){
 		justswitch = 0;
 		return;
 	}
-
-	/* if we haven't moved from the confines of the window */
-	if (preventer && !ISOUTSIDE(ev->x_root, ev->y_root, preventer->x,
-				preventer->y, preventer->w, preventer->h))
-		return;
 
 	if ( (m = findmon(ev->window)) && m != curmon )
 		changemon(m, 0);
@@ -400,6 +398,7 @@ void maprequest(XEvent* e){
 
 	if ( XGetWindowAttributes(dis, ev->window, &wa) && !wa.override_redirect && !findclient(ev->window) ){
 		manage(ev->window, &wa);
+		justswitch = 1;
 		curmon->curlayout->arrange(curmon);
 		updatefocus();
 	}
@@ -413,7 +412,8 @@ void motionnotify(XEvent* e){
 		return;
 
 	for (m=mhead;m;m=m->next){
-		if (m != curmon && !ISOUTSIDE(ev->x_root, ev->y_root, m->x, m->y, m->w, m->h)){
+		if (m != curmon && ISOUTSIDE(ev->x_root, ev->y_root,
+					curmon->x, curmon->y, curmon->w, curmon->h)){
 			changemon(m, 1);
 			return;
 		}
@@ -428,10 +428,11 @@ void propertynotify(XEvent* e){
 		updatestatus();
 }
 
-//void unmapnotify(XEvent* e){
-//	XUnmapEvent* ev = &e->xunmap;
-//
-//}
+void unmapnotify(XEvent* e){
+	//XUnmapEvent* ev = &e->xunmap;
+
+	curmon->curlayout->arrange(curmon);
+}
 
 
 /* ---------------------------------------
@@ -555,6 +556,7 @@ void mapclients(){
 	for EACHCLIENT(curmon->head) if ISVISIBLE(ic) XMapWindow(dis, ic->win); else XUnmapWindow(dis, ic->win);
 }
 
+/* TODO: only move visible? */
 void moveclient(const Arg arg){
 	client* p, * mp, * n;
 
@@ -588,6 +590,7 @@ void moveclient(const Arg arg){
 			p->next = n;
 	}
 
+	justswitch = 1;
 	curmon->curlayout->arrange(curmon);
 	updatefocus();
 	drawbars();
@@ -1095,23 +1098,6 @@ void updatestatus(){
  * ---------------------------------------
  */
 
-void changedesktop(const Arg arg){
-	client* c;
-
-	loaddesktop(arg.i);
-	curmon->seldesks = curmon->curdesk = 1 << arg.i;
-
-	mapclients();
-
-	if ( (c = findcurrent()) || (c = findvisclient(curmon->head)) )
-		changecurrent(c, curmon->curdesk);
-
-	curmon->curlayout->arrange(curmon);
-	justswitch = 1;
-	updatefocus();
-	updatestatus();
-}
-
 void changemsize(const Arg arg){
 	curmon->msize += ( ((curmon->msize < 0.95 * curmon->w) && (arg.f > 0))
 			|| ((curmon->msize > 0.05 * curmon->w) && (arg.f < 0))  ) ? arg.f * curmon->w : 0;
@@ -1194,6 +1180,23 @@ void toggleview(const Arg arg){
 	}
 
 	curmon->curlayout->arrange(curmon);
+	updatefocus();
+	updatestatus();
+}
+
+void view(const Arg arg){
+	client* c;
+
+	loaddesktop(arg.i);
+	curmon->seldesks = curmon->curdesk = 1 << arg.i;
+
+	mapclients();
+
+	if ( !(curmon->current = findcurrent()) && (c = findvisclient(curmon->head)) )
+		changecurrent(c, curmon->curdesk);
+
+	curmon->curlayout->arrange(curmon);
+	justswitch = 1;
 	updatefocus();
 	updatestatus();
 }
