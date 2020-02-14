@@ -34,7 +34,7 @@
 enum { SchNorm, SchSel };
 enum { ColFg, ColBg };
 enum { SymLeft, SymRight };
-enum { NoVis, YesVis };
+enum { AnyVis, OnlyVis };
 
 typedef union {
 	const int i;
@@ -202,7 +202,6 @@ static client* findcurrent();
 static client* findclient(Window w);
 static client* findvisclient(client* c);
 static client* findprevclient(client* c, int wantvis);
-static void updateprev(client* c);
 
 /* Bar */
 static void drawbar(monitor* m);
@@ -253,7 +252,6 @@ static Display* dis;
 static Window root;
 
 /* Client Interfacing */
-static client* preventer;
 static int justswitch;
 
 /* Monitor Interfacing */
@@ -299,7 +297,6 @@ void buttonpress(XEvent* e){
 		changemon(m, 0);
 
 	if ( (c = findclient(ev->window)) ){
-		updateprev(c);
 		changecurrent(c, curmon->curdesk);
 		updatefocus();
 		XAllowEvents(dis, ReplayPointer, CurrentTime);
@@ -369,7 +366,6 @@ void enternotify(XEvent* e){
 	if ( (m = findmon(ev->window)) && m != curmon )
 		changemon(m, 0);
 
-	updateprev(c);
 	changecurrent(c, curmon->curdesk);
 	updatefocus();
 }
@@ -506,7 +502,7 @@ void detach(client* c){
 	refocus(c->next, c);
 
 	/* For both, if NULL, then we're still okay */
-	if ( (p = findprevclient(c, NoVis)) )
+	if ( (p = findprevclient(c, AnyVis)) )
 		p->next = c->next;
 	else
 		curmon->head = c->next;
@@ -537,9 +533,6 @@ void manage(Window parent, XWindowAttributes* wa){
 	c->x = wa->x; c->y = wa->y;
 	c->w = wa->width; c->h = wa->height;
 
-	if (!(preventer->win) || !findclient(preventer->win))
-		updateprev(c);
-
 	applyrules(c);
 	attachaside(c);
 	/* if (c->nofocus){
@@ -556,14 +549,16 @@ void mapclients(){
 	for EACHCLIENT(curmon->head) if ISVISIBLE(ic) XMapWindow(dis, ic->win); else XUnmapWindow(dis, ic->win);
 }
 
-/* TODO: only move visible? */
+/* TODO: only move visible */
 void moveclient(const Arg arg){
 	client* p, * mp, * n;
+	//client* p, * mp, * n;
+	//client* vp, * vmp, * vn;
 
 	if (!curmon->current || curmon->current->isfull)
 		return;
 
-	p = findprevclient(curmon->current, NoVis);
+	p = findprevclient(curmon->current, AnyVis);
 
 	/* Up stack if not head */
 	if (arg.i > 0 && curmon->current != curmon->head){
@@ -571,7 +566,7 @@ void moveclient(const Arg arg){
 			swapmaster();
 
 		} else {
-			mp = findprevclient(p, NoVis);
+			mp = findprevclient(p, AnyVis);
 
 			mp->next = curmon->current;
 			p->next = curmon->current->next;
@@ -589,6 +584,27 @@ void moveclient(const Arg arg){
 		else
 			p->next = n;
 	}
+
+	/* move up stack */
+		// if not highest visible
+		// if ( (vp = findprevclient(curmon->current, OnlyVis)) ){
+		// 	p = findprevclient(curmon->current, AnyVis)
+		//
+		//	/* if (p) in case vp is head */
+		//	if (vp != p){
+		// 		if (p) p->next = curmon->current->next;
+		// 		curmon->current->next = vp->next;
+		// 		vp->next = curmon->current;
+		//
+		// 	} else {
+		//		p = findprevclient(vp, AnyVis);
+		//
+		//		if (p) p->next = curmon->current;
+		//		vp->next = curmon->current->next;
+		//		curmon->current->next = vp;
+		// 	}
+		// }
+	/* move down stack */
 
 	justswitch = 1;
 	curmon->curlayout->arrange(curmon);
@@ -618,7 +634,6 @@ void movefocus(const Arg arg){
 			for (c=curmon->head;c && !ISVISIBLE(c);c=c->next);
 	}
 
-	updateprev(c);
 	changecurrent(c, curmon->curdesk);
 	updatefocus();
 	drawbars();
@@ -634,7 +649,7 @@ void raisefloats(){
 /* focus moves down if possible, else up */
 void refocus(client* n, client* p){
 	client* vis;
-	vis = (vis = findvisclient(n)) ? vis : findprevclient(p, YesVis);
+	vis = (vis = findvisclient(n)) ? vis : findprevclient(p, OnlyVis);
 	changecurrent(vis, curmon->curdesk);
 }
 
@@ -654,7 +669,7 @@ void swapmaster(){
 
 	if (curmon->head && curmon->current && curmon->current != curmon->head){
 		tmp = (curmon->head->next == curmon->current) ? curmon->head : curmon->head->next;
-		p = findprevclient(curmon->current, NoVis);
+		p = findprevclient(curmon->current, AnyVis);
 
 		/* if p is head, this gets overwritten - saves an if statement */
 		p->next = curmon->head;
@@ -749,11 +764,19 @@ void togglefs(){
 	}
 }
 
-/* TODO: Change monitors if necessary */
 void unmanage(client* c){
+	monitor* im;
+
 	detach(c);
 	if (c) free(c);
 	curmon->curlayout->arrange(curmon);
+
+	/* Change monitors if necessary */
+	if (!curmon->head)
+		for (im=mhead;im;im=im->next)
+			if (im != curmon && im->head)
+				changemon(im, 1);
+
 	updatefocus();
 }
 
@@ -877,7 +900,9 @@ void initmons(){
 			if (!mhead){
 				mhead = m;
 	
-			/* works for me because I only use 2 monitors */
+			/* My laptop insists that my onboard graphics output is not primary
+			 * This is my workaround. It works because I only use 2 monitors.
+			 */
 			} else if (m->x < mhead->x){
 				tmp = mhead;
 				mhead = m;
@@ -930,14 +955,14 @@ client* findclient(Window w){
 	return NULL;
 }
 
-client* findprevclient(client* c, int wantvis){
+client* findprevclient(client* c, int onlyvis){
 	client* i, * ret = NULL;
 	for (i=curmon->head;i && i != c;i=i->next){
-		if (wantvis)
+		if (onlyvis)
 			if ISVISIBLE(i) ret = i;
 
 		if (i->next == c){
-			if (wantvis)
+			if (onlyvis)
 				return ISVISIBLE(i) ? i : ret;
 			else
 				return i;
@@ -951,12 +976,6 @@ client* findvisclient(client* c){
 	for EACHCLIENT(c) if ISVISIBLE(ic) return ic;
 	
 	return NULL;
-}
-
-void updateprev(client* c){
-	preventer->win = c->win;
-	preventer->x = c->x; preventer->y = c->y;
-	preventer->w = c->w; preventer->h = c->h;
 }
 
 
@@ -1261,8 +1280,6 @@ void cleanup(){
 		changemon(m, 0);
 	}
 
-	free(preventer);
-
 	for (i=0;i < TABLENGTH(colors);i++) free(scheme[i]);
 	free(scheme);
 
@@ -1320,7 +1337,6 @@ void setup(){
 
 	mhead = NULL;
 	curmon = NULL;
-	preventer = ecalloc(1, sizeof(client));
 
 	initmons();
 	loaddesktop(0);
