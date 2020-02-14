@@ -48,7 +48,6 @@ Features
 
 ### Design Limitations
 
-* No unmapping, just destroying. I don't like window decorations, so no minimizing, etc. possible.
 * No support for urgency coloring in the bar, because nothing I do is urgent.
 * No [ICCCM](https://web.archive.org/web/20190617214524/https://raw.githubusercontent.com/kfish/xsel/1a1c5edf0dc129055f7764c666da2dd468df6016/rant.txt) (found thanks to [dylan](https://github.com/dylanaraps/sowm)). This is mostly felt in the lack of the applysizehints behavior that dwm has (ex. cmatrix won't redraw using larger window bounds if you give it more space via togglefs, changemsize, etc.)
 * No EWMH support, because fullscreening manually isn't so bad (see config.h).
@@ -72,50 +71,53 @@ Keys
 
 | Key				| Function 						|
 | -----------------------------	| -----------------------------------------------------	|
-| Mod+NUMKEY			| Switch to desktop NUMKEY				|
-| Mod+Shift+NUMKEY		| Add focused client to desktop NUMKEY			|
-| Mod+Control+NUMKEY		| Toggle desktop NUMKEY to current view			|
+| Mod+NUMKEY			| View desktop NUMKEY					|
+| Mod+Shift+NUMKEY		| Toggle focused client to/from desktop NUMKEY		|
+| Mod+Control+NUMKEY		| Toggle desktop NUMKEY to/from view			|
 | Mod+Shift+Control+NUMKEY	| Put focused client on only desktop NUMKEY		|
 | Mod+XK\_0			| View all desktops					|
+| Mod+K				| Move focus up stack					|
+| Mod+J				| Move focus down stack					|
+| Mod+Shift+K			| Move focused client up stack				|
+| Mod+Shift+J			| Move focused client down stack			|
+| Mod+Return			| Move focused client to master				|
+| Mod+Shift+Space		| Toggle focused client to floating			|
+| Mod+Shift+Return		| Toggle focused client to fullscreen			|
+| Mod+Shift+Q			| Kill focused client ("force quit")			|
+| Mod+H				| Decrease master area					|
+| Mod+L				| Increase master area					|
+| Mod+Control+T			| Change layout to tiling				|
+| Mod+Control+M			| Change layout to monocle				|
+| Mod+Shift+E			| Quit sara (shuts down X)				|
 | Mod+T				| Spawn st						|
 | Mod+W				| Spawn firefox						|
 | Mod+F				| Spawn vifm						|
 | Mod+R				| Spawn R session					|
 | Mod+C				| Spawn calendar					|
 | Mod+D				| Spawn dmenu						|
-| Mod+K				| Move focus up						|
-| Mod+J				| Move focus down					|
-| Mod+H				| Decrease master area					|
-| Mod+L				| Increase master area					|
-| Mod+Return			| Move client to master					|
-| Mod+Shift+K			| Move client up stack					|
-| Mod+Shift+J			| Move client down stack				|
-| Mod+Shift+Q			| Kill client ("force quit")				|
-| Mod+Shift+E			| Quit sara (shuts down X)				|
-| Mod+Shift+Space		| Toggle client to floating (not useful w/o movement)	|
-| Mod+Shift+Return		| Toggle client to fullscreen (no bar)			|
-| Mod+Control+T			| Change layout to tiling				|
-| Mod+Control+M			| Change layout to monocle				|
 
 Bugs
 ----
- * With programs like Krita, the popup window generates an unmap event upon completion of its task, so it stays around and takes up tiling space _need unmap support?_
- * Function spawns don't play nice if they hang around and you try to kill them before they go poof
+ * With programs like Krita, the popup window generates an unmap event upon completion of its task, so it stays around and takes up tiling space. _unmap support_
+ * Function spawns don't play nice if they hang around and you try to kill them before they go poof.
  * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc.
- * Need to XFree() in applyrules, I think? T'is unclear
- * Sometimes, download dialogs from Firefox end up in 9th hellspace
- * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when
+ * Need to XFree() in applyrules, I think? T'is unclear.
+ * Sometimes, download dialogs from Firefox end up in 9th hellspace.
+ * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when.
+ * bar doesn't always draw immediately on xinit.
 
 To Do
 ----
  * Continuous:
    * No bugs (just use [XGH](https://gist.github.com/banaslee/4147370)) (required for v1.0)
-   * Code cleanup (as a constant) - function naming conventions
+   * Code cleanup (as a constant) - function naming conventions.
    * Does it leak memory?
  * Discrete:
-   * Implement rules (0.5 points)
-   * Implement mouse move, resize support for clients (0.3 points)
-   * My own art
-   * Tutorial
+   * Implement rules (0.5 points).
+   * Implement mouse move, resize support for clients (0.3 points).
+   * Limited EWMH (automatic togglefs)?
+   * Drop all pretense and just call desktops tags.
+   * My own art.
+   * Tutorial.
 
 If you have some particular request, don't send me an e-mail, I won't do it!
