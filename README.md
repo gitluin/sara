@@ -13,6 +13,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.9.2.5	- moveclient works by visibility now - no more hitting MOD+Shift+{J,K} several times to get clients to move on-screen.
  * v0.9.2.4	- enternotify is snappy!
  * v0.9.2.3	- Nasty bug go bye-bye, and fixed resizing mistake with fullscreen windows.
  * v0.9.2.2	- No more global current, head, seldesks, current\_desktop. Tag drawing in bars duly fixed.
