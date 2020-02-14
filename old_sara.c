@@ -179,7 +179,6 @@ static void manage(Window parent, XWindowAttributes* wa);
 static void mapclients();
 static void moveclient(const Arg arg);
 static void movefocus(const Arg arg);
-static void moveclientup(client* c);
 static void raisefloats();
 static void refocus(client* n, client* p);
 static void resizeclient(client* c, int x, int y, int w, int h);
@@ -550,18 +549,62 @@ void mapclients(){
 	for EACHCLIENT(curmon->head) if ISVISIBLE(ic) XMapWindow(dis, ic->win); else XUnmapWindow(dis, ic->win);
 }
 
+/* TODO: only move visible */
 void moveclient(const Arg arg){
-	client* c;
+	client* p, * mp, * n;
+	//client* p, * mp, * n;
+	//client* vp, * vmp, * vn;
 
 	if (!curmon->current || curmon->current->isfull)
 		return;
 
-	/* Up stack */
-	if (arg.i > 0)
-		moveclientup(curmon->current);
-	/* Down stack - equivalent to moving next visible client up */
-	else if ( arg.i < 0 && (c = findvisclient(curmon->current->next)) )
-		moveclientup(c);
+	p = findprevclient(curmon->current, AnyVis);
+
+	/* Up stack if not head */
+	if (arg.i > 0 && curmon->current != curmon->head){
+		if (p == curmon->head){
+			swapmaster();
+
+		} else {
+			mp = findprevclient(p, AnyVis);
+
+			mp->next = curmon->current;
+			p->next = curmon->current->next;
+			curmon->current->next = p;
+		}
+
+	/* Down stack if not tail */
+	} else if (arg.i < 0 && curmon->current->next){
+		n = curmon->current->next;
+		curmon->current->next = n->next;
+		n->next = curmon->current;
+
+		if (curmon->current == curmon->head)
+			curmon->head = n;
+		else
+			p->next = n;
+	}
+
+	/* move up stack */
+		// if not highest visible
+		// if ( (vp = findprevclient(curmon->current, OnlyVis)) ){
+		// 	p = findprevclient(curmon->current, AnyVis)
+		//
+		//	/* if (p) in case vp is head */
+		//	if (vp != p){
+		// 		if (p) p->next = curmon->current->next;
+		// 		curmon->current->next = vp->next;
+		// 		vp->next = curmon->current;
+		//
+		// 	} else {
+		//		p = findprevclient(vp, AnyVis);
+		//
+		//		if (p) p->next = curmon->current;
+		//		vp->next = curmon->current->next;
+		//		curmon->current->next = vp;
+		// 	}
+		// }
+	/* move down stack */
 
 	justswitch = 1;
 	curmon->curlayout->arrange(curmon);
@@ -569,27 +612,11 @@ void moveclient(const Arg arg){
 	drawbars();
 }
 
-void moveclientup(client* c){
-	client* p, * vp, * pvp;
-
-	/* Up stack only if not highest visible */
-	if ( !c || !(vp = findprevclient(c, OnlyVis)) ) return;
-
-	p = findprevclient(c, AnyVis);
-	pvp = findprevclient(vp, AnyVis);
-
-	/* if p == vp, then we're still okay */
-	p->next = c->next;
-	c->next = vp;
-	if (pvp) pvp->next = c;
-	else curmon->head = c;
-}
-
 /* some dwm copypasta */
 void movefocus(const Arg arg){
 	client* j, * c = NULL;
 
-	if (!curmon->current || curmon->current->isfull)
+	if ( !curmon->current || curmon->current->isfull )
 		return;
 
 	/* up stack */
@@ -936,7 +963,7 @@ client* findprevclient(client* c, int onlyvis){
 
 		if (i->next == c){
 			if (onlyvis)
-				return ret;
+				return ISVISIBLE(i) ? i : ret;
 			else
 				return i;
 		}
@@ -1176,7 +1203,6 @@ void toggleview(const Arg arg){
 	updatestatus();
 }
 
-/* TODO: fixing findcurrent usage */
 void view(const Arg arg){
 	client* c;
 
@@ -1188,8 +1214,8 @@ void view(const Arg arg){
 	if ( !(curmon->current = findcurrent()) && (c = findvisclient(curmon->head)) )
 		changecurrent(c, curmon->curdesk);
 
-	justswitch = 1;
 	curmon->curlayout->arrange(curmon);
+	justswitch = 1;
 	updatefocus();
 	updatestatus();
 }
