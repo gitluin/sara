@@ -35,6 +35,7 @@ enum { SchNorm, SchSel };
 enum { ColFg, ColBg };
 enum { SymLeft, SymRight };
 enum { AnyVis, OnlyVis };
+enum { NoZoom, YesZoom };
 
 typedef union {
 	const int i;
@@ -79,6 +80,7 @@ struct client {
 	/* being in monocle is not considered floating */
 	int isfloat;
 	int isfull;
+	int oldfloat; /* prior to togglefs */
 	//int nofocus;
 }; 
 
@@ -136,7 +138,7 @@ void die(const char* e, ...){
 void* ecalloc(size_t nmemb, size_t size){
 	void* p;
 
-	if (!(p = calloc(nmemb,size))) die("ecalloc failed");
+	if ( !(p = calloc(nmemb,size)) ) die("ecalloc failed");
 
 	return p;
 }
@@ -178,18 +180,18 @@ static void killclient();
 static void manage(Window parent, XWindowAttributes* wa);
 static void mapclients();
 static void moveclient(const Arg arg);
+static void moveclientup(client* c, int wantzoom);
 static void movefocus(const Arg arg);
-static void moveclientup(client* c);
 static void raisefloats();
 static void refocus(client* n, client* p);
 static void resizeclient(client* c, int x, int y, int w, int h);
-static void swapmaster();
 static void todesktop(const Arg arg);
 static void toggledesktop(const Arg arg);
 static void togglefloat();
 static void togglefs();
 static void unmanage(client* c);
 static void updatefocus();
+static void zoom();
 
 /* Monitor Manipulation */
 static void changemon(monitor* m, int focus);
@@ -326,7 +328,7 @@ void configurerequest(XEvent* e){
 	monitor* m;
 	XConfigureRequestEvent* ev = &e->xconfigurerequest;
 
-	if ((c = findclient(ev->window))){
+	if ( (c = findclient(ev->window)) ){
 		m = findmon(c->win);
 		if (ev->value_mask & CWX) c->x = m->x + ev->x;
 		if (ev->value_mask & CWY) c->y = (ev->y < m->bar->h) ? m->bar->h : ev->y;
@@ -528,7 +530,7 @@ void manage(Window parent, XWindowAttributes* wa){
 		die("Error while callocing new client!");
 
 	c->win = parent;
-	c->isfloat = c->isfull = c->iscur = 0;
+	c->isfloat = c->oldfloat = c->isfull = c->iscur = 0;
 	c->desks = curmon->seldesks;
 
 	c->x = wa->x; c->y = wa->y;
@@ -558,10 +560,10 @@ void moveclient(const Arg arg){
 
 	/* Up stack */
 	if (arg.i > 0)
-		moveclientup(curmon->current);
+		moveclientup(curmon->current, NoZoom);
 	/* Down stack - equivalent to moving next visible client up */
 	else if ( arg.i < 0 && (c = findvisclient(curmon->current->next)) )
-		moveclientup(c);
+		moveclientup(c, NoZoom);
 
 	justswitch = 1;
 	curmon->curlayout->arrange(curmon);
@@ -569,19 +571,27 @@ void moveclient(const Arg arg){
 	drawbars();
 }
 
-void moveclientup(client* c){
-	client* p, * vp, * pvp;
+void moveclientup(client* c, int wantzoom){
+	client* p, * target, * ptarget;
 
-	/* Up stack only if not highest visible */
-	if ( !c || !(vp = findprevclient(c, OnlyVis)) ) return;
+	if (!c) return;
+
+	/* Go up only if not highest visible */
+	if (wantzoom){
+		if ( !(target = findvisclient(curmon->head)) || target == c )
+			return;
+	} else {
+		if ( !(target = findprevclient(c, OnlyVis)) )
+			return;
+	}
 
 	p = findprevclient(c, AnyVis);
-	pvp = findprevclient(vp, AnyVis);
+	ptarget = findprevclient(target, AnyVis);
 
-	/* if p == vp, then we're still okay */
+	/* if p == target, then we're still okay */
 	p->next = c->next;
-	c->next = vp;
-	if (pvp) pvp->next = c;
+	c->next = target;
+	if (ptarget) ptarget->next = c;
 	else curmon->head = c;
 }
 
@@ -636,25 +646,6 @@ void resizeclient(client* c, int x, int y, int w, int h){
 	XConfigureWindow(dis, c->win, CWX|CWY|CWWidth|CWHeight, &wc);
 }
 
-void swapmaster(){
-	client* tmp;
-	client* p;
-
-	if (curmon->head && curmon->current && curmon->current != curmon->head){
-		tmp = (curmon->head->next == curmon->current) ? curmon->head : curmon->head->next;
-		p = findprevclient(curmon->current, AnyVis);
-
-		/* if p is head, this gets overwritten - saves an if statement */
-		p->next = curmon->head;
-		curmon->head->next = curmon->current->next;
-		curmon->current->next = tmp;
-		curmon->head = curmon->current;
-
-		curmon->curlayout->arrange(curmon);
-		updatefocus();
-	}
-}
-
 void todesktop(const Arg arg){
 	if (curmon->curdesk & 1 << arg.i) return;
 
@@ -699,37 +690,35 @@ void togglefloat(){
 
 	if (!curmon->current || curmon->current->isfull) return;
 
-	curmon->current->isfloat = !curmon->current->isfloat;
-	curmon->curlayout->arrange(curmon);
-
-	if (curmon->current->isfloat){
+	if ( (curmon->current->isfloat = !curmon->current->isfloat) ){
 		wc.sibling = curmon->current->win;
 		wc.stack_mode = Below;
 
 		for EACHCLIENT(curmon->head) XConfigureWindow(dis, ic->win, CWSibling|CWStackMode, &wc);
-	}
 
-	if (!curmon->current->isfloat){
+	} else {
 		wc.sibling = curmon->bar->win;
 		wc.stack_mode = Below;
 		XConfigureWindow(dis, curmon->current->win, CWSibling|CWStackMode, &wc);
 	}
+
+	curmon->curlayout->arrange(curmon);
 }
 
 void togglefs(){
 	if (!curmon->current) return;
 
-	curmon->current->isfull = !curmon->current->isfull;
-	/* a pecularity of my implementation - will remain as such unless I decide to implement oldx, oldy, etc. for clients */
-	curmon->current->isfloat = 0;
+	if ( (curmon->current->isfull = !curmon->current->isfull) ){
+		curmon->current->oldfloat = curmon->current->isfloat;
+		curmon->current->isfloat = 0;
 
-	if (curmon->current->isfull){
-		resizeclient(curmon->current, curmon->x, 0, curmon->w, curmon->h + curmon->bar->h);
+		XMoveResizeWindow(dis, curmon->current->win, curmon->x, 0, curmon->w, curmon->h + curmon->bar->h);
 		XRaiseWindow(dis, curmon->current->win);
 
 		XUnmapWindow(dis, curmon->bar->win);
 
 	} else {
+		curmon->current->isfloat = curmon->current->oldfloat;
 		curmon->curlayout->arrange(curmon);
 
 		XMapRaised(dis, curmon->bar->win);
@@ -762,6 +751,15 @@ void updatefocus(){
 	} else {
 		XSetInputFocus(dis, root, RevertToPointerRoot, CurrentTime);
 	}
+}
+
+void zoom(){
+	moveclientup(curmon->current, YesZoom);
+
+	justswitch = 1;
+	curmon->curlayout->arrange(curmon);
+	updatefocus();
+	drawbars();
 }
 
 
@@ -959,7 +957,8 @@ client* findvisclient(client* c){
 
 /* part dwm copypasta */
 void drawbar(monitor* m){
-	int j, x = 2, xsetr_text_w = 0, is_sel; /* 2px left padding */
+	int j, x = 2; /* 2px left padding */
+	int xsetr_text_w = 0, is_sel, dodraw = 1;
 	unsigned int occ = 0;
 
 	/* draw background */
@@ -992,6 +991,11 @@ void drawbar(monitor* m){
 	m->bar->scheme = scheme[SchNorm];
 	drawbartext(m, x, 0, TEXTW(m, m->curlayout->symbol), m->bar->h, lrpad / 2, m->curlayout->symbol);
 
+	for EACHCLIENT(m->head) if (ISVISIBLE(ic) && ic->isfull){
+		dodraw = 0;
+		break;
+	}
+	if (dodraw) XMapRaised(dis, m->bar->win);
 	XCopyArea(dis, m->bar->d, m->bar->win, m->bar->gc, 0, 0, m->bar->w, m->bar->h, 0, 0);
 	XSync(dis, False);
 }

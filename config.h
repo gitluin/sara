@@ -140,7 +140,7 @@ static struct key keys[] = {
 	{ MOD|ShiftMask,             XK_space,  	togglefloat,   		{0} },
 	{ MOD|ControlMask,	     XK_t,      	setlayout,      	{.v = &layouts[0]} },
 	{ MOD|ControlMask,	     XK_m,      	setlayout,      	{.v = &layouts[1]} },
-	{ MOD,             	     XK_Return, 	swapmaster,   		{0} },
+	{ MOD,             	     XK_Return, 	zoom,   		{0} },
 	/* Go fullscreen, my dude */
 	{ MOD|ShiftMask,	     XK_Return,		togglefs,		{0} },
 	/* view all desktops */
