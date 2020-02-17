@@ -52,11 +52,16 @@ static const rule rules[] = {
 	 * Else send spawnee to that desktop
 	 */
 
-	/* title      desktopmask     is_float    */
-	{ "rcalc",    -1,		1, },
-	{ "cal",      -1,		1, },
-	// Any jerry-rigged shortcuts go to the 9th space
-	{ "funkey",   8,		1, },
+	/* class      instance    title       tags mask     isfloat   monitor */
+	//{ "st",       NULL,       "rcalc",    0,            1,           -1 },
+	//{ "st",       NULL,       "cal",      0,            1,           -1 },
+	//// Any jerry-rigged shortcuts go to the 9th space
+	//{ "st",       NULL,       "rcalc",    0,            1,           -1 },
+	
+	// title	deskmask	isfloat
+	{ "cal",             -1,           1 },
+	{ "funkey",          -1,           1 },
+	{ "funkey",          8,            1 },
 };
 
 /* Layouts */
@@ -167,14 +172,12 @@ static struct key keys[] = {
 	/* Control size of master area (by 5 percent increments) */
 	{ MOD,             	     XK_h,      	changemsize,  		{.f = -0.05 } },
 	{ MOD,             	     XK_l,      	changemsize,  		{.f = 0.05 } },
-
-	/* To implement */
-	// Send focused window to previous and next monitor
-//	{ MOD|ShiftMask,             XK_comma,  tagmon,         	{.i = -1 } },
-//	{ MOD|ShiftMask,             XK_period, tagmon,         	{.i = +1 } },
 	// Switch between monitors
 	{ MOD,                       XK_comma,  focusmon,       	{.i = -1 } },
 	{ MOD,                       XK_period, focusmon,       	{.i = +1 } },
+	// Send focused window to previous (up list) and next (down list) monitor
+	{ MOD|ShiftMask,             XK_comma,  	tomon,	         	{.i = +1 } },
+	{ MOD|ShiftMask,             XK_period, 	tomon,	         	{.i = -1 } },
 
 	/* Movin aboot */
 	DESKTOPCHANGE(	 	     XK_1,                      	0)

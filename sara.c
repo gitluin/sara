@@ -189,6 +189,7 @@ static void todesktop(const Arg arg);
 static void toggledesktop(const Arg arg);
 static void togglefloat();
 static void togglefs();
+static void tomon(const Arg arg);
 static void unmanage(client* c);
 static void updatefocus();
 static void zoom();
@@ -456,6 +457,41 @@ void applyrules(client* c){
 	/* need to free something, but idk what or how, because everything accidentallys */
 	//XFree(&tp.value);
 }	
+
+//void applyrules(client* c){
+//	const char* class, * instance;
+//	int i;
+//	const rule* r;
+//	monitor* m;
+//	XClassHint ch = { NULL, NULL };
+//	XTextProperty tp;
+//	XGetWMName(dis, c->win, &tp);
+//
+//	/* rule matching */
+//	XGetClassHint(dpy, c->win, &ch);
+//	class    = ch.res_class ? ch.res_class : broken;
+//	instance = ch.res_name  ? ch.res_name  : broken;
+//
+//	for (i=0;i<TABLENGTH(rules);i++){
+//		r = &rules[i];
+//		if ((!r->title || strstr(c->name, r->title))
+//		if ((!r->title || (tp.value && strstr(r->title, (const char*) tp.value))))
+//		&& (!r->class || strstr(class, r->class))
+//		&& (!r->instance || strstr(instance, r->instance)))
+//		{
+//			c->isfloating = r->isfloating;
+//			c->tags |= r->tags;
+//			for (m = mons; m && m->num != r->monitor; m = m->next);
+//			if (m)
+//				c->mon = m;
+//		}
+//	}
+//	if (ch.res_class)
+//		XFree(ch.res_class);
+//	if (ch.res_name)
+//		XFree(ch.res_name);
+//	c->tags = c->tags & TAGMASK ? c->tags & TAGMASK : c->mon->tagset[c->mon->seltags];
+//}
 
 void attachaside(client* c){
 	client* l;
@@ -726,6 +762,29 @@ void togglefs(){
 	}
 }
 
+void tomon(const Arg arg){
+	client* c;
+	monitor* m;
+
+	if ( !(c = curmon->current) ) return;
+
+	if (arg.i < 0){
+		if (curmon->next) m = curmon->next;
+
+	} else {
+		for (m=mhead;m && m != curmon && m->next != curmon;m=m->next);
+	}
+
+	if (m && m != curmon){
+		detach(c);
+		changemon(m, 1);
+		attachaside(c);
+		c->desks = curmon->curdesk;
+		curmon->curlayout->arrange(curmon);
+		updatefocus();
+	}
+}
+
 void unmanage(client* c){
 	monitor* im;
 
@@ -818,7 +877,7 @@ monitor* findmon(Window w){
 }
 
 void focusmon(const Arg arg){
-	monitor* m = NULL;
+	monitor* m;
 
 	if (arg.i > 0){
 		if (curmon->next) m = curmon->next;
@@ -827,9 +886,7 @@ void focusmon(const Arg arg){
 		for (m=mhead;m && m->next != curmon;m=m->next);
 	}
 
-	if (m){
-		changemon(m, 1);
-	}
+	if (m) changemon(m, 1);
 }
 
 /* TODO: Is this required for mirroring displays to work? */

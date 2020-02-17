@@ -13,6 +13,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.9.2.7	- tomon allows you to send clients up and down the list of monitors!
  * v0.9.2.6	- togglefs works on floating clients now, and remembers that they were floating beforehand. A client being fullscreen on one desktop will no longer prevent the bar from being drawn while viewing other desktops.
  * v0.9.2.5	- moveclient works by visibility now - no more hitting MOD+Shift+{J,K} several times to get clients to move on-screen.
  * v0.9.2.4	- enternotify is snappy!
@@ -85,6 +86,10 @@ Keys
 | Mod+Return			| Move focused client to master				|
 | Mod+Shift+Space		| Toggle focused client to floating			|
 | Mod+Shift+Return		| Toggle focused client to fullscreen			|
+| Mod+Comma			| Move focus to previous monitor			|
+| Mod+Period			| Move focus to next monitor				|
+| Mod+Shift+Comma		| Move focused client to previous monitor		|
+| Mod+Shift+Period		| Move focused client to next monitor			|
 | Mod+Shift+Q			| Kill focused client ("force quit")			|
 | Mod+H				| Decrease master area					|
 | Mod+L				| Increase master area					|
@@ -117,7 +122,6 @@ To Do
  * Discrete:
    * Implement rules (0.5 points).
    * Implement mouse move, resize support for clients (0.3 points).
-   * Limited EWMH (automatic togglefs)?
    * Drop all pretense and just call desktops tags.
    * My own art.
    * Tutorial.
