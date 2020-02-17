@@ -61,6 +61,17 @@ struct key {
 	const Arg arg;
 };
 
+typedef struct {
+	const char* symbol;
+	void (*arrange)(monitor*);
+} layout;
+
+typedef struct {
+	const char* title;
+	int deskmask;
+	int isfloat;
+} rule;
+
 struct bar {
 	int w, h;
 	XftColor* scheme;
@@ -84,25 +95,10 @@ struct client {
 	//int nofocus;
 }; 
 
-typedef struct {
-	const char* symbol;
-	void (*arrange)(monitor*);
-} layout;
-
 struct desktop {
 	float msize;
 	layout* curlayout;
 };
-
-typedef struct {
-	const char* title;
-	int deskmask;
-	int isfloat;
-} rule;
-
-typedef struct {
-	int x, y;
-} point;
 
 struct monitor {
 	/* monitor */
