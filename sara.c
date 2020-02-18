@@ -92,8 +92,8 @@ struct client {
 	/* being in monocle is not considered floating */
 	int isfloat;
 	int isfull;
-	int oldfloat; /* prior to togglefs */
-	//int nofocus;
+	/* prior to togglefs */
+	int oldfloat;
 }; 
 
 struct desktop {
@@ -157,7 +157,6 @@ int slen(const char* str){
 
 /* X Event Processing */
 static void buttonpress(XEvent* e);
-//static void configurenotify(XEvent* e);
 static void configurerequest(XEvent* e);
 static void destroynotify(XEvent* e);
 static void enternotify(XEvent* e);
@@ -269,7 +268,6 @@ static char xsetr_text[256];
 /* Events array */
 static void (*events[LASTEvent])(XEvent* e) = {
 	[ButtonPress] = buttonpress,
-	//[ConfigureNotify] = configurenotify,
 	[ConfigureRequest] = configurerequest,
 	[DestroyNotify] = destroynotify,
 	[EnterNotify] = enternotify,
@@ -303,22 +301,6 @@ void buttonpress(XEvent* e){
 		XAllowEvents(dis, ReplayPointer, CurrentTime);
 	}
 }
-
-/* dwm copypasta */
-//void configurenotify(XEvent* e){
-//	XConfigureEvent* ev = &e->xconfigure;
-//
-//	if (ev->window == root){
-//		curmon->bar->w = ev->width;
-//		XFreePixmap(dis, curmon->bar->d);
-//		curmon->bar->d = XCreatePixmap(dis, root, curmon->bar->w,
-//				curmon->bar->h, DefaultDepth(dis,screen));
-//
-//		XMoveResizeWindow(dis, curmon->bar->win, 0, 0, curmon->bar->w,
-//				curmon->bar->h);
-//		drawbar(curmon);
-//	}
-//}
 
 /* dwm copypasta */
 void configurerequest(XEvent* e){
@@ -434,18 +416,18 @@ void unmapnotify(XEvent* e){
  * ---------------------------------------
  */
 
-/* dwm copypasta */
+/* mostly dwm copypasta */
 void applyrules(client* c){
 	const char* class, * instance;
 	int i;
 	const rule* r;
-	monitor* m;
+	monitor* m, * oldmon;
 	XClassHint ch = { NULL, NULL };
 	XTextProperty tp;
 
 	XGetWMName(dis, c->win, &tp);
 	XGetClassHint(dis, c->win, &ch);
-	class    = ch.res_class ? ch.res_class : "broken";
+	class = ch.res_class ? ch.res_class : "broken";
 	instance = ch.res_name  ? ch.res_name  : "broken";
 
 	for (i=0;i<TABLENGTH(rules);i++){
@@ -457,12 +439,14 @@ void applyrules(client* c){
 			c->isfloat = r->isfloat;
 			//c->isfull = r->isfull;
 			c->desks = 0; c->desks |= r->desks;
-//			for(m=mhead;m && m->num != r->monitor;m=m->next);
-//			if (m){
-//				if (r->monitor > curmon->num) arg.i = -1;
-//				else if (r->monitor < curmon->num) arg.i = 1;
-//				tomon(arg);
-//			}
+			for(m=mhead;m && m->num != r->monitor;m=m->next);
+			if (m){
+				oldmon = curmon;
+				changemon(m, 0);
+				attachaside(c);
+				c->desks = curmon->curdesk;
+				changemon(oldmon, 0);
+			}
 		}
 	}
 	if (!c->desks) c->desks = curmon->seldesks;
@@ -473,6 +457,9 @@ void applyrules(client* c){
 
 void attachaside(client* c){
 	client* l;
+
+	/* if attached to a monitor already (applyrules) */
+	if (findclient(c->win)) return;
 
 	if (!curmon->head){
 		curmon->head = c;
@@ -499,7 +486,7 @@ void changecurrent(client* c, unsigned int deskmask){
 		XUngrabButton(dis, Button1, AnyModifier, c->win);
 	}
 	
-	for EACHCLIENT(curmon->head) if ( ic != c && (ic->iscur & deskmask) ){
+	for EACHCLIENT(curmon->head) if (ic != c && (ic->iscur & deskmask)){
 			ic->iscur ^= deskmask;
 			XGrabButton(dis, Button1, 0, ic->win, False, ButtonPressMask,
 					GrabModeAsync, GrabModeSync, None, None);
@@ -511,9 +498,7 @@ void changecurrent(client* c, unsigned int deskmask){
 void detach(client* c){
 	client* p;
 	/* Move the window out of the way first to hide it while it hangs around :) */
-	XWindowAttributes wa;
-	XGetWindowAttributes(dis, c->win, &wa);
-	XMoveWindow(dis, c->win, -2*wa.width, wa.y);
+	XMoveWindow(dis, c->win, 2*sw, 0);
 
 	/* before disconnecting c */
 	refocus(c->next, c);
@@ -553,7 +538,8 @@ void manage(Window parent, XWindowAttributes* wa){
 	applyrules(c);
 	attachaside(c);
 
-	XMoveResizeWindow(dis, c->win, c->x + 2 * sw, c->y, c->w, c->h); /* some windows require this */
+	/* move out of the way until told otherwise */
+	XMoveResizeWindow(dis, c->win, c->x + 2 * sw, c->y, c->w, c->h);
 	XMapWindow(dis, c->win);
 
 	justswitch = 1;
@@ -858,17 +844,18 @@ monitor* findmon(Window w){
 void focusmon(const Arg arg){
 	monitor* m;
 
+	if (curmon == mhead && !curmon->next) return;
+
 	if (arg.i > 0){
 		if (curmon->next) m = curmon->next;
 
 	} else {
-		for (m=mhead;m && m->next != curmon;m=m->next);
+		for (m=mhead;m && m != curmon && m->next != curmon;m=m->next);
 	}
 
-	if (m) changemon(m, 1);
+	if (m && m != curmon) changemon(m, 1);
 }
 
-/* TODO: Is this required for mirroring displays to work? */
 /* dwm copypasta */
 #ifdef XINERAMA
 static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo* info){
@@ -891,18 +878,18 @@ void initmons(){
 		monitor* im, * tmp;
 
 		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
-//		XineramaScreenInfo* unique;
+		XineramaScreenInfo* unique;
 
-		/* only consider unique geometries as separate screens */
-//		unique = ecalloc(ns, sizeof(XineramaScreenInfo));
-//		for (i = 0, j = 0; i < ns; i++)
-//			if (isuniquegeom(unique, j, &info[i]))
-//				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
-//		XFree(info);
+      		/* only consider unique geometries as separate screens */
+		unique = ecalloc(ns, sizeof(XineramaScreenInfo));
+		for (i = 0, j = 0; i < ns; i++)
+			if (isuniquegeom(unique, j, &info[i]))
+				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
+		XFree(info);
 		
 		for (i=0;i < ns;i++){
 			m = ecalloc(1, sizeof(monitor));
-			createmon(m, i, info[i].x_org, info[i].y_org, info[i].width, info[i].height);
+			createmon(m, i, unique[i].x_org, unique[i].y_org, unique[i].width, unique[i].height);
 	
 			if (!mhead){
 				mhead = m;
@@ -922,7 +909,7 @@ void initmons(){
 		}
 
 		changemon(mhead, 0);
-//		free(unique);
+		free(unique);
 		XFree(info);
 	}
 #endif

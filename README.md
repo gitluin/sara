@@ -13,14 +13,8 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
- * v0.9.2.7	- tomon allows you to send clients up and down the list of monitors!
- * v0.9.2.6	- togglefs works on floating clients now, and remembers that they were floating beforehand. A client being fullscreen on one desktop will no longer prevent the bar from being drawn while viewing other desktops.
- * v0.9.2.5	- moveclient works by visibility now - no more hitting MOD+Shift+{J,K} several times to get clients to move on-screen.
- * v0.9.2.4	- enternotify is snappy!
- * v0.9.2.3	- Nasty bug go bye-bye, and fixed resizing mistake with fullscreen windows.
- * v0.9.2.2	- No more global current, head, seldesks, current\_desktop. Tag drawing in bars duly fixed.
- * v0.9.2.1	- viewall desktops at once (MOD + XK\_0)
- * v0.9.2	- Multiple monitors! Stable, but buggy. Currently there are some weird focusing issues and tags in the bars are not per-monitor.
+ * v0.9.7	- Implemented rules! Just need to test that sending to a monitor works correctly. focusmon bug fixed.
+ * v0.9.2.{0-7} - Multiple monitors implemented, viewall added, reduction in global variable count, bar drawing fixes, enternotify improved, moveclient works by visibility, bugs with togglefs, send clients tomon.
  * v0.8.{1-7.7} - No drw and no alpha behavior for the bar. Can send clients to just a desktop, can view multiple desktops at once, enternotify works (maybe), gaps, window borders, bar boxes removed. Code cleanup. Memory freeing fixed. buttonpress works!
  * v0.7		- The dwm way of clients has been implemented, bug-free (I think)!
  * v0.6.{0-5}	- There's a bar with alpha support! Tags in the bar are updated properly by client movement, floating windows always appear raised, manual fullscreen toggling, no more swindows (the buggy version).
@@ -119,8 +113,8 @@ To Do
    * Code cleanup (as a constant) - function naming conventions.
    * Does it leak memory?
  * Discrete:
-   * Implement rules (0.5 points).
-   * Implement mouse move, resize support for clients (0.3 points).
+   * Finish TODOs
+   * Implement mouse move, resize support for clients (0.3 points)?
    * Drop all pretense and just call desktops tags.
    * My own art.
    * Tutorial.
