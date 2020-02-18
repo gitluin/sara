@@ -106,7 +106,6 @@ Keys
 Bugs
 ----
  * With programs like Krita, the popup window generates an unmap event upon completion of its task, so it stays around and takes up tiling space. _unmap support_
- * Function spawns don't play nice if they hang around and you try to kill them before they go poof.
  * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc.
  * Need to XFree() in applyrules, I think? T'is unclear.
  * Sometimes, download dialogs from Firefox end up in 9th hellspace.
