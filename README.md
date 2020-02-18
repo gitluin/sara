@@ -104,6 +104,7 @@ Bugs
  * Need to XFree() in applyrules, I think? T'is unclear.
  * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when.
  * bar doesn't always draw immediately on xinit.
+ * because of how updatefocus() works, floating clients still get obscured. should adjust stacking behavior to address this.
 
 To Do
 ----
