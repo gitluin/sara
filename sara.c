@@ -382,14 +382,14 @@ void maprequest(XEvent* e){
 
 void motionnotify(XEvent* e){
 	monitor* m;
-	XMotionEvent *ev = &e->xmotion;
+	XMotionEvent* ev = &e->xmotion;
+	int isoutside = ISOUTSIDE(ev->x_root, ev->y_root, curmon->x, curmon->y, curmon->w, curmon->h)
 
 	if (ev->window != root)
 		return;
 
 	for (m=mhead;m;m=m->next){
-		if (m != curmon && ISOUTSIDE(ev->x_root, ev->y_root,
-					curmon->x, curmon->y, curmon->w, curmon->h)){
+		if (m != curmon && isoutside){
 			changemon(m, 1);
 			return;
 		}
@@ -539,7 +539,7 @@ void manage(Window parent, XWindowAttributes* wa){
 	attachaside(c);
 
 	/* move out of the way until told otherwise */
-	XMoveResizeWindow(dis, c->win, c->x + 2 * sw, c->y, c->w, c->h);
+	XMoveResizeWindow(dis, c->win, c->x + 2*sw, c->y, c->w, c->h);
 	XMapWindow(dis, c->win);
 
 	justswitch = 1;
