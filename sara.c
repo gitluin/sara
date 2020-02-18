@@ -67,9 +67,10 @@ typedef struct {
 } layout;
 
 typedef struct {
-	const char* title;
-	int deskmask;
+	const char* class, * instance, * title;
+	int desks;
 	int isfloat;
+	int monitor;
 } rule;
 
 struct bar {
@@ -394,9 +395,6 @@ void maprequest(XEvent* e){
 
 	if ( XGetWindowAttributes(dis, ev->window, &wa) && !wa.override_redirect && !findclient(ev->window) ){
 		manage(ev->window, &wa);
-		justswitch = 1;
-		curmon->curlayout->arrange(curmon);
-		updatefocus();
 	}
 }
 
@@ -436,58 +434,42 @@ void unmapnotify(XEvent* e){
  * ---------------------------------------
  */
 
+/* dwm copypasta */
 void applyrules(client* c){
+	const char* class, * instance;
 	int i;
 	const rule* r;
+	monitor* m;
+	XClassHint ch = { NULL, NULL };
 	XTextProperty tp;
+
 	XGetWMName(dis, c->win, &tp);
+	XGetClassHint(dis, c->win, &ch);
+	class    = ch.res_class ? ch.res_class : "broken";
+	instance = ch.res_name  ? ch.res_name  : "broken";
 
 	for (i=0;i<TABLENGTH(rules);i++){
 		r = &rules[i];
-		if ( !r->title || (tp.value && strstr(r->title, (const char*)tp.value)) ){
-			if (r->deskmask > 0) c->desks = 1 << r->deskmask;
+		if ((!r->title || (tp.value && strstr(r->title, (const char*) tp.value)))
+		&& (!r->class || strstr(class, r->class))
+		&& (!r->instance || strstr(instance, r->instance)))
+		{
 			c->isfloat = r->isfloat;
+			//c->isfull = r->isfull;
+			c->desks = 0; c->desks |= r->desks;
+//			for(m=mhead;m && m->num != r->monitor;m=m->next);
+//			if (m){
+//				if (r->monitor > curmon->num) arg.i = -1;
+//				else if (r->monitor < curmon->num) arg.i = 1;
+//				tomon(arg);
+//			}
 		}
 	}
+	if (!c->desks) c->desks = curmon->seldesks;
 
-	/* need to free something, but idk what or how, because everything accidentallys */
-	//XFree(&tp.value);
-}	
-
-//void applyrules(client* c){
-//	const char* class, * instance;
-//	int i;
-//	const rule* r;
-//	monitor* m;
-//	XClassHint ch = { NULL, NULL };
-//	XTextProperty tp;
-//	XGetWMName(dis, c->win, &tp);
-//
-//	/* rule matching */
-//	XGetClassHint(dpy, c->win, &ch);
-//	class    = ch.res_class ? ch.res_class : broken;
-//	instance = ch.res_name  ? ch.res_name  : broken;
-//
-//	for (i=0;i<TABLENGTH(rules);i++){
-//		r = &rules[i];
-//		if ((!r->title || strstr(c->name, r->title))
-//		if ((!r->title || (tp.value && strstr(r->title, (const char*) tp.value))))
-//		&& (!r->class || strstr(class, r->class))
-//		&& (!r->instance || strstr(instance, r->instance)))
-//		{
-//			c->isfloating = r->isfloating;
-//			c->tags |= r->tags;
-//			for (m = mons; m && m->num != r->monitor; m = m->next);
-//			if (m)
-//				c->mon = m;
-//		}
-//	}
-//	if (ch.res_class)
-//		XFree(ch.res_class);
-//	if (ch.res_name)
-//		XFree(ch.res_name);
-//	c->tags = c->tags & TAGMASK ? c->tags & TAGMASK : c->mon->tagset[c->mon->seltags];
-//}
+	if (ch.res_class) XFree(ch.res_class);
+	if (ch.res_name) XFree(ch.res_name);
+}
 
 void attachaside(client* c){
 	client* l;
@@ -570,13 +552,14 @@ void manage(Window parent, XWindowAttributes* wa){
 
 	applyrules(c);
 	attachaside(c);
-	/* if (c->nofocus){
-	 * 	hideclient(c);
-	 *	refocus(curmon->current->next, curmon->current);
-	 * }
-	 * curmon->curlayout->arrange(curmon);
-	 */
+
+	XMoveResizeWindow(dis, c->win, c->x + 2 * sw, c->y, c->w, c->h); /* some windows require this */
 	XMapWindow(dis, c->win);
+
+	justswitch = 1;
+	curmon->curlayout->arrange(curmon);
+	if (c->desks & curmon->seldesks) updatefocus();
+
 	drawbars();
 }
 
