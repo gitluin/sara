@@ -198,8 +198,8 @@ static void focusmon(const Arg arg);
 static void initmons();
 
 /* Client Interfacing */
-static client* findcurrent();
 static client* findclient(Window w);
+static client* findcurrent();
 static client* findvisclient(client* c);
 static client* findprevclient(client* c, int wantvis);
 
@@ -245,18 +245,18 @@ static void youviolatedmymother();
  */
 
 /* X Interfacing */
+static Display* dis;
+static Window root;
 static int screen;
 static int sh;
 static int sw;
-static Display* dis;
-static Window root;
 
 /* Client Interfacing */
 static int justswitch;
 
 /* Monitor Interfacing */
-static monitor* mhead;
 static monitor* curmon;
+static monitor* mhead;
 
 /* Backend */
 static client* ic; /* for EACHCLIENT iterating */
@@ -330,6 +330,7 @@ void destroynotify(XEvent* e){
 	}
 }
 
+/* mostly dwm copypasta */
 void enternotify(XEvent* e){
 	client* c;
 	monitor* m;
@@ -409,8 +410,6 @@ void propertynotify(XEvent* e){
 }
 
 void unmapnotify(XEvent* e){
-//	XUnmapEvent* ev = &e->xunmap;
-
 	curmon->curlayout->arrange(curmon);
 }
 
@@ -538,7 +537,7 @@ void manage(Window parent, XWindowAttributes* wa){
 	c->x = wa->x; c->y = wa->y;
 	c->w = wa->width; c->h = wa->height;
 
-	if (XGetTransientForHint(dis, parent, &trans) && (t = findclient(trans))) {
+	if (XGetTransientForHint(dis, parent, &trans) && (t = findclient(trans))){
 		c->desks = t->desks;
 	} else {
 		c->desks = curmon->seldesks;
@@ -937,14 +936,6 @@ void initmons(){
  * ---------------------------------------
  */
 
-client* findcurrent(){
-	for EACHCLIENT(curmon->head) if ( ISVISIBLE(ic) && (ic->iscur & curmon->curdesk) ){
-			return ic;
-		}
-
-	return NULL;
-}
-
 client* findclient(Window w){
 	monitor* im;
 
@@ -955,6 +946,14 @@ client* findclient(Window w){
 			}
 		}
 	}
+
+	return NULL;
+}
+
+client* findcurrent(){
+	for EACHCLIENT(curmon->head) if ( ISVISIBLE(ic) && (ic->iscur & curmon->curdesk) ){
+			return ic;
+		}
 
 	return NULL;
 }
