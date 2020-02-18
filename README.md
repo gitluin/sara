@@ -13,6 +13,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.9.7.1	- Transient popup windows (Libreoffice, Firefox download, etc.) float like they ought to, instead of being tiled. This solved the Krita bug too. Yay!
  * v0.9.7	- Implemented rules! Just need to test that sending to a monitor works correctly. focusmon bug fixed.
  * v0.9.2.{0-7} - Multiple monitors implemented, viewall added, reduction in global variable count, bar drawing fixes, enternotify improved, moveclient works by visibility, bugs with togglefs, send clients tomon.
  * v0.8.{1-7.7} - No drw and no alpha behavior for the bar. Can send clients to just a desktop, can view multiple desktops at once, enternotify works (maybe), gaps, window borders, bar boxes removed. Code cleanup. Memory freeing fixed. buttonpress works!
@@ -99,10 +100,8 @@ Keys
 
 Bugs
 ----
- * With programs like Krita, the popup window generates an unmap event upon completion of its task, so it stays around and takes up tiling space. _unmap support_
  * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc.
  * Need to XFree() in applyrules, I think? T'is unclear.
- * Sometimes, download dialogs from Firefox end up in 9th hellspace.
  * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when.
  * bar doesn't always draw immediately on xinit.
 
@@ -113,7 +112,7 @@ To Do
    * Code cleanup (as a constant) - function naming conventions.
    * Does it leak memory?
  * Discrete:
-   * Finish TODOs
+   * Finish TODOs (required for v1.0)
    * Implement mouse move, resize support for clients (0.3 points)?
    * Drop all pretense and just call desktops tags.
    * My own art.

@@ -371,19 +371,23 @@ void keypress(XEvent* e){
 			keys[i].function(keys[i].arg);
 }
 
+/* mostly dwm copypasta */
 void maprequest(XEvent* e){
 	XWindowAttributes wa;
 	XMapRequestEvent* ev = &e->xmaprequest;
 
-	if ( XGetWindowAttributes(dis, ev->window, &wa) && !wa.override_redirect && !findclient(ev->window) ){
+	if (!XGetWindowAttributes(dis, ev->window, &wa))
+		return;
+	if (wa.override_redirect)
+		return;
+	if (!findclient(ev->window))
 		manage(ev->window, &wa);
-	}
 }
 
 void motionnotify(XEvent* e){
 	monitor* m;
 	XMotionEvent* ev = &e->xmotion;
-	int isoutside = ISOUTSIDE(ev->x_root, ev->y_root, curmon->x, curmon->y, curmon->w, curmon->h)
+	int isoutside = ISOUTSIDE(ev->x_root, ev->y_root, curmon->x, curmon->y, curmon->w, curmon->h);
 
 	if (ev->window != root)
 		return;
@@ -405,7 +409,7 @@ void propertynotify(XEvent* e){
 }
 
 void unmapnotify(XEvent* e){
-	//XUnmapEvent* ev = &e->xunmap;
+//	XUnmapEvent* ev = &e->xunmap;
 
 	curmon->curlayout->arrange(curmon);
 }
@@ -523,19 +527,25 @@ void killclient(){
 }
 
 void manage(Window parent, XWindowAttributes* wa){
-	client* c;
+	client* c, * t;
+	Window trans = None;
 
 	if ( !(c = ecalloc(1, sizeof(client))) )
 		die("Error while callocing new client!");
 
 	c->win = parent;
 	c->isfloat = c->oldfloat = c->isfull = c->iscur = 0;
-	c->desks = curmon->seldesks;
-
 	c->x = wa->x; c->y = wa->y;
 	c->w = wa->width; c->h = wa->height;
 
-	applyrules(c);
+	if (XGetTransientForHint(dis, parent, &trans) && (t = findclient(trans))) {
+		c->desks = t->desks;
+	} else {
+		c->desks = curmon->seldesks;
+		applyrules(c);
+	}
+	if (!c->isfloat) c->isfloat = c->oldfloat = (trans != None);
+
 	attachaside(c);
 
 	/* move out of the way until told otherwise */
