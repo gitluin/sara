@@ -103,8 +103,9 @@ Bugs
  * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc.
  * Need to XFree() in applyrules, I think? T'is unclear.
  * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when.
- * bar doesn't always draw immediately on xinit.
- * because of how updatefocus() works, floating clients still get obscured. should adjust stacking behavior to address this.
+ * Bar doesn't always draw immediately on xinit.
+ * Because of how updatefocus() works, floating clients still get obscured. should adjust stacking behavior to address this.
+ * Move windows out from underneath the bar area if they overlap with it
 
 To Do
 ----
