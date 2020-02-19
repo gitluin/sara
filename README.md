@@ -13,6 +13,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.9.7.2	- Bug fixes. TODOs slowly being knocked out.
  * v0.9.7.1	- Transient popup windows (Libreoffice, Firefox download, etc.) float like they ought to, instead of being tiled. This solved the Krita bug too. Yay!
  * v0.9.7	- Implemented rules! Just need to test that sending to a monitor works correctly. focusmon bug fixed.
  * v0.9.2.{0-7} - Multiple monitors implemented, viewall added, reduction in global variable count, bar drawing fixes, enternotify improved, moveclient works by visibility, bugs with togglefs, send clients tomon.
@@ -105,7 +106,6 @@ Bugs
  * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when.
  * Bar doesn't always draw immediately on xinit.
  * Because of how updatefocus() works, floating clients still get obscured. should adjust stacking behavior to address this.
- * Move windows out from underneath the bar area if they overlap with it
 
 To Do
 ----

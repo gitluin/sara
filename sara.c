@@ -534,7 +534,8 @@ void manage(Window parent, XWindowAttributes* wa){
 
 	c->win = parent;
 	c->isfloat = c->oldfloat = c->isfull = c->iscur = 0;
-	c->x = wa->x; c->y = wa->y;
+	c->x = wa->x;
+	c->y = (wa->y < curmon->y) ? curmon->y : wa->y;
 	c->w = wa->width; c->h = wa->height;
 
 	if (XGetTransientForHint(dis, parent, &trans) && (t = findclient(trans))){
@@ -680,7 +681,6 @@ void toggledesktop(const Arg arg){
 	newdesks = curmon->current->desks ^ 1 << arg.i;
 	if (newdesks){
 		curmon->current->desks = newdesks;
-		curmon->current->iscur = 0;
 		changecurrent(curmon->current, 1 << arg.i);
 
 		if ( !(ISVISIBLE(curmon->current)) ){
@@ -919,7 +919,6 @@ void initmons(){
 
 		changemon(mhead, 0);
 		free(unique);
-		XFree(info);
 	}
 #endif
 	if (!mhead){
@@ -1212,7 +1211,6 @@ void toggleview(const Arg arg){
 	updatestatus();
 }
 
-/* TODO: fixing findcurrent usage */
 void view(const Arg arg){
 	client* c;
 
