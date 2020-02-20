@@ -38,6 +38,7 @@ enum { AnyVis, OnlyVis };
 enum { NoZoom, YesZoom };
 enum { NoDetach, YesDetach };
 enum { NoFocus, YesFocus };
+enum { NoStay, YesStay };
 
 typedef union {
 	const int i;
@@ -183,7 +184,7 @@ static void movefocus(const Arg arg);
 static void raisefloats();
 static void refocus(client* n, client* p);
 static void resizeclient(client* c, int x, int y, int w, int h);
-static void sendtomon(client* c, monitor* oldmon, monitor* newmon, int wantdetach, int wantfocus);
+static void sendtomon(client* c, monitor* oldmon, monitor* newmon, int wantdetach, int wantstay, int wantfocus);
 static void todesktop(const Arg arg);
 static void toggledesktop(const Arg arg);
 static void togglefloat();
@@ -298,14 +299,15 @@ void buttonpress(XEvent* e){
 	monitor* m;
 	XButtonPressedEvent* ev = &e->xbutton;
 
+	if ( !(c = findclient(ev->window)) )
+		return;
+
 	if ( (m = findmon(ev->window)) && m != curmon)
 		changemon(m, 0);
 
-	if ( (c = findclient(ev->window)) ){
-		changecurrent(c, curmon->curdesk);
-		updatefocus();
-		XAllowEvents(dis, ReplayPointer, CurrentTime);
-	}
+	changecurrent(c, curmon->curdesk);
+	updatefocus();
+	XAllowEvents(dis, ReplayPointer, CurrentTime);
 }
 
 /* dwm copypasta */
@@ -462,7 +464,7 @@ void applyrules(client* c){
 	const char* class, * instance;
 	int i;
 	const rule* r;
-	monitor* m, * oldmon;
+	monitor* m;
 	XClassHint ch = { NULL, NULL };
 	XTextProperty tp;
 
@@ -481,7 +483,7 @@ void applyrules(client* c){
 			//c->isfull = r->isfull;
 			c->desks = 0; c->desks |= r->desks;
 			for (m=mhead;m && m->num != r->monitor;m=m->next);
-			if (m) sendtomon(c, curmon, m, NoDetach, NoFocus);
+			if (m) sendtomon(c, curmon, m, NoDetach, NoFocus, YesStay);
 		}
 	}
 	if (!c->desks) c->desks = curmon->seldesks;
@@ -689,7 +691,7 @@ void resizeclient(client* c, int x, int y, int w, int h){
 	XConfigureWindow(dis, c->win, CWX|CWY|CWWidth|CWHeight, &wc);
 }
 
-void sendtomon(client* c, monitor* oldmon, monitor* newmon, int wantdetach, int wantfocus){
+void sendtomon(client* c, monitor* oldmon, monitor* newmon, int wantdetach, int wantstay, int wantfocus){
 	if (wantdetach){
 		changemon(oldmon, 0);
 		detach(c);
@@ -701,7 +703,7 @@ void sendtomon(client* c, monitor* oldmon, monitor* newmon, int wantdetach, int 
 	c->desks = curmon->seldesks;
 	curmon->curlayout->arrange(curmon);
 
-	changemon(oldmon, wantfocus);
+	if (wantstay) changemon(oldmon, wantfocus);
 }
 
 void todesktop(const Arg arg){
@@ -796,7 +798,7 @@ void tomon(const Arg arg){
 		for (m=mhead;m && m != curmon && m->next != curmon;m=m->next);
 	}
 
-	if (m && m != curmon) sendtomon(c, curmon, m, YesDetach, YesFocus);
+	if (m && m != curmon) sendtomon(c, curmon, m, YesDetach, YesFocus, NoStay);
 }
 
 void unmanage(client* c){
@@ -815,7 +817,6 @@ void unmanage(client* c){
 	updatefocus();
 }
 
-/* TODO: Weirdness when killing last client on another monitor */
 void updatefocus(){
 	if (curmon->current){
 		XSetInputFocus(dis, curmon->current->win, RevertToPointerRoot, CurrentTime);
@@ -1035,7 +1036,7 @@ void initmons(){
 //					m->head = c->next;
 //
 //					/* send client to mhead */
-//					sendtomon(c, m, mhead, YesDetach, YesFocus);
+//					sendtomon(c, m, mhead, YesDetach, YesFocus, YesStay);
 //				}
 //				if (m == curmon) curmon = mhead;
 //				cleanupmon(m);
