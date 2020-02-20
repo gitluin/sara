@@ -36,6 +36,8 @@ enum { ColFg, ColBg };
 enum { SymLeft, SymRight };
 enum { AnyVis, OnlyVis };
 enum { NoZoom, YesZoom };
+enum { NoDetach, YesDetach };
+enum { NoFocus, YesFocus };
 
 typedef union {
 	const int i;
@@ -181,7 +183,7 @@ static void movefocus(const Arg arg);
 static void raisefloats();
 static void refocus(client* n, client* p);
 static void resizeclient(client* c, int x, int y, int w, int h);
-static void sendtomon(client* c, monitor* oldmon, monitor* newmon);
+static void sendtomon(client* c, monitor* oldmon, monitor* newmon, int wantdetach, int wantfocus);
 static void todesktop(const Arg arg);
 static void toggledesktop(const Arg arg);
 static void togglefloat();
@@ -478,14 +480,8 @@ void applyrules(client* c){
 			c->isfloat = r->isfloat;
 			//c->isfull = r->isfull;
 			c->desks = 0; c->desks |= r->desks;
-			for(m=mhead;m && m->num != r->monitor;m=m->next);
-			if (m){
-				oldmon = curmon;
-				changemon(m, 0);
-				attachaside(c);
-				c->desks = curmon->curdesk;
-				changemon(oldmon, 0);
-			}
+			for (m=mhead;m && m->num != r->monitor;m=m->next);
+			if (m) sendtomon(c, curmon, m, NoDetach, NoFocus);
 		}
 	}
 	if (!c->desks) c->desks = curmon->seldesks;
@@ -693,17 +689,19 @@ void resizeclient(client* c, int x, int y, int w, int h){
 	XConfigureWindow(dis, c->win, CWX|CWY|CWWidth|CWHeight, &wc);
 }
 
-void sendtomon(client* c, monitor* oldmon, monitor* newmon){
-	changemon(oldmon, 0);
-	detach(c);
-	curmon->curlayout->arrange(curmon);
+void sendtomon(client* c, monitor* oldmon, monitor* newmon, int wantdetach, int wantfocus){
+	if (wantdetach){
+		changemon(oldmon, 0);
+		detach(c);
+		curmon->curlayout->arrange(curmon);
+	}
 
 	changemon(newmon, 0);
 	attachaside(c);
 	c->desks = curmon->seldesks;
 	curmon->curlayout->arrange(curmon);
 
-	changemon(oldmon, 1);
+	changemon(oldmon, wantfocus);
 }
 
 void todesktop(const Arg arg){
@@ -798,7 +796,7 @@ void tomon(const Arg arg){
 		for (m=mhead;m && m != curmon && m->next != curmon;m=m->next);
 	}
 
-	if (m && m != curmon) sendtomon(c, curmon, m);
+	if (m && m != curmon) sendtomon(c, curmon, m, YesDetach, YesFocus);
 }
 
 void unmanage(client* c){
@@ -1037,7 +1035,7 @@ void initmons(){
 //					m->head = c->next;
 //
 //					/* send client to mhead */
-//					sendtomon(c, m, mhead);
+//					sendtomon(c, m, mhead, YesDetach, YesFocus);
 //				}
 //				if (m == curmon) curmon = mhead;
 //				cleanupmon(m);
