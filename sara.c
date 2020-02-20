@@ -181,6 +181,7 @@ static void movefocus(const Arg arg);
 static void raisefloats();
 static void refocus(client* n, client* p);
 static void resizeclient(client* c, int x, int y, int w, int h);
+static void sendtomon(client* c, monitor* oldmon, monitor* newmon);
 static void todesktop(const Arg arg);
 static void toggledesktop(const Arg arg);
 static void togglefloat();
@@ -192,7 +193,8 @@ static void zoom();
 
 /* Monitor Manipulation */
 static void changemon(monitor* m, int focus);
-static void createmon(monitor* m, int num, int x, int y, int w, int h);
+static void cleanupmon(monitor* m);
+static monitor* createmon(int num, int x, int y, int w, int h);
 static monitor* findmon(Window w);
 static void focusmon(const Arg arg);
 static void initmons();
@@ -224,8 +226,9 @@ static void viewall();
 
 /* Backend */
 static void cleanup();
+static XftColor* createscheme(const char* clrnames[], size_t clrcount);
+static int getptrcoords(int rety);
 static void grabkeys();
-static XftColor* scheme_create(const char* clrnames[], size_t clrcount);
 static void setup();
 static void sigchld(int unused);
 static void spawn(const Arg arg);
@@ -268,6 +271,7 @@ static char xsetr_text[256];
 /* Events array */
 static void (*events[LASTEvent])(XEvent* e) = {
 	[ButtonPress] = buttonpress,
+	//[ConfigureNotify] = configurenotify,
 	[ConfigureRequest] = configurerequest,
 	[DestroyNotify] = destroynotify,
 	[EnterNotify] = enternotify,
@@ -301,6 +305,38 @@ void buttonpress(XEvent* e){
 		XAllowEvents(dis, ReplayPointer, CurrentTime);
 	}
 }
+
+/* dwm copypasta */
+//void configurenotify(XEvent* e){
+//	monitor* m;
+//	client* c;
+//	XConfigureEvent* ev = &e->xconfigure;
+//	int dirty;
+//
+//	/* TODO: updategeom handling sucks, needs to be simplified */
+//	if (ev->window == root){
+//		dirty = (sw != ev->width || sh != ev->height);
+//		sw = ev->width; sh = ev->height;
+//
+//		if (updategeom() || dirty){
+//			for(m=mhead;m;m=m->next){
+//				m->bar->w = ev->width;
+//				XFreePixmap(dis, m->bar->d);
+//				m->bar->d = XCreatePixmap(dis, root, m->bar->w,
+//					m->bar->h, DefaultDepth(dis,screen));
+//
+//				for EACHCLIENT(m->head) if (ic->isfull){
+//						resizeclient(ic, m->x, m->y, m->w, m->h);
+//					}
+//
+//				XMoveResizeWindow(dis, m->bar->win, m->x, m->y - m->bar->h, m->bar->w, m->bar->h);
+//				m->curlayout->arrange(m);
+//			}
+//			updatefocus();
+//			drawbars();
+//		}
+//	}
+//}
 
 /* dwm copypasta */
 void configurerequest(XEvent* e){
@@ -657,6 +693,19 @@ void resizeclient(client* c, int x, int y, int w, int h){
 	XConfigureWindow(dis, c->win, CWX|CWY|CWWidth|CWHeight, &wc);
 }
 
+void sendtomon(client* c, monitor* oldmon, monitor* newmon){
+	changemon(oldmon, 0);
+	detach(c);
+	curmon->curlayout->arrange(curmon);
+
+	changemon(newmon, 0);
+	attachaside(c);
+	c->desks = curmon->seldesks;
+	curmon->curlayout->arrange(curmon);
+
+	changemon(oldmon, 1);
+}
+
 void todesktop(const Arg arg){
 	if (curmon->curdesk & 1 << arg.i) return;
 
@@ -704,7 +753,7 @@ void togglefloat(){
 		wc.sibling = curmon->current->win;
 		wc.stack_mode = Below;
 
-		for EACHCLIENT(curmon->head) XConfigureWindow(dis, ic->win, CWSibling|CWStackMode, &wc);
+		for EACHCLIENT(curmon->head) if (ic != curmon->current) XConfigureWindow(dis, ic->win, CWSibling|CWStackMode, &wc);
 
 	} else {
 		wc.sibling = curmon->bar->win;
@@ -749,14 +798,7 @@ void tomon(const Arg arg){
 		for (m=mhead;m && m != curmon && m->next != curmon;m=m->next);
 	}
 
-	if (m && m != curmon){
-		detach(c);
-		changemon(m, 1);
-		attachaside(c);
-		c->desks = curmon->curdesk;
-		curmon->curlayout->arrange(curmon);
-		updatefocus();
-	}
+	if (m && m != curmon) sendtomon(c, curmon, m);
 }
 
 void unmanage(client* c){
@@ -784,6 +826,8 @@ void updatefocus(){
 	} else {
 		XSetInputFocus(dis, root, RevertToPointerRoot, CurrentTime);
 	}
+
+	raisefloats();
 }
 
 void zoom(){
@@ -797,7 +841,7 @@ void zoom(){
 
 
 /* ---------------------------------------
- * Monitors
+ * Monitor Manipulation
  * ---------------------------------------
  */
 
@@ -807,7 +851,22 @@ void changemon(monitor* m, int focus){
 	if (focus) updatefocus();
 }
 
-void createmon(monitor* m, int num, int x, int y, int w, int h){
+void cleanupmon(monitor* m){
+	free(m->desks);
+
+	XUnmapWindow(dis, m->bar->win);
+	XDestroyWindow(dis, m->bar->win);
+	XftDrawDestroy(m->bar->xd);
+	XFreeGC(dis, m->bar->gc);
+	XftFontClose(dis, m->bar->xfont);
+	XFreePixmap(dis, m->bar->d);
+
+	free(m->bar);
+	free(m);
+}
+
+monitor* createmon(int num, int x, int y, int w, int h){
+	monitor* m = ecalloc(1, sizeof(monitor));
 	int i;
 
 	m->num = num;
@@ -816,8 +875,8 @@ void createmon(monitor* m, int num, int x, int y, int w, int h){
 
 	m->bar = initbar(m);
 
-	m->y = y + m->bar->h;
-	m->h = h - m->bar->h;
+	m->y += m->bar->h;
+	m->h -= m->bar->h;
 
 	/* Default to first layout */
 	m->curlayout = (layout*) &layouts[0];
@@ -831,9 +890,10 @@ void createmon(monitor* m, int num, int x, int y, int w, int h){
 
 	/* Default to first desktop */
 	m->seldesks = m->curdesk = 1 << 0;
-
 	m->head = NULL;
 	m->current = NULL;
+
+	return(m);
 }
 
 monitor* findmon(Window w){
@@ -897,8 +957,7 @@ void initmons(){
 		XFree(info);
 		
 		for (i=0;i < ns;i++){
-			m = ecalloc(1, sizeof(monitor));
-			createmon(m, i, unique[i].x_org, unique[i].y_org, unique[i].width, unique[i].height);
+			m = createmon(i, unique[i].x_org, unique[i].y_org, unique[i].width, unique[i].height);
 	
 			if (!mhead){
 				mhead = m;
@@ -922,12 +981,98 @@ void initmons(){
 	}
 #endif
 	if (!mhead){
-		m = ecalloc(1, sizeof(monitor));
-		mhead = m;
-		createmon(m, 0, 0, 0, sw, sh);
-		changemon(m, 0);
+		mhead = createmon(0, 0, 0, sw, sh);
+		changemon(mhead, 0);
 	}
 }
+
+//int updategeom(void){
+//	monitor* m;
+//	int dirty = 0;
+//
+//#ifdef XINERAMA
+//	if (XineramaIsActive(dis)) {
+//		int i, j, nm, ns;
+//		client* c;
+//		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
+//		XineramaScreenInfo* unique = NULL;
+//
+//		for(nm=0, m=mhead;m;m=m->next, nm++);
+//
+//		/* only consider unique geometries as separate screens */
+//		unique = ecalloc(ns, sizeof(XineramaScreenInfo));
+//		for (i = 0, j = 0; i < ns; i++)
+//			if (isuniquegeom(unique, j, &info[i]))
+//				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
+//		XFree(info);
+//
+//		if (n <= j) { /* new monitors available */
+//			for (i = 0; i < (j - n); i++) {
+//				for (m = mhead; m && m->next; m = m->next);
+//				if (m) m->next = createmon();
+//				else mhead = createmon();
+//			}
+//			for (i = 0, m = mhead; i < j && m; m = m->next, i++)
+//				if (i >= n
+//				|| unique[i].x_org != m->x || unique[i].y_org != m->y
+//				|| unique[i].width != m->w || unique[i].height != m->h)
+//				{
+//					dirty = 1;
+//					m->num = i;
+//					m->x = unique[i].x_org;
+//					m->y = unique[i].y_org;
+//					m->w = unique[i].width;
+//					m->h = unique[i].height;
+//
+//					m->bar = initbar(m);
+//
+//					m->y += m->bar->h;
+//					m->h -= m->bar->h;
+//				}
+//		} else { /* less monitors available j < n */
+//			for (i = j; i < nm; i++) {
+//				for (m = mhead; m && m->next; m = m->next);
+//				while ( (c = m->head) ){
+//					dirty = 1;
+//					m->head = c->next;
+//
+//					/* send client to mhead */
+//					sendtomon(c, m, mhead);
+//				}
+//				if (m == curmon) curmon = mhead;
+//				cleanupmon(m);
+//			}
+//		}
+//		free(unique);
+//	} else
+//#endif /* XINERAMA */
+//	{	
+//		if (!mhead) mhead = createmon();
+//
+//		if (mhead->w != sw || mhead->h != sh) {
+//			dirty = 1;
+//			mhead->x = mhead->y = 0;
+//			mhead->w = sw; mhead->h = sh;
+//
+//			mhead->bar = initbar(mhead);
+//
+//			mhead->y += mhead->bar->h;
+//			mhead->h -= mhead->bar->h;
+//			changemon(mhead, 0);
+//		}
+//	}
+//
+//	if (dirty){
+//		for (m=mhead;m;m=m->next)
+//			/* if pointer is inside this mon's boundaries */
+//			if (!ISOUTSIDE(getptrcoords(0), getptrcoords(1), m->x, m->y, m->w, m->h)){
+//				changemon(m, 1);
+//				break;
+//			}
+//	}
+//
+//	return dirty;
+//}
 
 
 /* ---------------------------------------
@@ -1234,7 +1379,6 @@ void viewall(){
 	for (i=0;i < TABLENGTH(tags);i++) curmon->seldesks ^= 1 << i;
 
 	mapclients();
-	raisefloats();
 
 	curmon->curlayout->arrange(curmon);
 	updatefocus();
@@ -1271,19 +1415,8 @@ void cleanup(){
 			xsendkill(w);
 		}
 
-		free(m->desks);
-
-		XUnmapWindow(dis, m->bar->win);
-		XDestroyWindow(dis, m->bar->win);
-		XftDrawDestroy(m->bar->xd);
-		XFreeGC(dis, m->bar->gc);
-		XftFontClose(dis, m->bar->xfont);
-		XFreePixmap(dis, m->bar->d);
-
-		free(m->bar);
-
 		tmp = m->next;
-		free(m);
+		cleanupmon(m);
 		m = tmp;
 		changemon(m, 0);
 	}
@@ -1300,6 +1433,32 @@ void cleanup(){
         XCloseDisplay(dis);
 }
 
+/* y'all need to free() this bad boi when you cleanup */
+XftColor* createscheme(const char* clrnames[], size_t clrcount){
+	int i;
+	XftColor* sch;
+
+	if ( !(sch = ecalloc(clrcount, sizeof(XftColor))) )
+		die("Error while trying to ecalloc for createscheme");
+
+	for (i=0;i < clrcount;i++){
+		if ( !XftColorAllocName(dis, DefaultVisual(dis,screen), DefaultColormap(dis,screen), clrnames[i], &sch[i]) )
+			die("Error while trying to allocate color '%s'", clrnames[i]);
+	}
+
+	return sch;
+}
+
+int getptrcoords(int rety){
+	int x, y, di;
+	unsigned int dui;
+	Window dummy;
+
+	XQueryPointer(dis, root, &dummy, &dummy, &x, &y, &di, &di, &dui);
+
+	return rety ? y : x;
+}
+
 void grabkeys(){
 	int i;
 	KeyCode code;
@@ -1308,22 +1467,6 @@ void grabkeys(){
 		if ( (code = XKeysymToKeycode(dis, keys[i].keysym)) )
 			XGrabKey(dis, code, keys[i].mod, root, True, GrabModeAsync, GrabModeAsync);
 	}
-}
-
-/* y'all need to free() this bad boi when you cleanup */
-XftColor* scheme_create(const char* clrnames[], size_t clrcount){
-	int i;
-	XftColor* sch;
-
-	if ( !(sch = ecalloc(clrcount, sizeof(XftColor))) )
-		die("Error while trying to ecalloc for scheme_create");
-
-	for (i=0;i < clrcount;i++){
-		if ( !XftColorAllocName(dis, DefaultVisual(dis,screen), DefaultColormap(dis,screen), clrnames[i], &sch[i]) )
-			die("Error while trying to allocate color '%s'", clrnames[i]);
-	}
-
-	return sch;
 }
 
 void setup(){
@@ -1339,7 +1482,7 @@ void setup(){
 	sh = XDisplayHeight(dis, screen);
 
 	scheme = ecalloc(TABLENGTH(colors), sizeof(XftColor*));
-	for (i=0;i < TABLENGTH(colors);i++) scheme[i] = scheme_create(colors[i], 2);
+	for (i=0;i < TABLENGTH(colors);i++) scheme[i] = createscheme(colors[i], 2);
 
 	running = 1;
 
