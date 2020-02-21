@@ -310,35 +310,30 @@ void buttonpress(XEvent* e){
 	XAllowEvents(dis, ReplayPointer, CurrentTime);
 }
 
+/* TODO: only need one drawable for all bars */
 /* dwm copypasta */
 //void configurenotify(XEvent* e){
 //	monitor* m;
 //	client* c;
 //	XConfigureEvent* ev = &e->xconfigure;
-//	int dirty;
 //
-//	/* TODO: updategeom handling sucks, needs to be simplified */
 //	if (ev->window == root){
-//		dirty = (sw != ev->width || sh != ev->height);
 //		sw = ev->width; sh = ev->height;
 //
-//		if (updategeom() || dirty){
-//			for(m=mhead;m;m=m->next){
-//				m->bar->w = ev->width;
-//				XFreePixmap(dis, m->bar->d);
-//				m->bar->d = XCreatePixmap(dis, root, m->bar->w,
-//					m->bar->h, DefaultDepth(dis,screen));
+//		for (m=mhead;m;m=m->next){
+//			//m->bar->w = ev->width;
+//			if (m->bar->d) XFreePixmap(dis, m->bar->d);
+//			m->bar->d = XCreatePixmap(dis, root, m->bar->w, m->bar->h, DefaultDepth(dis,screen));
 //
-//				for EACHCLIENT(m->head) if (ic->isfull){
-//						resizeclient(ic, m->x, m->y, m->w, m->h);
-//					}
+//			for EACHCLIENT(m->head) if (ic->isfull){
+//					resizeclient(ic, m->x, m->y, m->w, m->h);
+//				}
 //
-//				XMoveResizeWindow(dis, m->bar->win, m->x, m->y - m->bar->h, m->bar->w, m->bar->h);
-//				m->curlayout->arrange(m);
-//			}
-//			updatefocus();
-//			drawbars();
+//			XMoveResizeWindow(dis, m->bar->win, m->x, m->y - m->bar->h, m->bar->w, m->bar->h);
+//			m->curlayout->arrange(m);
 //		}
+//		updatefocus();
+//		drawbars();
 //	}
 //}
 
@@ -928,8 +923,7 @@ void focusmon(const Arg arg){
 #ifdef XINERAMA
 static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo* info){
 	while (n--)
-		if (unique[n].x_org == info->x_org && unique[n].y_org == info->y_org
-		&& unique[n].width == info->width && unique[n].height == info->height)
+		if (unique[n].x_org == info->x_org && unique[n].y_org == info->y_org)
 			return 0;
 	return 1;
 }
@@ -985,73 +979,68 @@ void initmons(){
 	}
 }
 
-//int updategeom(void){
+///* dwm copypasta - use the dwm 6.1 approach */
+//void updategeom(void){
 //	monitor* m;
-//	int dirty = 0;
 //
 //#ifdef XINERAMA
 //	if (XineramaIsActive(dis)) {
-//		int i, j, nm, ns;
+//		int i, j, ns;
+//		monitor* oldmhead = mhead;
 //		client* c;
 //		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
 //		XineramaScreenInfo* unique = NULL;
 //
-//		for(nm=0, m=mhead;m;m=m->next, nm++);
-//
 //		/* only consider unique geometries as separate screens */
 //		unique = ecalloc(ns, sizeof(XineramaScreenInfo));
-//		for (i = 0, j = 0; i < ns; i++)
+//		for (i=0, j=0;i < ns;i++)
 //			if (isuniquegeom(unique, j, &info[i]))
 //				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
 //		XFree(info);
 //
-//		if (n <= j) { /* new monitors available */
-//			for (i = 0; i < (j - n); i++) {
-//				for (m = mhead; m && m->next; m = m->next);
-//				if (m) m->next = createmon();
-//				else mhead = createmon();
-//			}
-//			for (i = 0, m = mhead; i < j && m; m = m->next, i++)
-//				if (i >= n
-//				|| unique[i].x_org != m->x || unique[i].y_org != m->y
-//				|| unique[i].width != m->w || unique[i].height != m->h)
-//				{
-//					dirty = 1;
-//					m->num = i;
-//					m->x = unique[i].x_org;
-//					m->y = unique[i].y_org;
-//					m->w = unique[i].width;
-//					m->h = unique[i].height;
+//		mhead = m = createmon();
+//		for (m, i=1;i < j;m=m->next, i++)
+//			m->next = createmon();
 //
-//					m->bar = initbar(m);
+//		for (m=mhead, i=0;m && i < j;m=m->next, i++){
+//			m->num = i;
+//			m->x = unique[i].x_org;
+//			m->y = unique[i].y_org;
+//			m->w = unique[i].width;
+//			m->h = unique[i].height;
 //
-//					m->y += m->bar->h;
-//					m->h -= m->bar->h;
-//				}
-//		} else { /* less monitors available j < n */
-//			for (i = j; i < nm; i++) {
-//				for (m = mhead; m && m->next; m = m->next);
-//				while ( (c = m->head) ){
-//					dirty = 1;
-//					m->head = c->next;
+//			m->bar = initbar(m);
 //
-//					/* send client to mhead */
-//					sendtomon(c, m, mhead, YesDetach, YesFocus, YesStay);
-//				}
-//				if (m == curmon) curmon = mhead;
-//				cleanupmon(m);
-//			}
+//			m->y += m->bar->h;
+//			m->h -= m->bar->h;
 //		}
 //		free(unique);
+//
+//		/* reattach any old clients to the new mhead *.
+//		m = oldmhead;
+//		while (m){
+//			while ( (c = m->head) ){
+//				m->head = c->next;
+//				/* send client to mhead */
+//				sendtomon(c, m, mhead, YesDetach, YesFocus, YesStay);
+//			}
+//			m = m->next;
+//			cleanupmon(m);
+//		}
 //	} else
 //#endif /* XINERAMA */
 //	{	
 //		if (!mhead) mhead = createmon();
 //
 //		if (mhead->w != sw || mhead->h != sh) {
-//			dirty = 1;
 //			mhead->x = mhead->y = 0;
 //			mhead->w = sw; mhead->h = sh;
+//
+//
+//			/* cleanup bar and reinit */
+//			if (mhead->bar){
+//
+//			}
 //
 //			mhead->bar = initbar(mhead);
 //
@@ -1061,16 +1050,12 @@ void initmons(){
 //		}
 //	}
 //
-//	if (dirty){
-//		for (m=mhead;m;m=m->next)
-//			/* if pointer is inside this mon's boundaries */
-//			if (!ISOUTSIDE(getptrcoords(0), getptrcoords(1), m->x, m->y, m->w, m->h)){
-//				changemon(m, 1);
-//				break;
-//			}
-//	}
-//
-//	return dirty;
+//	for (m=mhead;m;m=m->next)
+//		/* if pointer is inside this mon's boundaries */
+//		if (!ISOUTSIDE(getptrcoords(0), getptrcoords(1), m->x, m->y, m->w, m->h)){
+//			changemon(m, 1);
+//			break;
+//		}
 //}
 
 
