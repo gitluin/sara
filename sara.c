@@ -617,8 +617,6 @@ void manage(Window parent, XWindowAttributes* wa){
 	XMoveResizeWindow(dis, c->win, c->x + 2*sw, c->y, c->w, c->h);
 	XMapWindow(dis, c->win);
 
-	fprintf(stderr, "just mapped a client\n");
-
 	justswitch = 1;
 	curmon->curlayout->arrange(curmon);
 	if (c->desks & curmon->seldesks) updatefocus();
@@ -726,20 +724,17 @@ void resizeclient(client* c, int x, int y, int w, int h){
 
 void sendtomon(client* c, monitor* oldmon, monitor* newmon, int wantdetach, int wantfocus, int wantstay){
 	if (wantdetach){
-		fprintf(stderr, "detaching client from oldmon\n");
 		changemon(oldmon, 0);
 		detach(c);
 		curmon->curlayout->arrange(curmon);
 	}
 
 	changemon(newmon, 0);
-	fprintf(stderr, "attaching client to newmon\n");
 	attachaside(c);
 	c->desks = curmon->seldesks;
 	curmon->curlayout->arrange(curmon);
 
 	if (wantstay){
-		fprintf(stderr, "returning focus to oldmon\n");
 		changemon(oldmon, wantfocus);
 	}
 }
@@ -829,18 +824,15 @@ void tomon(const Arg arg){
 
 	if ( !(c = curmon->current) ) return;
 
-	fprintf(stderr, "trying tomon\n");
-	if (arg.i < 0){
-		if (curmon->next) m = curmon->next;
+	if (arg.i > 0){
+		if (!curmon->next) return;
+		else m = curmon->next;
 
 	} else {
 		for (m=mhead;m && m != curmon && m->next != curmon;m=m->next);
 	}
 
-	if (m && m != curmon){
-		fprintf(stderr, "about to detach client from curmon, attach to m, then move focus to m\n");
-		sendtomon(c, curmon, m, YesDetach, YesFocus, NoStay);
-	}
+	if (m && m != curmon) sendtomon(c, curmon, m, YesDetach, YesFocus, NoStay);
 }
 
 void unmanage(client* c){
@@ -861,7 +853,6 @@ void unmanage(client* c){
 
 void updatefocus(){
 	if (curmon->current){
-		fprintf(stderr, "there's a curmon->current to focus!\n");
 		XSetInputFocus(dis, curmon->current->win, RevertToPointerRoot, CurrentTime);
 		XRaiseWindow(dis, curmon->current->win);
 
@@ -889,15 +880,8 @@ void zoom(){
 
 void changemon(monitor* m, int focus){
 	justswitch = 0;
-	if (curmon) fprintf(stderr, "curmon->num is %d\n", curmon->num);
 	curmon = m;
-	fprintf(stderr, "curmon->num is now %d\n", curmon->num);
-	if (focus){
-		fprintf(stderr, "about to focus\n");
-		for EACHCLIENT(curmon->head)
-			fprintf(stderr, "i have a client\n");
-		updatefocus();
-	}
+	if (focus) updatefocus();
 }
 
 void cleanupmon(monitor* m){
@@ -980,21 +964,18 @@ monitor* findmon(Window w){
 void focusmon(const Arg arg){
 	monitor* m;
 
-	if (curmon == mhead && !curmon->next) return;
-
 	if (arg.i > 0){
-		if (curmon->next) m = curmon->next;
-		fprintf(stderr, "trying to go down the stack\n");
+		if (!curmon->next) return;
+		else m = curmon->next;
 
 	} else {
-		for (m=mhead;m && m != curmon && m->next != curmon;m=m->next);
-		fprintf(stderr, "trying to go up the stack\n");
+		if (curmon == mhead)
+			return;
+		else
+			for (m=mhead;m && m != curmon && m->next != curmon;m=m->next);
 	}
 
-	if (m && m != curmon){
-		fprintf(stderr, "moving in the stack\n");
-		changemon(m, 1);
-	}
+	if (m && m != curmon) changemon(m, 1);
 }
 
 /* dwm copypasta */
@@ -1007,39 +988,6 @@ static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo
 }
 #endif
 
-/* find the smallest x that is larger than prevmin */
-int smallmonnum(monitor* tmphead, int* prevminptr, int wantx){
-	int* min, minnum, i = 0;
-	monitor* m;
-
-	for (m=tmphead;m;m=m->next, i++){
-		fprintf(stderr, "on iteration %d\n", i);
-		if (prevminptr && (m->x <= *prevminptr)){
-			continue;
-
-		} else if (!min || (m->x < *min)){
-			min = &(m->x);
-			minnum = m->num;
-		}
-	}
-
-	return wantx ? *min : minnum;
-}
-
-int inorder(int* order, int len){
-	int i;
-
-	for (i=0;i < len;i++){
-		if (i+1 <= len){
-			if (order[i] - order[i+1] > 0){
-				return 0;
-			}
-		}
-	}
-
-	return 1;
-}
-
 /* TODO: Support adding/removing monitors and transferring the clients */
 /* some dwm copypasta */
 void initmons(){
@@ -1047,9 +995,8 @@ void initmons(){
 
 #ifdef XINERAMA
 	if (XineramaIsActive(dis)){
-		int i, j, ns, prevmin;
-		int* order, * prevminptr;
-		monitor* im, * tmphead = NULL;
+		int i, j, ns;
+		monitor* im;
 
 		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
 		XineramaScreenInfo* unique;
@@ -1064,53 +1011,23 @@ void initmons(){
 		for (i=0;i < j;i++){
 			m = createmon(i, unique[i].x_org, unique[i].y_org, unique[i].width, unique[i].height);
 	
-			if (!tmphead){
-				tmphead = m;
-				fprintf(stderr, "just attached tmphead\n");
+			if (!mhead){
+				mhead = m;
 	
 			/* My laptop insists that my onboard graphics output is not primary
 			 * This is my workaround. It works because I only use 2 monitors.
 			 */
-//			} else if (m->x < mhead->x){
-//				mhead->next = m->next;
-//				m->next = mhead;
-//				mhead = m;
+			} else if (m->x < mhead->x){
+				mhead->next = m->next;
+				m->next = mhead;
+				mhead = m;
 
 			} else {
-				for (im=tmphead;im && im->next;im=im->next);
+				for (im=mhead;im->next;im=im->next);
 				im->next = m;
-				fprintf(stderr, "just attached tmptail\n");
 			}
 		}
 		free(unique);
-
-		/* My laptop insists that my onboard graphics output is not primary
-		 * This is my generic workaround for an arbitrary number of monitors.
-		 */
-		order = ecalloc(j, sizeof(int));
-		for (i=0;i < j;i++){
-			order[i] = smallmonnum(tmphead, prevminptr, 0);
-			fprintf(stderr, "smallmonnum for i=%d is %d\n", i, order[i]);
-			prevmin = smallmonnum(tmphead, prevminptr, 1);
-			prevminptr = &prevmin;
-		}
-
-		if (!inorder(order, j)){
-			fprintf(stderr, "monitors are not in order\n");
-			for (i=0;i < j;i++){
-				for (m=tmphead;m && m->num != order[i];m=m->next);
-
-				if (!mhead){
-					mhead = m;
-
-				} else {
-					for (im=mhead;im && im->next;im=im->next);
-					im->next = m;
-				}
-			}
-		}
-		free(order);
-
 		changemon(mhead, 0);
 	}
 #endif
@@ -1164,10 +1081,7 @@ void initmons(){
 //			}
 //		}
 //
-//		/* My laptop insists that my onboard graphics output is not primary.
-//		 * This will reorder monitors left-to-right by the x origin if necessary.
-//		 */
-//		fprintf(stderr, "should check monsinorder twice\n");
+//		/* Reorder and renumber monitors if necessary */
 //
 //		for (m=mhead, i=0;m;m=m->next, i++){
 //			m->num = i;

@@ -107,6 +107,7 @@ Bugs
  * Need to XFree() in applyrules, I think? T'is unclear.
  * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when.
  * Bar doesn't always draw immediately on xinit.
+ * quitting is much slower than dwm _probably cleanup_
 
 To Do
 ----
