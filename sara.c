@@ -202,10 +202,12 @@ static void zoom();
 /* Monitor Manipulation */
 static void changemon(monitor* m, int focus);
 static void cleanupmon(monitor* m);
-static monitor* createmon(int num, int x, int y, int w, int h);
+//static monitor* createmon(int num, int x, int y, int w, int h);
+static monitor* createmon();
 static monitor* findmon(Window w);
 static void focusmon(const Arg arg);
 static void initmons();
+//static void updategeom();
 
 /* Client Interfacing */
 static client* findclient(Window w);
@@ -615,6 +617,8 @@ void manage(Window parent, XWindowAttributes* wa){
 	XMoveResizeWindow(dis, c->win, c->x + 2*sw, c->y, c->w, c->h);
 	XMapWindow(dis, c->win);
 
+	fprintf(stderr, "just mapped a client\n");
+
 	justswitch = 1;
 	curmon->curlayout->arrange(curmon);
 	if (c->desks & curmon->seldesks) updatefocus();
@@ -720,19 +724,24 @@ void resizeclient(client* c, int x, int y, int w, int h){
 	XConfigureWindow(dis, c->win, CWX|CWY|CWWidth|CWHeight, &wc);
 }
 
-void sendtomon(client* c, monitor* oldmon, monitor* newmon, int wantdetach, int wantstay, int wantfocus){
+void sendtomon(client* c, monitor* oldmon, monitor* newmon, int wantdetach, int wantfocus, int wantstay){
 	if (wantdetach){
+		fprintf(stderr, "detaching client from oldmon\n");
 		changemon(oldmon, 0);
 		detach(c);
 		curmon->curlayout->arrange(curmon);
 	}
 
 	changemon(newmon, 0);
+	fprintf(stderr, "attaching client to newmon\n");
 	attachaside(c);
 	c->desks = curmon->seldesks;
 	curmon->curlayout->arrange(curmon);
 
-	if (wantstay) changemon(oldmon, wantfocus);
+	if (wantstay){
+		fprintf(stderr, "returning focus to oldmon\n");
+		changemon(oldmon, wantfocus);
+	}
 }
 
 void todesktop(const Arg arg){
@@ -820,6 +829,7 @@ void tomon(const Arg arg){
 
 	if ( !(c = curmon->current) ) return;
 
+	fprintf(stderr, "trying tomon\n");
 	if (arg.i < 0){
 		if (curmon->next) m = curmon->next;
 
@@ -827,7 +837,10 @@ void tomon(const Arg arg){
 		for (m=mhead;m && m != curmon && m->next != curmon;m=m->next);
 	}
 
-	if (m && m != curmon) sendtomon(c, curmon, m, YesDetach, YesFocus, NoStay);
+	if (m && m != curmon){
+		fprintf(stderr, "about to detach client from curmon, attach to m, then move focus to m\n");
+		sendtomon(c, curmon, m, YesDetach, YesFocus, NoStay);
+	}
 }
 
 void unmanage(client* c){
@@ -848,6 +861,7 @@ void unmanage(client* c){
 
 void updatefocus(){
 	if (curmon->current){
+		fprintf(stderr, "there's a curmon->current to focus!\n");
 		XSetInputFocus(dis, curmon->current->win, RevertToPointerRoot, CurrentTime);
 		XRaiseWindow(dis, curmon->current->win);
 
@@ -875,8 +889,15 @@ void zoom(){
 
 void changemon(monitor* m, int focus){
 	justswitch = 0;
+	if (curmon) fprintf(stderr, "curmon->num is %d\n", curmon->num);
 	curmon = m;
-	if (focus) updatefocus();
+	fprintf(stderr, "curmon->num is now %d\n", curmon->num);
+	if (focus){
+		fprintf(stderr, "about to focus\n");
+		for EACHCLIENT(curmon->head)
+			fprintf(stderr, "i have a client\n");
+		updatefocus();
+	}
 }
 
 void cleanupmon(monitor* m){
@@ -889,7 +910,6 @@ void cleanupmon(monitor* m){
 	free(m);
 }
 
-//monitor* createmon(){
 monitor* createmon(int num, int x, int y, int w, int h){
 	monitor* m = ecalloc(1, sizeof(monitor));
 	int i;
@@ -921,6 +941,28 @@ monitor* createmon(int num, int x, int y, int w, int h){
 	return m;
 }
 
+//monitor* createmon(){
+//	int i;
+//	monitor* m = ecalloc(1, sizeof(monitor));
+//
+//	/* Default to first layout */
+//	m->curlayout = (layout*) &layouts[0];
+//	m->msize = m->w * MASTER_SIZE;
+//
+//	m->desks = ecalloc(TABLENGTH(tags), sizeof(desktop));
+//	for (i=0;i < TABLENGTH(tags);i++){
+//		m->desks[i].curlayout = m->curlayout;
+//		m->desks[i].msize = m->msize;
+//	}
+//
+//	/* Default to first desktop */
+//	m->seldesks = m->curdesk = 1 << 0;
+//	m->head = NULL;
+//	m->current = NULL;
+//
+//	return m;
+//}
+
 monitor* findmon(Window w){
 	monitor* im;
 
@@ -942,12 +984,17 @@ void focusmon(const Arg arg){
 
 	if (arg.i > 0){
 		if (curmon->next) m = curmon->next;
+		fprintf(stderr, "trying to go down the stack\n");
 
 	} else {
 		for (m=mhead;m && m != curmon && m->next != curmon;m=m->next);
+		fprintf(stderr, "trying to go up the stack\n");
 	}
 
-	if (m && m != curmon) changemon(m, 1);
+	if (m && m != curmon){
+		fprintf(stderr, "moving in the stack\n");
+		changemon(m, 1);
+	}
 }
 
 /* dwm copypasta */
@@ -960,6 +1007,39 @@ static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo
 }
 #endif
 
+/* find the smallest x that is larger than prevmin */
+int smallmonnum(monitor* tmphead, int* prevminptr, int wantx){
+	int* min, minnum, i = 0;
+	monitor* m;
+
+	for (m=tmphead;m;m=m->next, i++){
+		fprintf(stderr, "on iteration %d\n", i);
+		if (prevminptr && (m->x <= *prevminptr)){
+			continue;
+
+		} else if (!min || (m->x < *min)){
+			min = &(m->x);
+			minnum = m->num;
+		}
+	}
+
+	return wantx ? *min : minnum;
+}
+
+int inorder(int* order, int len){
+	int i;
+
+	for (i=0;i < len;i++){
+		if (i+1 <= len){
+			if (order[i] - order[i+1] > 0){
+				return 0;
+			}
+		}
+	}
+
+	return 1;
+}
+
 /* TODO: Support adding/removing monitors and transferring the clients */
 /* some dwm copypasta */
 void initmons(){
@@ -967,8 +1047,9 @@ void initmons(){
 
 #ifdef XINERAMA
 	if (XineramaIsActive(dis)){
-		int i, j, ns;
-		monitor* im, * tmp;
+		int i, j, ns, prevmin;
+		int* order, * prevminptr;
+		monitor* im, * tmphead = NULL;
 
 		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
 		XineramaScreenInfo* unique;
@@ -980,28 +1061,57 @@ void initmons(){
 				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
 		XFree(info);
 		
-		for (i=0;i < ns;i++){
+		for (i=0;i < j;i++){
 			m = createmon(i, unique[i].x_org, unique[i].y_org, unique[i].width, unique[i].height);
 	
-			if (!mhead){
-				mhead = m;
+			if (!tmphead){
+				tmphead = m;
+				fprintf(stderr, "just attached tmphead\n");
 	
 			/* My laptop insists that my onboard graphics output is not primary
 			 * This is my workaround. It works because I only use 2 monitors.
 			 */
-			} else if (m->x < mhead->x){
-				tmp = mhead;
-				mhead = m;
-				mhead->next = tmp;
+//			} else if (m->x < mhead->x){
+//				mhead->next = m->next;
+//				m->next = mhead;
+//				mhead = m;
 
 			} else {
-				for (im=mhead;im->next;im=im->next);
+				for (im=tmphead;im && im->next;im=im->next);
 				im->next = m;
+				fprintf(stderr, "just attached tmptail\n");
 			}
 		}
+		free(unique);
+
+		/* My laptop insists that my onboard graphics output is not primary
+		 * This is my generic workaround for an arbitrary number of monitors.
+		 */
+		order = ecalloc(j, sizeof(int));
+		for (i=0;i < j;i++){
+			order[i] = smallmonnum(tmphead, prevminptr, 0);
+			fprintf(stderr, "smallmonnum for i=%d is %d\n", i, order[i]);
+			prevmin = smallmonnum(tmphead, prevminptr, 1);
+			prevminptr = &prevmin;
+		}
+
+		if (!inorder(order, j)){
+			fprintf(stderr, "monitors are not in order\n");
+			for (i=0;i < j;i++){
+				for (m=tmphead;m && m->num != order[i];m=m->next);
+
+				if (!mhead){
+					mhead = m;
+
+				} else {
+					for (im=mhead;im && im->next;im=im->next);
+					im->next = m;
+				}
+			}
+		}
+		free(order);
 
 		changemon(mhead, 0);
-		free(unique);
 	}
 #endif
 	if (!mhead){
@@ -1011,13 +1121,13 @@ void initmons(){
 }
 
 ///* dwm copypasta - use the dwm 6.1 approach */
-//void updategeom(void){
+//void updategeom(){
 //	monitor* m;
 //
 //#ifdef XINERAMA
 //	if (XineramaIsActive(dis)) {
 //		int i, j, ns;
-//		monitor* oldmhead = mhead;
+//		monitor* im, * prev, * mprev, * oldmhead = mhead;
 //		client* c;
 //		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
 //		XineramaScreenInfo* unique = NULL;
@@ -1029,12 +1139,10 @@ void initmons(){
 //				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
 //		XFree(info);
 //
-//		mhead = m = createmon();
-//		for (m, i=1;i < j;m=m->next, i++)
-//			m->next = createmon();
+//		for (i=0;i < j;i++){
+//			fprintf(stderr, "working on %d\n", i);
+//			m = createmon();
 //
-//		for (m=mhead, i=0;m && i < j;m=m->next, i++){
-//			m->num = i;
 //			m->x = unique[i].x_org;
 //			m->y = unique[i].y_org;
 //			m->w = unique[i].width;
@@ -1044,12 +1152,33 @@ void initmons(){
 //
 //			m->y += m->bar->h;
 //			m->h -= m->bar->h;
+//
+//			if (!mhead){
+//				mhead = m;
+//				fprintf(stderr, "just attached mhead\n");
+//
+//			} else {
+//				for (im=mhead;im->next;im=im->next);
+//				im->next = m;
+//				fprintf(stderr, "just attached at the tail\n");
+//			}
+//		}
+//
+//		/* My laptop insists that my onboard graphics output is not primary.
+//		 * This will reorder monitors left-to-right by the x origin if necessary.
+//		 */
+//		fprintf(stderr, "should check monsinorder twice\n");
+//
+//		for (m=mhead, i=0;m;m=m->next, i++){
+//			m->num = i;
+//			fprintf(stderr, "just numbered monitor #%d\n", m->num);
 //		}
 //		free(unique);
 //
-//		/* reattach any old clients to the new mhead *.
+//		/* reattach any old clients to the new mhead */
 //		m = oldmhead;
 //		while (m){
+//			fprintf(stderr, "reattaching old clients\n");
 //			while ( (c = m->head) ){
 //				m->head = c->next;
 //				/* send client to mhead */
@@ -1061,17 +1190,15 @@ void initmons(){
 //	} else
 //#endif /* XINERAMA */
 //	{	
-//		if (!mhead) mhead = createmon();
+//		fprintf(stderr, "no xinerama defined\n");
+//
+//		if (!mhead){
+//			mhead = createmon();
+//		}
 //
 //		if (mhead->w != sw || mhead->h != sh) {
 //			mhead->x = mhead->y = 0;
 //			mhead->w = sw; mhead->h = sh;
-//
-//
-//			/* cleanup bar and reinit */
-//			if (mhead->bar){
-//
-//			}
 //
 //			mhead->bar = initbar(mhead);
 //
@@ -1084,6 +1211,7 @@ void initmons(){
 //	for (m=mhead;m;m=m->next)
 //		/* if pointer is inside this mon's boundaries */
 //		if (!ISOUTSIDE(getptrcoords(0), getptrcoords(1), m->x, m->y, m->w, m->h)){
+//			fprintf(stderr, "cursor is in, and changing to, monitor #%d\n", m->num);
 //			changemon(m, 1);
 //			break;
 //		}
@@ -1519,6 +1647,7 @@ void setup(){
 
 	initdrw();
 	initmons();
+	//updategeom();
 	loaddesktop(0);
 
 	wa.cursor = XCreateFontCursor(dis, 68);
