@@ -54,6 +54,7 @@ typedef union {
 
 typedef struct bar bar;
 typedef struct client client;
+typedef struct drw drw;
 typedef struct desktop desktop;
 typedef struct monitor monitor;
 
@@ -78,12 +79,7 @@ typedef struct {
 
 struct bar {
 	int w, h;
-	XftColor* scheme;
-	Drawable d;
-	XftFont* xfont;
-	GC gc;
 	Window win;
-	XftDraw* xd;
 };
 
 struct client {
@@ -98,6 +94,14 @@ struct client {
 	/* prior to togglefs */
 	int oldfloat;
 }; 
+
+struct drw {
+	Drawable d;
+	GC gc;
+	XftColor* scheme;
+	XftDraw* xd;
+	XftFont* xfont;
+};
 
 struct desktop {
 	float msize;
@@ -232,6 +236,7 @@ static void cleanup();
 static XftColor* createscheme(const char* clrnames[], size_t clrcount);
 static int getptrcoords(int rety);
 static void grabkeys();
+static void initdrw();
 static void setup();
 static void sigchld(int unused);
 static void spawn(const Arg arg);
@@ -266,6 +271,7 @@ static monitor* mhead;
 
 /* Backend */
 static client* ic; /* for EACHCLIENT iterating */
+static drw* sdrw;
 static int lrpad;
 static int running;
 static XftColor** scheme;
@@ -310,7 +316,6 @@ void buttonpress(XEvent* e){
 	XAllowEvents(dis, ReplayPointer, CurrentTime);
 }
 
-/* TODO: only need one drawable for all bars */
 /* dwm copypasta */
 //void configurenotify(XEvent* e){
 //	monitor* m;
@@ -319,17 +324,17 @@ void buttonpress(XEvent* e){
 //
 //	if (ev->window == root){
 //		sw = ev->width; sh = ev->height;
+//		updategeom();
+//		if (sdrw){
+//			if (sdrw->d) XFreePixmap(dis, sdrw->d);
+//			sdrw->d = XCreatePixmap(dis, root, sw, sh, DefaultDepth(dis,screen));
+//		}
 //
 //		for (m=mhead;m;m=m->next){
-//			//m->bar->w = ev->width;
-//			if (m->bar->d) XFreePixmap(dis, m->bar->d);
-//			m->bar->d = XCreatePixmap(dis, root, m->bar->w, m->bar->h, DefaultDepth(dis,screen));
-//
 //			for EACHCLIENT(m->head) if (ic->isfull){
 //					resizeclient(ic, m->x, m->y, m->w, m->h);
 //				}
 //
-//			XMoveResizeWindow(dis, m->bar->win, m->x, m->y - m->bar->h, m->bar->w, m->bar->h);
 //			m->curlayout->arrange(m);
 //		}
 //		updatefocus();
@@ -850,15 +855,12 @@ void cleanupmon(monitor* m){
 
 	XUnmapWindow(dis, m->bar->win);
 	XDestroyWindow(dis, m->bar->win);
-	XftDrawDestroy(m->bar->xd);
-	XFreeGC(dis, m->bar->gc);
-	XftFontClose(dis, m->bar->xfont);
-	XFreePixmap(dis, m->bar->d);
 
 	free(m->bar);
 	free(m);
 }
 
+//monitor* createmon(){
 monitor* createmon(int num, int x, int y, int w, int h){
 	monitor* m = ecalloc(1, sizeof(monitor));
 	int i;
@@ -887,7 +889,7 @@ monitor* createmon(int num, int x, int y, int w, int h){
 	m->head = NULL;
 	m->current = NULL;
 
-	return(m);
+	return m;
 }
 
 monitor* findmon(Window w){
@@ -1122,9 +1124,9 @@ void drawbar(monitor* m){
 	unsigned int occ = 0;
 
 	/* draw background */
-	m->bar->scheme = scheme[SchNorm];
-	XSetForeground(dis, m->bar->gc, m->bar->scheme[ColBg].pixel);
-	XFillRectangle(dis, m->bar->d, m->bar->gc, 0, 0, sw, m->bar->h);
+	sdrw->scheme = scheme[SchNorm];
+	XSetForeground(dis, sdrw->gc, sdrw->scheme[ColBg].pixel);
+	XFillRectangle(dis, sdrw->d, sdrw->gc, 0, 0, sw, m->bar->h);
 
 	/* draw status */
 	xsetr_text_w = TEXTW(m, xsetr_text) - lrpad + 2; /* 2px right padding */
@@ -1139,7 +1141,7 @@ void drawbar(monitor* m){
 		if ( !(occ & 1 << j) && !is_sel )
 			continue;
 
-		m->bar->scheme = scheme[is_sel ? SchSel : SchNorm];
+		sdrw->scheme = scheme[is_sel ? SchSel : SchNorm];
 
 		x = drawbartext(m, x, 0, TEXTW(m, syms[SymLeft]) + 1, m->bar->h, 0,
 				is_sel ? syms[SymLeft] : " ") - lrpad;
@@ -1148,7 +1150,7 @@ void drawbar(monitor* m){
 				is_sel ? syms[SymRight] : " ") - lrpad / 2;
 	}
 	x -= lrpad / 2;
-	m->bar->scheme = scheme[SchNorm];
+	sdrw->scheme = scheme[SchNorm];
 	drawbartext(m, x, 0, TEXTW(m, m->curlayout->symbol), m->bar->h, lrpad / 2, m->curlayout->symbol);
 
 	for EACHCLIENT(m->head) if (ISVISIBLE(ic) && ic->isfull){
@@ -1156,7 +1158,7 @@ void drawbar(monitor* m){
 		break;
 	}
 	if (dodraw) XMapRaised(dis, m->bar->win);
-	XCopyArea(dis, m->bar->d, m->bar->win, m->bar->gc, 0, 0, m->bar->w, m->bar->h, 0, 0);
+	XCopyArea(dis, sdrw->d, m->bar->win, sdrw->gc, 0, 0, m->bar->w, m->bar->h, 0, 0);
 	XSync(dis, False);
 }
 
@@ -1166,8 +1168,8 @@ void drawbars(){
 }
 
 int drawbartext(monitor* m, int x, int y, int w, int h, unsigned int lpad, const char* text){
-	int ty = y + (h - (m->bar->xfont->ascent + m->bar->xfont->descent)) / 2 + m->bar->xfont->ascent;
-	XftDrawString8(m->bar->xd, &m->bar->scheme[ColFg], m->bar->xfont, x + lpad, ty, (XftChar8*)text, slen(text));
+	int ty = y + (h - lrpad) / 2 + sdrw->xfont->ascent;
+	XftDrawString8(sdrw->xd, &sdrw->scheme[ColFg], sdrw->xfont, x + lpad, ty, (XftChar8*)text, slen(text));
 
 	return x + w;
 }
@@ -1204,7 +1206,7 @@ int gettextprop(Window w, Atom atom, char *text, unsigned int size){
 /* does anything here need to be free() or XFree()? */
 int gettextwidth(monitor* m, const char* str, int len){
 	XGlyphInfo xgi;
-	XftTextExtents8(dis, m->bar->xfont, (XftChar8*)str, len, &xgi);
+	XftTextExtents8(dis, sdrw->xfont, (XftChar8*)str, len, &xgi);
 
 	return xgi.width;
 }
@@ -1218,17 +1220,11 @@ bar* initbar(monitor* m){
 		.event_mask = ExposureMask
 	};
 
-	sbar = ecalloc(1, sizeof(bar));
-	if ( !(sbar->xfont = XftFontOpenName(dis, screen, fontname)) )
-		die("The font you tried to use was not found. Check the name.");
+	if ( !(sbar = ecalloc(1, sizeof(bar))))
+		die("Could not ecalloc sbar!");
 
-	lrpad = sbar->xfont->ascent + sbar->xfont->descent;
-
-	sbar->h = sbar->xfont->ascent + sbar->xfont->descent + 2;
+	sbar->h = lrpad + 2;
 	sbar->w = m->w;
-	sbar->d = XCreatePixmap(dis, root, m->w, m->h, DefaultDepth(dis, screen));
-	sbar->gc = XCreateGC(dis, sbar->d, 0, NULL);
-	sbar->xd = XftDrawCreate(dis, sbar->d, DefaultVisual(dis,screen), DefaultColormap(dis,screen));
 
 	sbar->win = XCreateWindow(dis, root, m->x, m->y, sbar->w, sbar->h, 0, 
 			DefaultDepth(dis, screen), InputOutput, DefaultVisual(dis,screen), 
@@ -1405,6 +1401,11 @@ void cleanup(){
 		changemon(m, 0);
 	}
 
+	XftDrawDestroy(sdrw->xd);
+	XFreeGC(dis, sdrw->gc);
+	XftFontClose(dis, sdrw->xfont);
+	XFreePixmap(dis, sdrw->d);
+
 	for (i=0;i < TABLENGTH(colors);i++) free(scheme[i]);
 	free(scheme);
 
@@ -1453,6 +1454,20 @@ void grabkeys(){
 	}
 }
 
+void initdrw(){
+	if ( !(sdrw = ecalloc(1, sizeof(drw))) )
+		die("could not ecalloc a drw!");
+
+	if ( !(sdrw->xfont = XftFontOpenName(dis, screen, fontname)) )
+		die("The font you tried to use was not found. Check the name.");
+
+	lrpad = sdrw->xfont->ascent + sdrw->xfont->descent;
+
+	sdrw->d = XCreatePixmap(dis, root, sw, sh, DefaultDepth(dis, screen));
+	sdrw->gc = XCreateGC(dis, sdrw->d, 0, NULL);
+	sdrw->xd = XftDrawCreate(dis, sdrw->d, DefaultVisual(dis,screen), DefaultColormap(dis,screen));
+}
+
 void setup(){
 	int i;
 	sigchld(0);
@@ -1473,6 +1488,7 @@ void setup(){
 	mhead = NULL;
 	curmon = NULL;
 
+	initdrw();
 	initmons();
 	loaddesktop(0);
 

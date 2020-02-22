@@ -13,6 +13,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.9.7.4	- More TODO finishers. No more multiple GC, Drawable, etc. across all bars. I have my own mini-drw struct now.
  * v0.9.7.3	- Floats are always on top. Not sure if it's the most efficient way (just call raisefloats), but it works and as long as you don't have 8 bajillion windows you should be okay.
  * v0.9.7.2	- Bug fixes. TODOs slowly being knocked out.
  * v0.9.7.1	- Transient popup windows (Libreoffice, Firefox download, etc.) float like they ought to, instead of being tiled. This solved the Krita bug too. Yay!
