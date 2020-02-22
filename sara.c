@@ -205,8 +205,11 @@ static void cleanupmon(monitor* m);
 //static monitor* createmon(int num, int x, int y, int w, int h);
 static monitor* createmon();
 static monitor* findmon(Window w);
+static monitor* findprevmon(monitor* m);
 static void focusmon(const Arg arg);
 static void initmons();
+static void isortmons();
+static void swapmon(monitor* x, monitor* y);
 //static void updategeom();
 
 /* Client Interfacing */
@@ -581,11 +584,12 @@ void detach(client* c){
 void killclient(){
 	Window w;
 
-	if (curmon->current){
-		w = curmon->current->win;
-		unmanage(curmon->current);
-		xsendkill(w);
-	}
+	if (!curmon->current)
+		return;
+
+	w = curmon->current->win;
+	unmanage(curmon->current);
+	xsendkill(w);
 
 	updatestatus();
 }
@@ -961,6 +965,17 @@ monitor* findmon(Window w){
 	return curmon;
 }
 
+monitor* findprevmon(monitor* m){
+	monitor* i;
+
+	for (i=mhead;i && i != m;i=i->next){
+		if (i->next == m)
+			return i;
+	}
+
+	return NULL;
+}
+
 void focusmon(const Arg arg){
 	monitor* m;
 
@@ -996,7 +1011,6 @@ void initmons(){
 #ifdef XINERAMA
 	if (XineramaIsActive(dis)){
 		int i, j, ns;
-		monitor* im;
 
 		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
 		XineramaScreenInfo* unique;
@@ -1008,25 +1022,20 @@ void initmons(){
 				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
 		XFree(info);
 		
-		for (i=0;i < j;i++){
-			m = createmon(i, unique[i].x_org, unique[i].y_org, unique[i].width, unique[i].height);
-	
-			if (!mhead){
-				mhead = m;
-	
-			/* My laptop insists that my onboard graphics output is not primary
-			 * This is my workaround. It works because I only use 2 monitors.
-			 */
-			} else if (m->x < mhead->x){
-				mhead->next = m->next;
-				m->next = mhead;
-				mhead = m;
-
-			} else {
-				for (im=mhead;im->next;im=im->next);
-				im->next = m;
-			}
+		mhead = m = createmon(0, unique[0].x_org, unique[0].y_org, unique[0].width, unique[0].height);
+		for (i=1;i < j;i++){
+			m->next = createmon(i, unique[i].x_org, unique[i].y_org, unique[i].width, unique[i].height);
+			m = m->next;
 		}
+
+		/* My laptop insists that the primary display is not
+		 * :0. So reorder and renumber monitors if necessary.
+		 * I'm an idiot and can't write a sorting method,
+		 * good thing no human being uses lots of monitors!
+		 */
+		for (i=0;i < j;i++) isortmons();
+		for (m=mhead, i=0;m;m=m->next, i++) m->num = i;
+
 		free(unique);
 		changemon(mhead, 0);
 	}
@@ -1035,6 +1044,34 @@ void initmons(){
 		mhead = createmon(0, 0, 0, sw, sh);
 		changemon(mhead, 0);
 	}
+}
+
+/* thanks to firmcodes.com */
+void isortmons(){
+	monitor* min, * i, * m = mhead;
+
+	while (m && m->next){
+		min = m; i = m->next;
+		
+		while (i){
+			if (min->x > i->x) min = i;
+			i = i->next;
+		}
+
+		swapmon(m, min);
+		m = m->next;
+	}
+}
+
+void swapmon(monitor* x, monitor* y){
+	monitor* px = findprevmon(x), * py = findprevmon(y);
+
+	if (x == y) return;
+
+	if (x == mhead) mhead = y;
+	if (px) px->next = y;
+	if (py) py->next = y->next;
+	y->next = x;
 }
 
 ///* dwm copypasta - use the dwm 6.1 approach */
@@ -1081,8 +1118,11 @@ void initmons(){
 //			}
 //		}
 //
-//		/* Reorder and renumber monitors if necessary */
-//
+//		/* Reorder and renumber monitors if necessary.
+//		 * I'm an idiot who can't write a sorting method,
+//		 * good thing no human being uses lots of monitors!
+//		 */
+//		for (i=0;i < j;i++) isort();
 //		for (m=mhead, i=0;m;m=m->next, i++){
 //			m->num = i;
 //			fprintf(stderr, "just numbered monitor #%d\n", m->num);
@@ -1448,7 +1488,7 @@ void viewall(){
  */
 void cleanup(){
 	int i;
-	monitor* m, * tmp;
+	monitor* m, * tm;
 	client* tc;
 	Window w;
 
@@ -1461,15 +1501,13 @@ void cleanup(){
 			tc = m->head->next;
 
 			free(m->head);
-
 			m->head = tc;
 			xsendkill(w);
 		}
 
-		tmp = m->next;
+		tm = m->next;
 		cleanupmon(m);
-		m = tmp;
-		changemon(m, 0);
+		m = tm;
 	}
 
 	XftDrawDestroy(sdrw->xd);
@@ -1481,12 +1519,9 @@ void cleanup(){
 	free(scheme);
 
 	fprintf(stdout, "sara: Thanks for using!\n");
-	XDestroySubwindows(dis, root);
 
 	XSync(dis, False);
 	XSetInputFocus(dis, PointerRoot, RevertToPointerRoot, CurrentTime);
-
-        XCloseDisplay(dis);
 }
 
 /* y'all need to free() this bad boi when you cleanup */
@@ -1651,6 +1686,7 @@ int main(){
 	start();
 
 	cleanup();
+        XCloseDisplay(dis);
 
 	return 0;
 }
