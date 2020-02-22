@@ -178,6 +178,7 @@ static void unmapnotify(XEvent* e);
 static void applyrules(client* c);
 static void attachaside(client* c);
 static void changecurrent(client* c, unsigned int deskmask);
+static void configure(client* c);
 static void detach(client* c);
 static void killclient();
 static void manage(Window parent, XWindowAttributes* wa);
@@ -347,14 +348,27 @@ void configurerequest(XEvent* e){
 	client* c;
 	monitor* m;
 	XConfigureRequestEvent* ev = &e->xconfigurerequest;
+	XWindowChanges wc;
 
 	if ( (c = findclient(ev->window)) ){
-		m = findmon(c->win);
-		if (ev->value_mask & CWX) c->x = m->x + ev->x;
-		if (ev->value_mask & CWY) c->y = (ev->y < m->bar->h) ? m->bar->h : ev->y;
-		if (ev->value_mask & CWWidth) c->w = ev->width;
-		if (ev->value_mask & CWHeight) c->h = ev->height;
-		if ISVISIBLE(c) XMoveResizeWindow(dis, c->win, c->x, c->y, c->w, c->h);
+		if (c->isfloat){
+			m = findmon(c->win);
+			if (ev->value_mask & CWX) c->x = m->x + ev->x;
+			if (ev->value_mask & CWY) c->y = (ev->y < m->bar->h) ? m->bar->h : ev->y;
+			if (ev->value_mask & CWWidth) c->w = ev->width;
+			if (ev->value_mask & CWHeight) c->h = ev->height;
+			if ISVISIBLE(c) XMoveResizeWindow(dis, c->win, c->x, c->y, c->w, c->h);
+
+		} else {
+			configure(c);
+		}
+
+	} else {
+		wc.x = ev->x; wc.y = ev->y;
+		wc.width = ev->width; wc.height = ev->height;
+		wc.border_width = 0;
+		wc.sibling = ev->above; wc.stack_mode = ev->detail;
+		XConfigureWindow(dis, ev->window, ev->value_mask, &wc);
 	}
 
 	XSync(dis, False);
@@ -530,6 +544,21 @@ void changecurrent(client* c, unsigned int deskmask){
 		}
 
 	curmon->current = c;
+}
+
+void configure(client* c){
+	XConfigureEvent ce;
+
+	ce.type = ConfigureNotify;
+	ce.display = dis;
+	ce.event = c->win;
+	ce.window = c->win;
+	ce.x = c->x; ce.y = c->y;
+	ce.width = c->w; ce.height = c->h;
+	ce.border_width = 0;
+	ce.above = None;
+	ce.override_redirect = False;
+	XSendEvent(dis, c->win, False, StructureNotifyMask, (XEvent *)&ce);
 }
 
 void detach(client* c){

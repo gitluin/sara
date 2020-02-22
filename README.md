@@ -107,7 +107,6 @@ Bugs
  * Need to XFree() in applyrules, I think? T'is unclear.
  * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when.
  * Bar doesn't always draw immediately on xinit.
- * Open multiple documents in Libreoffice and tiling chaos ensues. I think an XSync might be required somewhere.
 
 To Do
 ----
