@@ -582,6 +582,7 @@ void detach(client* c){
 		curmon->head = c->next;
 }
 
+// TODO: Okay, this makes several things obnoxious. do it the full dwm way
 /* dwm copypasta */
 void killclient(){
 	if (!curmon->current)

@@ -105,7 +105,7 @@ Keys
 
 Bugs
 ----
- * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc.
+ * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc. (also a problem with dwm)
  * Need to XFree() in applyrules, I think? T'is unclear.
  * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when.
  * dmenu spawn does not work on monitor focusing. _is this because of the renumbering?_
@@ -119,7 +119,6 @@ To Do
  * Discrete:
    * Finish TODOs (required for v1.0)
    * Implement mouse move, resize support for clients (0.3 points)?
-   * Drop all pretense and just call desktops tags.
    * My own art.
    * Tutorial.
 
