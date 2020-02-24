@@ -202,8 +202,7 @@ static void zoom();
 /* Monitor Manipulation */
 static void changemon(monitor* m, int focus);
 static void cleanupmon(monitor* m);
-//static monitor* createmon(int num, int x, int y, int w, int h);
-static monitor* createmon();
+static monitor* createmon(int num, int x, int y, int w, int h);
 static monitor* findmon(Window w);
 static monitor* findprevmon(monitor* m);
 static void focusmon(const Arg arg);
@@ -501,7 +500,7 @@ void applyrules(client* c){
 			c->desks = 0; c->desks |= r->desks;
 			for (m=mhead;m;m=m->next){
 				if (m->num == r->monitor){
-					sendtomon(c, curmon, m, NoDetach, NoFocus, YesStay);
+					sendtomon(c, curmon, m, NoDetach, YesStay, NoFocus);
 					break;
 				}
 			}
@@ -725,7 +724,7 @@ void resizeclient(client* c, int x, int y, int w, int h){
 	XConfigureWindow(dis, c->win, CWX|CWY|CWWidth|CWHeight, &wc);
 }
 
-void sendtomon(client* c, monitor* oldmon, monitor* newmon, int wantdetach, int wantfocus, int wantstay){
+void sendtomon(client* c, monitor* oldmon, monitor* newmon, int wantdetach, int wantstay, int wantfocus){
 	if (wantdetach){
 		changemon(oldmon, 0);
 		detach(c);
@@ -833,7 +832,7 @@ void tomon(const Arg arg){
 		for (m=mhead;m && m != curmon && m->next != curmon;m=m->next);
 	}
 
-	if (m && m != curmon) sendtomon(c, curmon, m, YesDetach, YesFocus, NoStay);
+	if (m && m != curmon) sendtomon(c, curmon, m, YesDetach, NoStay, YesFocus);
 }
 
 void unmanage(client* c){
@@ -926,28 +925,6 @@ monitor* createmon(int num, int x, int y, int w, int h){
 	return m;
 }
 
-//monitor* createmon(){
-//	int i;
-//	monitor* m = ecalloc(1, sizeof(monitor));
-//
-//	/* Default to first layout */
-//	m->curlayout = (layout*) &layouts[0];
-//	m->msize = m->w * MASTER_SIZE;
-//
-//	m->desks = ecalloc(TABLENGTH(tags), sizeof(desktop));
-//	for (i=0;i < TABLENGTH(tags);i++){
-//		m->desks[i].curlayout = m->curlayout;
-//		m->desks[i].msize = m->msize;
-//	}
-//
-//	/* Default to first desktop */
-//	m->seldesks = m->curdesk = 1 << 0;
-//	m->head = NULL;
-//	m->current = NULL;
-//
-//	return m;
-//}
-
 monitor* findmon(Window w){
 	monitor* im;
 
@@ -1003,7 +980,8 @@ static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo
 /* TODO: Support adding/removing monitors and transferring the clients */
 /* some dwm copypasta */
 void initmons(){
-	monitor* m;
+	client* c;
+	monitor* m, * oldmhead = mhead;
 
 #ifdef XINERAMA
 	if (XineramaIsActive(dis)){
@@ -1019,14 +997,16 @@ void initmons(){
 				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
 		XFree(info);
 		
-		mhead = m = createmon(0, unique[0].x_org, unique[0].y_org, unique[0].width, unique[0].height);
+		mhead = m = createmon(0, unique[0].x_org, unique[0].y_org,
+				unique[0].width, unique[0].height);
 		for (i=1;i < j;i++){
-			m->next = createmon(i, unique[i].x_org, unique[i].y_org, unique[i].width, unique[i].height);
+			m->next = createmon(i, unique[i].x_org, unique[i].y_org,
+					unique[i].width, unique[i].height);
 			m = m->next;
 		}
 
 		/* My laptop insists that the primary display is not
-		 * :0. So reorder and renumber monitors if necessary.
+		 * :0. So reorder monitors by x_org if necessary.
 		 * I'm an idiot and can't write a sorting method,
 		 * good thing no human being uses lots of monitors!
 		 */
@@ -1073,94 +1053,64 @@ void swapmon(monitor* x, monitor* y){
 
 ///* dwm copypasta - use the dwm 6.1 approach */
 //void updategeom(){
-//	monitor* m;
+//	client* c;
+//	monitor* m, * oldmhead = mhead;
 //
 //#ifdef XINERAMA
-//	if (XineramaIsActive(dis)) {
+//	if (XineramaIsActive(dis)){
 //		int i, j, ns;
-//		monitor* im, * prev, * mprev, * oldmhead = mhead;
-//		client* c;
-//		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
-//		XineramaScreenInfo* unique = NULL;
 //
-//		/* only consider unique geometries as separate screens */
+//		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
+//		XineramaScreenInfo* unique;
+//
+//      		/* only consider unique geometries as separate screens */
 //		unique = ecalloc(ns, sizeof(XineramaScreenInfo));
-//		for (i=0, j=0;i < ns;i++)
+//		for (i = 0, j = 0; i < ns; i++)
 //			if (isuniquegeom(unique, j, &info[i]))
 //				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
 //		XFree(info);
-//
-//		for (i=0;i < j;i++){
-//			fprintf(stderr, "working on %d\n", i);
-//			m = createmon();
-//
-//			m->x = unique[i].x_org;
-//			m->y = unique[i].y_org;
-//			m->w = unique[i].width;
-//			m->h = unique[i].height;
-//
-//			m->bar = initbar(m);
-//
-//			m->y += m->bar->h;
-//			m->h -= m->bar->h;
-//
-//			if (!mhead){
-//				mhead = m;
-//				fprintf(stderr, "just attached mhead\n");
-//
-//			} else {
-//				for (im=mhead;im->next;im=im->next);
-//				im->next = m;
-//				fprintf(stderr, "just attached at the tail\n");
-//			}
+//		
+//		mhead = m = createmon(0, unique[0].x_org, unique[0].y_org,
+//				unique[0].width, unique[0].height);
+//		for (i=1;i < j;i++){
+//			m->next = createmon(i, unique[i].x_org, unique[i].y_org,
+//					unique[i].width, unique[i].height);
+//			m = m->next;
 //		}
 //
-//		/* Reorder and renumber monitors if necessary.
-//		 * I'm an idiot who can't write a sorting method,
+//		/* My laptop insists that the primary display is not
+//		 * :0. So reorder monitors by x_org if necessary.
+//		 * I'm an idiot and can't write a sorting method,
 //		 * good thing no human being uses lots of monitors!
 //		 */
-//		for (i=0;i < j;i++) isort();
-//		for (m=mhead, i=0;m;m=m->next, i++){
-//			m->num = i;
-//			fprintf(stderr, "just numbered monitor #%d\n", m->num);
-//		}
+//		for (i=0;i < j;i++) isortmons();
+//		for (m=mhead, i=0;m;m=m->next, i++) m->num = i;
+//
 //		free(unique);
-//
-//		/* reattach any old clients to the new mhead */
-//		m = oldmhead;
-//		while (m){
-//			fprintf(stderr, "reattaching old clients\n");
-//			while ( (c = m->head) ){
-//				m->head = c->next;
-//				/* send client to mhead */
-//				sendtomon(c, m, mhead, YesDetach, YesFocus, YesStay);
-//			}
-//			m = m->next;
-//			cleanupmon(m);
-//		}
+//		changemon(mhead, 0);
 //	} else
-//#endif /* XINERAMA */
-//	{	
-//		fprintf(stderr, "no xinerama defined\n");
-//
-//		if (!mhead){
-//			mhead = createmon();
-//		}
-//
-//		if (mhead->w != sw || mhead->h != sh) {
-//			mhead->x = mhead->y = 0;
-//			mhead->w = sw; mhead->h = sh;
-//
-//			mhead->bar = initbar(mhead);
-//
-//			mhead->y += mhead->bar->h;
-//			mhead->h -= mhead->bar->h;
-//			changemon(mhead, 0);
-//		}
+//#endif
+//	{
+//		if (mhead) cleanupmon(mhead)
+//		mhead = createmon(0, 0, 0, sw, sh);
+//		changemon(mhead, 0);
 //	}
 //
+//	/* reattach any old clients to the new mhead */
+//	m = oldmhead;
+//	while (m){
+//		while ( (c = m->head) ){
+//			m->head = c->next;
+//			/* send client to mhead */
+//			sendtomon(c, m, mhead, YesDetach, YesStay, YesFocus);
+//		}
+//		tmp = m->next;
+//		cleanupmon(m);
+//		m = tmp;
+//	}
+//
+//	/* focus monitor that has the pointer inside it */
 //	for (m=mhead;m;m=m->next)
-//		/* if pointer is inside this mon's boundaries */
 //		if (!ISOUTSIDE(getptrcoords(0), getptrcoords(1), m->x, m->y, m->w, m->h)){
 //			fprintf(stderr, "cursor is in, and changing to, monitor #%d\n", m->num);
 //			changemon(m, 1);
