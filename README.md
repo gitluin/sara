@@ -13,6 +13,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.9.7.6	- Code cleanup. No more xsendkill - don't be nice, just XKillClient. Some other nice dwmizations.
  * v0.9.7.5	- Monitor list will be reordered by x origin as necessary. Pls don't look at my insertion sort code.
  * v0.9.7.4	- More TODO finishers. No more multiple GC, Drawable, etc. across all bars. I have my own mini-drw struct now.
  * v0.9.7.3	- Floats are always on top. Not sure if it's the most efficient way (just call raisefloats), but it works and as long as you don't have 8 bajillion windows you should be okay.
@@ -107,7 +108,7 @@ Bugs
  * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc.
  * Need to XFree() in applyrules, I think? T'is unclear.
  * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when.
- * Bar doesn't always draw immediately on xinit.
+ * dmenu spawn does not work on monitor focusing. _is this because of the renumbering?_
 
 To Do
 ----

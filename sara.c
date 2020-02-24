@@ -248,7 +248,7 @@ static void sigchld(int unused);
 static void spawn(const Arg arg);
 static void start();
 static int xerror(Display* dis, XErrorEvent* ee);
-static void xsendkill(Window w);
+static int xerrordummy(Display* dis, XErrorEvent* e);
 static void youviolatedmymother();
 
 
@@ -344,7 +344,6 @@ void buttonpress(XEvent* e){
 //			m->curlayout->arrange(m);
 //		}
 //		updatefocus();
-//		drawbars();
 //	}
 //}
 
@@ -383,10 +382,8 @@ void destroynotify(XEvent* e){
 	client* c;
 	XDestroyWindowEvent* ev = &e->xdestroywindow;
 
-	if ( (c = findclient(ev->window)) ){
+	if ( (c = findclient(ev->window)) )
 		unmanage(c);
-		drawbars();
-	}
 }
 
 /* mostly dwm copypasta */
@@ -415,10 +412,11 @@ void enternotify(XEvent* e){
 
 /* dwm copypasta */
 void expose(XEvent* e){
+	monitor* m;
 	XExposeEvent* ev = &e->xexpose;
 
-	if (ev->count == 0 && findclient(ev->window))
-		drawbars();
+	if ( ev->count == 0 && (m = findmon(ev->window)) )
+		drawbar(m);
 }
 
 void keypress(XEvent* e){
@@ -431,7 +429,7 @@ void keypress(XEvent* e){
 			keys[i].function(keys[i].arg);
 }
 
-/* mostly dwm copypasta */
+/* dwm copypasta */
 void maprequest(XEvent* e){
 	XWindowAttributes wa;
 	XMapRequestEvent* ev = &e->xmaprequest;
@@ -501,8 +499,9 @@ void applyrules(client* c){
 			c->isfloat = r->isfloat;
 			//c->isfull = r->isfull;
 			c->desks = 0; c->desks |= r->desks;
-			for (m=mhead;m && m->num != r->monitor;m=m->next);
-			if (m) sendtomon(c, curmon, m, NoDetach, NoFocus, YesStay);
+			for (m=mhead;m;m=m->next)
+				if (m->num == r->monitor)
+					sendtomon(c, curmon, m, NoDetach, NoFocus, YesStay);
 		}
 	}
 	if (!c->desks) c->desks = curmon->seldesks;
@@ -581,17 +580,18 @@ void detach(client* c){
 		curmon->head = c->next;
 }
 
+/* dwm copypasta */
 void killclient(){
-	Window w;
-
 	if (!curmon->current)
 		return;
 
-	w = curmon->current->win;
-	unmanage(curmon->current);
-	xsendkill(w);
-
-	updatestatus();
+	XGrabServer(dis);
+	XSetErrorHandler(xerrordummy);
+	XSetCloseDownMode(dis, DestroyAll);
+	XKillClient(dis, curmon->current->win);
+	XSync(dis, False);
+	XSetErrorHandler(xerror);
+	XUngrabServer(dis);
 }
 
 void manage(Window parent, XWindowAttributes* wa){
@@ -624,8 +624,6 @@ void manage(Window parent, XWindowAttributes* wa){
 	justswitch = 1;
 	curmon->curlayout->arrange(curmon);
 	if (c->desks & curmon->seldesks) updatefocus();
-
-	drawbars();
 }
 
 void mapclients(){
@@ -648,7 +646,6 @@ void moveclient(const Arg arg){
 	justswitch = 1;
 	curmon->curlayout->arrange(curmon);
 	updatefocus();
-	drawbars();
 }
 
 void moveclientup(client* c, int wantzoom){
@@ -699,7 +696,6 @@ void movefocus(const Arg arg){
 
 	changecurrent(c, curmon->curdesk);
 	updatefocus();
-	drawbars();
 }
 
 void raisefloats(){
@@ -756,7 +752,6 @@ void todesktop(const Arg arg){
 	refocus(curmon->current->next, curmon->current);
 	curmon->curlayout->arrange(curmon);
 	updatefocus();
-	updatestatus();
 }
 
 void toggledesktop(const Arg arg){
@@ -777,7 +772,6 @@ void toggledesktop(const Arg arg){
 
 		curmon->curlayout->arrange(curmon);
 		updatefocus();
-		updatestatus();
 	}
 }
 
@@ -865,6 +859,7 @@ void updatefocus(){
 	}
 
 	raisefloats();
+	drawbars();
 }
 
 void zoom(){
@@ -873,7 +868,6 @@ void zoom(){
 	justswitch = 1;
 	curmon->curlayout->arrange(curmon);
 	updatefocus();
-	drawbars();
 }
 
 
@@ -1444,7 +1438,6 @@ void toggleview(const Arg arg){
 
 	curmon->curlayout->arrange(curmon);
 	updatefocus();
-	updatestatus();
 }
 
 void view(const Arg arg){
@@ -1461,7 +1454,6 @@ void view(const Arg arg){
 	justswitch = 1;
 	curmon->curlayout->arrange(curmon);
 	updatefocus();
-	updatestatus();
 }
 
 void viewall(){
@@ -1473,7 +1465,6 @@ void viewall(){
 
 	curmon->curlayout->arrange(curmon);
 	updatefocus();
-	updatestatus();
 }
 
 
@@ -1489,22 +1480,18 @@ void viewall(){
 void cleanup(){
 	int i;
 	monitor* m, * tm;
-	client* tc;
-	Window w;
 
 	XUngrabKey(dis, AnyKey, AnyModifier, root);
 
+	for (m=mhead;m;m=m->next){
+		changemon(m, 0);
+
+		while (curmon->current)
+			unmanage(curmon->current);
+	}
+
 	m = mhead;
 	while (m){
-		while (m->head){
-			w = m->head->win;
-			tc = m->head->next;
-
-			free(m->head);
-			m->head = tc;
-			xsendkill(w);
-		}
-
 		tm = m->next;
 		cleanupmon(m);
 		m = tm;
@@ -1517,8 +1504,6 @@ void cleanup(){
 
 	for (i=0;i < TABLENGTH(colors);i++) free(scheme[i]);
 	free(scheme);
-
-	fprintf(stdout, "sara: Thanks for using!\n");
 
 	XSync(dis, False);
 	XSetInputFocus(dis, PointerRoot, RevertToPointerRoot, CurrentTime);
@@ -1607,8 +1592,8 @@ void setup(){
 	XSelectInput(dis, root, wa.event_mask);
 
 	grabkeys();
-//	drawbar();
 	updatestatus();
+	drawbars();
 }
 
 /* dwm copypasta */
@@ -1662,16 +1647,8 @@ int xerror(Display* dis, XErrorEvent* e){
 	return -1;
 }
 
-void xsendkill(Window w){
-	XEvent ev;
-
-	ev.type = ClientMessage;
-	ev.xclient.window = w;
-	ev.xclient.message_type = XInternAtom(dis, "WM_PROTOCOLS", True);
-	ev.xclient.format = 32;
-	ev.xclient.data.l[0] = XInternAtom(dis, "WM_DELETE_WINDOW", True);
-	ev.xclient.data.l[1] = CurrentTime;
-	XSendEvent(dis, w, False, NoEventMask, &ev);
+int xerrordummy(Display* dis, XErrorEvent* e){
+	return 0;
 }
 
 void youviolatedmymother(){

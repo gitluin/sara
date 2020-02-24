@@ -58,11 +58,6 @@ static const rule rules[] = {
 	{ "st",       NULL,	  "scratch",  0,            1,		 -1 },
 	// Any jerry-rigged shortcuts go to the 9th space
 	{ "st",       NULL,       "funkey",   1 << 8,       1,           -1 },
-	
-	// title	deskmask	isfloat		isfull
-//	{ "cal",            -1,            1 },//	0 },
-//	{ "rcalc",          -1,            1 },//	0 },
-//	{ "funkey",          8,            1 },//	0 },
 };
 
 /* Layouts */
