@@ -499,9 +499,12 @@ void applyrules(client* c){
 			c->isfloat = r->isfloat;
 			//c->isfull = r->isfull;
 			c->desks = 0; c->desks |= r->desks;
-			for (m=mhead;m;m=m->next)
-				if (m->num == r->monitor)
+			for (m=mhead;m;m=m->next){
+				if (m->num == r->monitor){
 					sendtomon(c, curmon, m, NoDetach, NoFocus, YesStay);
+					break;
+				}
+			}
 		}
 	}
 	if (!c->desks) c->desks = curmon->seldesks;
