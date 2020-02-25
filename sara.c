@@ -843,16 +843,6 @@ void unmanage(client* c){
 	detach(c);
 	if (c) free(c);
 	curmon->curlayout->arrange(curmon);
-
-	/* Change monitors if necessary */
-	if (!curmon->head)
-		for EACHMON(mhead){
-			if (im != curmon && im->head){
-				changemon(im, YesFocus);
-				break;
-			}
-		}
-
 	updatefocus();
 }
 
