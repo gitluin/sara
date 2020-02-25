@@ -202,7 +202,7 @@ static void updatefocus();
 static void zoom();
 
 /* Monitor Manipulation */
-static void changemon(monitor* m, int focus);
+static void changemon(monitor* m, int wantfocus);
 static void cleanupmon(monitor* m);
 static monitor* createmon(int num, int x, int y, int w, int h);
 static monitor* findmon(Window w);
@@ -320,7 +320,7 @@ void buttonpress(XEvent* e){
 	if (justswitch) justswitch = 0;
 
 	if ( (m = findmon(ev->window)) && m != curmon)
-		changemon(m, 0);
+		changemon(m, NoFocus);
 
 	changecurrent(c, curmon->curdesk);
 	updatefocus();
@@ -409,7 +409,7 @@ void enternotify(XEvent* e){
 	}
 
 	if ( (m = findmon(ev->window)) && m != curmon )
-		changemon(m, 0);
+		changemon(m, NoFocus);
 
 	changecurrent(c, curmon->curdesk);
 	updatefocus();
@@ -455,7 +455,7 @@ void motionnotify(XEvent* e){
 		return;
 	for EACHMON(mhead){
 		if (im != curmon && isoutside){
-			changemon(im, 1);
+			changemon(im, YesFocus);
 			return;
 		}
 	}
@@ -726,16 +726,17 @@ void resizeclient(client* c, int x, int y, int w, int h){
 	c->w = wc.width = w;
 	c->h = wc.height = h;
 	XConfigureWindow(dis, c->win, CWX|CWY|CWWidth|CWHeight, &wc);
+	XSync(dis, False);
 }
 
 void sendtomon(client* c, monitor* oldmon, monitor* newmon, int wantdetach, int wantstay, int wantfocus){
 	if (wantdetach){
-		changemon(oldmon, 0);
+		changemon(oldmon, NoFocus);
 		detach(c);
 		curmon->curlayout->arrange(curmon);
 	}
 
-	changemon(newmon, 0);
+	changemon(newmon, NoFocus);
 	attachaside(c);
 	c->desks = curmon->seldesks;
 	curmon->curlayout->arrange(curmon);
@@ -846,9 +847,10 @@ void unmanage(client* c){
 	/* Change monitors if necessary */
 	if (!curmon->head)
 		for EACHMON(mhead){
-			if (im != curmon && im->head)
-				changemon(im, 1);
-			break;
+			if (im != curmon && im->head){
+				changemon(im, YesFocus);
+				break;
+			}
 		}
 
 	updatefocus();
@@ -881,10 +883,10 @@ void zoom(){
  * ---------------------------------------
  */
 
-void changemon(monitor* m, int focus){
+void changemon(monitor* m, int wantfocus){
 	justswitch = 0;
 	curmon = m;
-	if (focus) updatefocus();
+	if (wantfocus) updatefocus();
 }
 
 void cleanupmon(monitor* m){
@@ -959,7 +961,7 @@ void focusmon(const Arg arg){
 		else for (m=mhead;m && m != curmon && m->next != curmon;m=m->next);
 	}
 
-	if (m && m != curmon) changemon(m, 1);
+	if (m && m != curmon) changemon(m, YesFocus);
 }
 
 /* dwm copypasta */
@@ -1002,19 +1004,19 @@ void initmons(){
 
 		/* My laptop insists that the primary display is not
 		 * :0. So reorder monitors by x_org if necessary.
+		 * Don't renumber, as this messes with spawns like dmenu.
 		 * I'm an idiot and can't write a sorting method,
 		 * good thing no human being uses lots of monitors!
 		 */
 		for (i=0;i < j;i++) isortmons();
-		for (m=mhead, i=0;m;m=m->next, i++) m->num = i;
 
 		free(unique);
-		changemon(mhead, 0);
+		changemon(mhead, NoFocus);
 	}
 #endif
 	if (!mhead){
 		mhead = createmon(0, 0, 0, sw, sh);
-		changemon(mhead, 0);
+		changemon(mhead, NoFocus);
 	}
 }
 
@@ -1082,13 +1084,13 @@ void swapmon(monitor* x, monitor* y){
 //		for (m=mhead, i=0;m;m=m->next, i++) m->num = i;
 //
 //		free(unique);
-//		changemon(mhead, 0);
+//		changemon(mhead, NoFocus);
 //	} else
 //#endif
 //	{
 //		if (mhead) cleanupmon(mhead)
 //		mhead = createmon(0, 0, 0, sw, sh);
-//		changemon(mhead, 0);
+//		changemon(mhead, NoFocus);
 //	}
 //
 //	/* reattach any old clients to the new mhead */
@@ -1108,7 +1110,7 @@ void swapmon(monitor* x, monitor* y){
 //	for EACHMON(mhead)
 //		if (!ISOUTSIDE(getptrcoords(0), getptrcoords(1), im->x, im->y, im->w, im->h)){
 //			fprintf(stderr, "cursor is in, and changing to, monitor #%d\n", im->num);
-//			changemon(im, 1);
+//			changemon(im, YesFocus);
 //			break;
 //		}
 //}
@@ -1405,21 +1407,23 @@ void view(const Arg arg){
  */
 
 
+// TODO: Don't be slow
 /* Kill off any remaining clients
  * Free all the things
  */
 void cleanup(){
 	int i;
+	const Arg arg = {.ui = ~0};
 	monitor* m, * tm;
 
-	XUngrabKey(dis, AnyKey, AnyModifier, root);
-
+	toggleview(arg);
 	for EACHMON(mhead){
-		changemon(im, 0);
-
+		changemon(im, NoFocus);
 		while (curmon->current)
 			unmanage(curmon->current);
 	}
+
+	XUngrabKey(dis, AnyKey, AnyModifier, root);
 
 	m = mhead;
 	while (m){
@@ -1428,13 +1432,13 @@ void cleanup(){
 		m = tm;
 	}
 
+	for (i=0;i < TABLENGTH(colors);i++) free(scheme[i]);
+	free(scheme);
+
 	XftDrawDestroy(sdrw->xd);
 	XFreeGC(dis, sdrw->gc);
 	XftFontClose(dis, sdrw->xfont);
 	XFreePixmap(dis, sdrw->d);
-
-	for (i=0;i < TABLENGTH(colors);i++) free(scheme[i]);
-	free(scheme);
 
 	XSync(dis, False);
 	XSetInputFocus(dis, PointerRoot, RevertToPointerRoot, CurrentTime);
