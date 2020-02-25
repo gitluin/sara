@@ -316,6 +316,11 @@ void buttonpress(XEvent* e){
 	if ( !(c = findclient(ev->window)) )
 		return;
 
+	if (justswitch){
+		justswitch = 0;
+		return; // TODO: need to return?
+	}
+
 	if ( (m = findmon(ev->window)) && m != curmon)
 		changemon(m, 0);
 
@@ -393,7 +398,7 @@ void enternotify(XEvent* e){
 	monitor* m;
 	XCrossingEvent* ev = &e->xcrossing;
 
-	if ( (ev->mode != NotifyNormal || ev->detail == NotifyInferior) && ev->window != root )
+	if ((ev->mode != NotifyNormal || ev->detail == NotifyInferior) && ev->window != root)
 		return;
 
 	if ( !(c = findclient(ev->window)) || c == curmon->current )
@@ -611,6 +616,7 @@ void manage(Window parent, XWindowAttributes* wa){
 
 	if (XGetTransientForHint(dis, parent, &trans) && (t = findclient(trans))){
 		c->desks = t->desks;
+
 	} else {
 		c->desks = curmon->seldesks;
 		applyrules(c);
@@ -686,9 +692,8 @@ void movefocus(const Arg arg){
 		for (j=curmon->head;j != curmon->current;j=j->next)
 			if ISVISIBLE(j) c = j;
 
-		if (!c)
-			/* if curmon->current was highest, go to the bottom */
-			for (;j;j=j->next) if ISVISIBLE(j) c = j;
+		/* if curmon->current was highest, go to the bottom */
+		if (!c) for (;j;j=j->next) if ISVISIBLE(j) c = j;
 
 	/* down stack */
 	} else {
@@ -736,9 +741,7 @@ void sendtomon(client* c, monitor* oldmon, monitor* newmon, int wantdetach, int 
 	c->desks = curmon->seldesks;
 	curmon->curlayout->arrange(curmon);
 
-	if (wantstay){
-		changemon(oldmon, wantfocus);
-	}
+	if (wantstay) changemon(oldmon, wantfocus);
 }
 
 void todesktop(const Arg arg){
@@ -759,10 +762,9 @@ void todesktop(const Arg arg){
 void toggledesktop(const Arg arg){
 	unsigned int newdesks;
 
-	if (!curmon->current) return;
-
-	newdesks = curmon->current->desks ^ arg.ui;
-	if (newdesks){
+	if (!curmon->current)
+		return;
+	if ( (newdesks = curmon->current->desks ^ arg.ui) ){
 		curmon->current->desks = newdesks;
 		changecurrent(curmon->current, arg.ui);
 
@@ -786,7 +788,9 @@ void togglefloat(){
 		wc.sibling = curmon->current->win;
 		wc.stack_mode = Below;
 
-		for EACHCLIENT(curmon->head) if (ic != curmon->current) XConfigureWindow(dis, ic->win, CWSibling|CWStackMode, &wc);
+		for EACHCLIENT(curmon->head)
+			if (ic != curmon->current)
+				XConfigureWindow(dis, ic->win, CWSibling|CWStackMode, &wc);
 
 	} else {
 		wc.sibling = curmon->bar->win;
@@ -804,9 +808,9 @@ void togglefs(){
 		curmon->current->oldfloat = curmon->current->isfloat;
 		curmon->current->isfloat = 0;
 
-		XMoveResizeWindow(dis, curmon->current->win, curmon->x, 0, curmon->w, curmon->h + curmon->bar->h);
+		XMoveResizeWindow(dis, curmon->current->win, curmon->x, 0, curmon->w,
+				curmon->h + curmon->bar->h);
 		XRaiseWindow(dis, curmon->current->win);
-
 		XUnmapWindow(dis, curmon->bar->win);
 
 	} else {
@@ -1305,9 +1309,9 @@ void loaddesktop(int i){
 }
 
 void monocle(monitor* m){
-	for EACHCLIENT(m->head) if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull){
+	for EACHCLIENT(m->head)
+		if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull)
 			resizeclient(ic, m->x, m->y, m->w, m->h);
-		} 
 
 	raisefloats();
 }
