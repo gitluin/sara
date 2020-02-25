@@ -13,6 +13,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.9.7.7	- More code cleanup. No more viewawll. xsendkill reinstated - removal caused many a problem.
  * v0.9.7.6	- Code cleanup. No more xsendkill - don't be nice, just XKillClient. Some other nice dwmizations.
  * v0.9.7.5	- Monitor list will be reordered by x origin as necessary. Pls don't look at my insertion sort code.
  * v0.9.7.4	- More TODO finishers. No more multiple GC, Drawable, etc. across all bars. I have my own mini-drw struct now.

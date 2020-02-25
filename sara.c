@@ -28,6 +28,7 @@
 #define ISVISIBLE(C)			((C->desks & curmon->seldesks))
 #define TEXTW(M,X)			(gettextwidth(M, X, slen(X)) + lrpad)
 #define EACHCLIENT(_I)			(ic=_I;ic;ic=ic->next) /* ic is a global */
+#define EACHMON(_M)			(im=_M;im;im=im->next) /* im is a global */
 #define ISOUTSIDE(PX,PY,X,Y,W,H)	((PX > X + W || PX < X || PY > Y + H || PY < Y))
 #define POSTOINT(X)			((int)(ceil(log2(X)) == floor(log2(X)) ? ceil(log2(X)) : 0))
 
@@ -42,6 +43,7 @@ enum { NoStay, YesStay };
 
 typedef union {
 	const int i;
+	const unsigned int ui;
 	const float f;
 	const void* v;
 } Arg;
@@ -234,7 +236,6 @@ static void setlayout(const Arg arg);
 static void tile(monitor* m);
 static void toggleview(const Arg arg);
 static void view(const Arg arg);
-static void viewall();
 
 /* Backend */
 static void cleanup();
@@ -248,6 +249,7 @@ static void spawn(const Arg arg);
 static void start();
 static int xerror(Display* dis, XErrorEvent* ee);
 static int xerrordummy(Display* dis, XErrorEvent* e);
+static int xsendkill(Window w);
 static void youviolatedmymother();
 
 
@@ -276,10 +278,11 @@ static monitor* mhead;
 
 /* Backend */
 static client* ic; /* for EACHCLIENT iterating */
-static drw* sdrw;
+static monitor* im; /* for EACHMON iterating */
 static int lrpad;
 static int running;
 static XftColor** scheme;
+static drw* sdrw;
 static char xsetr_text[256];
 
 /* Events array */
@@ -323,7 +326,6 @@ void buttonpress(XEvent* e){
 
 /* dwm copypasta */
 //void configurenotify(XEvent* e){
-//	monitor* m;
 //	client* c;
 //	XConfigureEvent* ev = &e->xconfigure;
 //
@@ -335,12 +337,12 @@ void buttonpress(XEvent* e){
 //			sdrw->d = XCreatePixmap(dis, root, sw, sh, DefaultDepth(dis,screen));
 //		}
 //
-//		for (m=mhead;m;m=m->next){
-//			for EACHCLIENT(m->head) if (ic->isfull){
-//					resizeclient(ic, m->x, m->y, m->w, m->h);
+//		for EACHMON(mhead){
+//			for EACHCLIENT(im->head) if (ic->isfull){
+//					resizeclient(ic, im->x, im->y, im->w, im->h);
 //				}
 //
-//			m->curlayout->arrange(m);
+//			im->curlayout->arrange(im);
 //		}
 //		updatefocus();
 //	}
@@ -442,16 +444,14 @@ void maprequest(XEvent* e){
 }
 
 void motionnotify(XEvent* e){
-	monitor* m;
 	XMotionEvent* ev = &e->xmotion;
 	int isoutside = ISOUTSIDE(ev->x_root, ev->y_root, curmon->x, curmon->y, curmon->w, curmon->h);
 
 	if (ev->window != root)
 		return;
-
-	for (m=mhead;m;m=m->next){
-		if (m != curmon && isoutside){
-			changemon(m, 1);
+	for EACHMON(mhead){
+		if (im != curmon && isoutside){
+			changemon(im, 1);
 			return;
 		}
 	}
@@ -480,7 +480,6 @@ void applyrules(client* c){
 	const char* class, * instance;
 	int i;
 	const rule* r;
-	monitor* m;
 	XClassHint ch = { NULL, NULL };
 	XTextProperty tp;
 
@@ -498,9 +497,9 @@ void applyrules(client* c){
 			c->isfloat = r->isfloat;
 			//c->isfull = r->isfull;
 			c->desks = 0; c->desks |= r->desks;
-			for (m=mhead;m;m=m->next){
-				if (m->num == r->monitor){
-					sendtomon(c, curmon, m, NoDetach, YesStay, NoFocus);
+			for EACHMON(mhead){
+				if (im->num == r->monitor){
+					sendtomon(c, curmon, im, NoDetach, YesStay, NoFocus);
 					break;
 				}
 			}
@@ -582,19 +581,19 @@ void detach(client* c){
 		curmon->head = c->next;
 }
 
-// TODO: Okay, this makes several things obnoxious. do it the full dwm way
 /* dwm copypasta */
 void killclient(){
 	if (!curmon->current)
 		return;
-
-	XGrabServer(dis);
-	XSetErrorHandler(xerrordummy);
-	XSetCloseDownMode(dis, DestroyAll);
-	XKillClient(dis, curmon->current->win);
-	XSync(dis, False);
-	XSetErrorHandler(xerror);
-	XUngrabServer(dis);
+	if (!xsendkill(curmon->current->win)){
+		XGrabServer(dis);
+		XSetErrorHandler(xerrordummy);
+		XSetCloseDownMode(dis, DestroyAll);
+		XKillClient(dis, curmon->current->win);
+		XSync(dis, False);
+		XSetErrorHandler(xerror);
+		XUngrabServer(dis);
+	}
 }
 
 void manage(Window parent, XWindowAttributes* wa){
@@ -743,11 +742,11 @@ void sendtomon(client* c, monitor* oldmon, monitor* newmon, int wantdetach, int 
 }
 
 void todesktop(const Arg arg){
-	if (curmon->curdesk & 1 << arg.i) return;
+	if (curmon->curdesk & arg.ui) return;
 
-	curmon->current->desks = 1 << arg.i;
+	curmon->current->desks = arg.ui;
 	curmon->current->iscur = 0;
-	changecurrent(curmon->current, 1 << arg.i);
+	changecurrent(curmon->current, arg.ui);
 
 	XUnmapWindow(dis, curmon->current->win);
 	XSync(dis, False);
@@ -762,10 +761,10 @@ void toggledesktop(const Arg arg){
 
 	if (!curmon->current) return;
 
-	newdesks = curmon->current->desks ^ 1 << arg.i;
+	newdesks = curmon->current->desks ^ arg.ui;
 	if (newdesks){
 		curmon->current->desks = newdesks;
-		changecurrent(curmon->current, 1 << arg.i);
+		changecurrent(curmon->current, arg.ui);
 
 		if ( !(ISVISIBLE(curmon->current)) ){
 			XUnmapWindow(dis, curmon->current->win);
@@ -837,15 +836,13 @@ void tomon(const Arg arg){
 }
 
 void unmanage(client* c){
-	monitor* im;
-
 	detach(c);
 	if (c) free(c);
 	curmon->curlayout->arrange(curmon);
 
 	/* Change monitors if necessary */
 	if (!curmon->head)
-		for (im=mhead;im;im=im->next)
+		for EACHMON(mhead)
 			if (im != curmon && im->head)
 				changemon(im, 1);
 
@@ -927,15 +924,10 @@ monitor* createmon(int num, int x, int y, int w, int h){
 }
 
 monitor* findmon(Window w){
-	monitor* im;
-
-	for (im=mhead;im;im=im->next){
-		for EACHCLIENT(im->head){
-			if (ic->win == w){
+	for EACHMON(mhead)
+		for EACHCLIENT(im->head)
+			if (ic->win == w)
 				return im;
-			}
-		}
-	}
 
 	return curmon;
 }
@@ -943,10 +935,9 @@ monitor* findmon(Window w){
 monitor* findprevmon(monitor* m){
 	monitor* i;
 
-	for (i=mhead;i && i != m;i=i->next){
+	for (i=mhead;i && i != m;i=i->next)
 		if (i->next == m)
 			return i;
-	}
 
 	return NULL;
 }
@@ -959,10 +950,8 @@ void focusmon(const Arg arg){
 		else m = curmon->next;
 
 	} else {
-		if (curmon == mhead)
-			return;
-		else
-			for (m=mhead;m && m != curmon && m->next != curmon;m=m->next);
+		if (curmon == mhead) return;
+		else for (m=mhead;m && m != curmon && m->next != curmon;m=m->next);
 	}
 
 	if (m && m != curmon) changemon(m, 1);
@@ -1111,10 +1100,10 @@ void swapmon(monitor* x, monitor* y){
 //	}
 //
 //	/* focus monitor that has the pointer inside it */
-//	for (m=mhead;m;m=m->next)
-//		if (!ISOUTSIDE(getptrcoords(0), getptrcoords(1), m->x, m->y, m->w, m->h)){
-//			fprintf(stderr, "cursor is in, and changing to, monitor #%d\n", m->num);
-//			changemon(m, 1);
+//	for EACHMON(mhead)
+//		if (!ISOUTSIDE(getptrcoords(0), getptrcoords(1), im->x, im->y, im->w, im->h)){
+//			fprintf(stderr, "cursor is in, and changing to, monitor #%d\n", im->num);
+//			changemon(im, 1);
 //			break;
 //		}
 //}
@@ -1126,23 +1115,18 @@ void swapmon(monitor* x, monitor* y){
  */
 
 client* findclient(Window w){
-	monitor* im;
-
-	for (im=mhead;im;im=im->next){
-		for EACHCLIENT(im->head){
-			if (ic->win == w){
+	for EACHMON(mhead)
+		for EACHCLIENT(im->head)
+			if (ic->win == w)
 				return ic;
-			}
-		}
-	}
 
 	return NULL;
 }
 
 client* findcurrent(){
-	for EACHCLIENT(curmon->head) if ( ISVISIBLE(ic) && (ic->iscur & curmon->curdesk) ){
+	for EACHCLIENT(curmon->head)
+		if (ISVISIBLE(ic) && (ic->iscur & curmon->curdesk))
 			return ic;
-		}
 
 	return NULL;
 }
@@ -1150,14 +1134,11 @@ client* findcurrent(){
 client* findprevclient(client* c, int onlyvis){
 	client* i, * ret = NULL;
 	for (i=curmon->head;i && i != c;i=i->next){
-		if (onlyvis)
-			if ISVISIBLE(i) ret = i;
+		if (onlyvis && ISVISIBLE(i)) ret = i;
 
 		if (i->next == c){
-			if (onlyvis)
-				return ret;
-			else
-				return i;
+			if (onlyvis) return ret;
+			else return i;
 		}
 	}
 
@@ -1179,7 +1160,7 @@ client* findvisclient(client* c){
 /* part dwm copypasta */
 void drawbar(monitor* m){
 	int j, x = 2; /* 2px left padding */
-	int xsetr_text_w = 0, is_sel, dodraw = 1;
+	int xsetr_text_w, is_sel, dodraw = 1;
 	unsigned int occ = 0;
 
 	/* draw background */
@@ -1195,7 +1176,7 @@ void drawbar(monitor* m){
 
 	/* draw tags */
 	for (j=0;j<TABLENGTH(tags);j++){
-		/* do not draw vacant tags, but do draw selected tags regardless */
+		/* do not draw vacant tags, but do draw selected tags */
 		is_sel = m->seldesks & 1 << j;
 		if ( !(occ & 1 << j) && !is_sel )
 			continue;
@@ -1222,8 +1203,7 @@ void drawbar(monitor* m){
 }
 
 void drawbars(){
-	monitor* im;
-	for (im=mhead;im;im=im->next) drawbar(im);
+	for EACHMON(mhead) drawbar(im);
 }
 
 int drawbartext(monitor* m, int x, int y, int w, int h, unsigned int lpad, const char* text){
@@ -1262,7 +1242,7 @@ int gettextprop(Window w, Atom atom, char *text, unsigned int size){
 	return 1;
 }
 
-/* does anything here need to be free() or XFree()? */
+/* TODO: does anything here need to be free() or XFree()? */
 int gettextwidth(monitor* m, const char* str, int len){
 	XGlyphInfo xgi;
 	XftTextExtents8(dis, sdrw->xfont, (XftChar8*)str, len, &xgi);
@@ -1372,12 +1352,15 @@ void tile(monitor* m){
 }
 
 void toggleview(const Arg arg){
-	int i;
+	unsigned int i, tagmask;
+
+	if (arg.ui == ~0) tagmask = ~(curmon->seldesks);
+	else tagmask = arg.ui;
 
 	/* if this would leave nothing visible */
-	if ((curmon->seldesks ^ 1 << arg.i) == 0) return;
+	if ((curmon->seldesks ^ tagmask) == 0) return;
 
-	curmon->seldesks ^= 1 << arg.i;
+	curmon->seldesks ^= tagmask;
 	mapclients();
 
 	if (!(curmon->curdesk & curmon->seldesks)){
@@ -1397,8 +1380,8 @@ void toggleview(const Arg arg){
 void view(const Arg arg){
 	client* c;
 
-	loaddesktop(arg.i);
-	curmon->seldesks = curmon->curdesk = 1 << arg.i;
+	loaddesktop(POSTOINT(arg.ui));
+	curmon->seldesks = curmon->curdesk = arg.ui;
 
 	mapclients();
 
@@ -1406,17 +1389,6 @@ void view(const Arg arg){
 		changecurrent(c, curmon->curdesk);
 
 	justswitch = 1;
-	curmon->curlayout->arrange(curmon);
-	updatefocus();
-}
-
-void viewall(){
-	int i;
-	curmon->seldesks = 0;
-	for (i=0;i < TABLENGTH(tags);i++) curmon->seldesks ^= 1 << i;
-
-	mapclients();
-
 	curmon->curlayout->arrange(curmon);
 	updatefocus();
 }
@@ -1437,8 +1409,8 @@ void cleanup(){
 
 	XUngrabKey(dis, AnyKey, AnyModifier, root);
 
-	for (m=mhead;m;m=m->next){
-		changemon(m, 0);
+	for EACHMON(mhead){
+		changemon(im, 0);
 
 		while (curmon->current)
 			unmanage(curmon->current);
@@ -1535,7 +1507,6 @@ void setup(){
 
 	initdrw();
 	initmons();
-	//updategeom();
 	loaddesktop(0);
 
 	wa.cursor = XCreateFontCursor(dis, 68);
@@ -1603,6 +1574,32 @@ int xerror(Display* dis, XErrorEvent* e){
 
 int xerrordummy(Display* dis, XErrorEvent* e){
 	return 0;
+}
+
+/* dwm copypasta of sendevent */
+int xsendkill(Window w){
+	int n, exists = 0;
+	XEvent ev;
+	Atom destproto = XInternAtom(dis, "WM_DELETE_WINDOW", False);
+	Atom* protocols;
+
+	if (XGetWMProtocols(dis, w, &protocols, &n)){
+		while (!exists && n--)
+			exists = (protocols[n] == destproto);
+		XFree(protocols);
+	}
+
+	if (exists){
+		ev.type = ClientMessage;
+		ev.xclient.window = w;
+		ev.xclient.message_type = XInternAtom(dis, "WM_PROTOCOLS", True);
+		ev.xclient.format = 32;
+		ev.xclient.data.l[0] = destproto;
+		ev.xclient.data.l[1] = CurrentTime;
+		XSendEvent(dis, w, False, NoEventMask, &ev);
+	}
+
+	return exists;
 }
 
 void youviolatedmymother(){

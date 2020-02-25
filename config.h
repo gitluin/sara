@@ -70,10 +70,10 @@ static const layout layouts[] = {
 
 /* dwm copypasta */
 #define DESKTOPCHANGE(K,N) \
-    {  MOD,             	    K,	view, 		{.i = N}}, \
-    {  MOD|ShiftMask,   	    K,  toggledesktop, 	{.i = N}}, \
-    {  MOD|ControlMask,   	    K,  toggleview,	{.i = N}}, \
-    {  MOD|ControlMask|ShiftMask,   K,  todesktop, 	{.i = N}},
+    {  MOD,             	    K,	view, 		{.ui = 1 << N}}, \
+    {  MOD|ShiftMask,   	    K,  toggledesktop, 	{.ui = 1 << N}}, \
+    {  MOD|ControlMask,   	    K,  toggleview,	{.ui = 1 << N}}, \
+    {  MOD|ControlMask|ShiftMask,   K,  todesktop, 	{.ui = 1 << N}},
 
 #define XK_BDOWN 	XF86XK_MonBrightnessDown
 #define XK_BUP 		XF86XK_MonBrightnessUp
@@ -146,7 +146,7 @@ static struct key keys[] = {
 	/* Go fullscreen, my dude */
 	{ MOD|ShiftMask,	     XK_Return,		togglefs,		{0} },
 	/* view all desktops */
-	{ MOD,                       XK_0,      	viewall,          	{0} },
+	{ MOD,                       XK_0,      	toggleview,          	{.ui = ~0} },
 	/* Custom commands */
 	{ MOD,                       XK_d,      	spawn,         		{.v = dmenucmd } },
 	{ MOD,	                     XK_t, 		spawn,         		{.v = termcmd } },
