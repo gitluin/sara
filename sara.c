@@ -449,7 +449,7 @@ void maprequest(XEvent* e){
 
 void motionnotify(XEvent* e){
 	XMotionEvent* ev = &e->xmotion;
-	int isoutside = ISOUTSIDE(ev->x_root, ev->y_root, curmon->x, curmon->y, curmon->w, curmon->h);
+	int isoutside = ISOUTSIDE(ev->x_root, ev->y_root, curmon->x, curmon->y - curmon->bar->h, curmon->w, curmon->h);
 
 	if (ev->window != root)
 		return;
@@ -1098,7 +1098,7 @@ void swapmon(monitor* x, monitor* y){
 //
 //	/* focus monitor that has the pointer inside it */
 //	for EACHMON(mhead)
-//		if (!ISOUTSIDE(getptrcoords(0), getptrcoords(1), im->x, im->y, im->w, im->h)){
+//		if (!ISOUTSIDE(getptrcoords(0), getptrcoords(1), im->x, im->y - im->bar->h, im->w, im->h)){
 //			fprintf(stderr, "cursor is in, and changing to, monitor #%d\n", im->num);
 //			changemon(im, YesFocus);
 //			break;
