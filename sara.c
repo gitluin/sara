@@ -845,9 +845,11 @@ void unmanage(client* c){
 
 	/* Change monitors if necessary */
 	if (!curmon->head)
-		for EACHMON(mhead)
+		for EACHMON(mhead){
 			if (im != curmon && im->head)
 				changemon(im, 1);
+			break;
+		}
 
 	updatefocus();
 }
