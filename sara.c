@@ -24,13 +24,13 @@
 #include <X11/extensions/Xinerama.h>
 #endif
 
-#define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
-#define ISVISIBLE(C)			((C->desks & curmon->seldesks))
-#define TEXTW(M,X)			(gettextwidth(M, X, slen(X)) + lrpad)
 #define EACHCLIENT(_I)			(ic=_I;ic;ic=ic->next) /* ic is a global */
 #define EACHMON(_M)			(im=_M;im;im=im->next) /* im is a global */
 #define ISOUTSIDE(PX,PY,X,Y,W,H)	((PX > X + W || PX < X || PY > Y + H || PY < Y))
+#define ISVISIBLE(C)			((C->desks & curmon->seldesks))
 #define POSTOINT(X)			((int)(ceil(log2(X)) == floor(log2(X)) ? ceil(log2(X)) : 0))
+#define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
+#define TEXTW(M,X)			(gettextwidth(M, X, slen(X)) + lrpad)
 
 enum { SchNorm, SchSel };
 enum { ColFg, ColBg };
@@ -306,7 +306,7 @@ static void (*events[LASTEvent])(XEvent* e) = {
  * ---------------------------------------
  */
 
-/* TODO: monitor support */
+// TODO: monitor support
 /* dwm copypasta */
 void buttonpress(XEvent* e){
 	client* c;
@@ -316,10 +316,8 @@ void buttonpress(XEvent* e){
 	if ( !(c = findclient(ev->window)) )
 		return;
 
-	if (justswitch){
-		justswitch = 0;
-		return; // TODO: need to return?
-	}
+	// TODO: necessary?
+	if (justswitch) justswitch = 0;
 
 	if ( (m = findmon(ev->window)) && m != curmon)
 		changemon(m, 0);
@@ -392,6 +390,7 @@ void destroynotify(XEvent* e){
 		unmanage(c);
 }
 
+// TODO: When spawn, moving into the new window should update focusing and allow new enternotify events
 /* mostly dwm copypasta */
 void enternotify(XEvent* e){
 	client* c;
@@ -971,7 +970,7 @@ static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo
 }
 #endif
 
-/* TODO: Support adding/removing monitors and transferring the clients */
+// TODO: Support adding/removing monitors and transferring the clients
 /* some dwm copypasta */
 void initmons(){
 	client* c;
@@ -1246,7 +1245,7 @@ int gettextprop(Window w, Atom atom, char *text, unsigned int size){
 	return 1;
 }
 
-/* TODO: does anything here need to be free() or XFree()? */
+// TODO: does anything here need to be free() or XFree()?
 int gettextwidth(monitor* m, const char* str, int len){
 	XGlyphInfo xgi;
 	XftTextExtents8(dis, sdrw->xfont, (XftChar8*)str, len, &xgi);
