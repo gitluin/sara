@@ -1397,7 +1397,6 @@ void view(const Arg arg){
  */
 
 
-// TODO: Don't be slow
 /* Kill off any remaining clients
  * Free all the things
  */

@@ -109,7 +109,6 @@ Bugs
  * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc. (also a problem with dwm)
  * Need to XFree() in applyrules, I think? T'is unclear.
  * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when.
- * Quitting is still slow. Not even sure if I ever made it fast, or if I was just lucky that time.
 
 To Do
 ----
