@@ -25,7 +25,6 @@
 #endif
 
 #define BUTTONMASK              	(ButtonPressMask|ButtonReleaseMask)
-#define CLEANMASK(mask)         	(mask & ~(LockMask) & (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask))
 #define MOUSEMASK               	(BUTTONMASK|PointerMotionMask)
 #define EACHCLIENT(_I)			(ic=_I;ic;ic=ic->next) /* ic is a global */
 #define EACHMON(_M)			(im=_M;im;im=im->next) /* im is a global */
@@ -342,8 +341,9 @@ void buttonpress(XEvent* e){
 	}
 
 	for (i = 0; i < TABLENGTH(buttons); i++)
-		if (click == buttons[i].click && buttons[i].func && buttons[i].btn == ev->button
-		&& CLEANMASK(buttons[i].mask) == CLEANMASK(ev->state))
+		if (click == buttons[i].click && buttons[i].func
+		&& buttons[i].btn == ev->button
+		&& buttons[i].mask == ev->state)
 			buttons[i].func(buttons[i].arg);
 
 }
