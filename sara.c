@@ -209,7 +209,6 @@ static void tomon(const Arg arg);
 static void unmanage(client* c);
 static void updatefocus();
 static void zoom();
-
 /* Monitor Manipulation */
 static void changemon(monitor* m, int wantfocus);
 static void cleanupmon(monitor* m);
@@ -221,13 +220,11 @@ static void initmons();
 static void isortmons();
 static void swapmon(monitor* x, monitor* y);
 //static void updategeom();
-
 /* Client Interfacing */
 static client* findclient(Window w);
 static client* findcurrent();
 static client* findvisclient(client* c);
 static client* findprevclient(client* c, int wantvis);
-
 /* Bar */
 static void drawbar(monitor* m);
 static void drawbars();
@@ -236,7 +233,6 @@ static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static int gettextwidth(monitor* m, const char* str, int len);
 static bar* initbar(monitor* m);
 static void updatestatus();
-
 /* Desktop Interfacing */
 static void changemsize(const Arg arg);
 static void loaddesktop(int i);
@@ -245,7 +241,6 @@ static void setlayout(const Arg arg);
 static void tile(monitor* m);
 static void toggleview(const Arg arg);
 static void view(const Arg arg);
-
 /* Backend */
 static void cleanup();
 static XftColor* createscheme(const char* clrnames[], size_t clrcount);
@@ -278,14 +273,11 @@ static Window root;
 static int screen;
 static int sh;
 static int sw;
-
 /* Client Interfacing */
 static int justswitch;
-
 /* Monitor Interfacing */
 static monitor* curmon;
 static monitor* mhead;
-
 /* Backend */
 static client* ic; /* for EACHCLIENT iterating */
 static monitor* im; /* for EACHMON iterating */
