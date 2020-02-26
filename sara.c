@@ -24,10 +24,14 @@
 #include <X11/extensions/Xinerama.h>
 #endif
 
+#define BUTTONMASK              	(ButtonPressMask|ButtonReleaseMask)
+#define CLEANMASK(mask)         	(mask & ~(LockMask) & (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask))
+#define MOUSEMASK               	(BUTTONMASK|PointerMotionMask)
 #define EACHCLIENT(_I)			(ic=_I;ic;ic=ic->next) /* ic is a global */
 #define EACHMON(_M)			(im=_M;im;im=im->next) /* im is a global */
 #define ISOUTSIDE(PX,PY,X,Y,W,H)	((PX > X + W || PX < X || PY > Y + H || PY < Y))
 #define ISVISIBLE(C)			((C->desks & curmon->seldesks))
+#define MAX(A,B)               		((A) > (B) ? (A) : (B))
 #define POSTOINT(X)			((int)(ceil(log2(X)) == floor(log2(X)) ? ceil(log2(X)) : 0))
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
 #define TEXTW(M,X)			(gettextwidth(M, X, slen(X)) + lrpad)
@@ -40,13 +44,8 @@ enum { NoZoom, YesZoom };
 enum { NoDetach, YesDetach };
 enum { NoFocus, YesFocus };
 enum { NoStay, YesStay };
-
-typedef union {
-	const int i;
-	const unsigned int ui;
-	const float f;
-	const void* v;
-} Arg;
+enum { ClkWin };
+enum { WantMove, WantResize };
 
 
 /* ---------------------------------------
@@ -59,6 +58,21 @@ typedef struct client client;
 typedef struct drw drw;
 typedef struct desktop desktop;
 typedef struct monitor monitor;
+
+typedef union {
+	const int i;
+	const unsigned int ui;
+	const float f;
+	const void* v;
+} Arg;
+
+typedef struct {
+	unsigned int click;
+	unsigned int mask;
+	unsigned int btn;
+	void (*func)(const Arg arg);
+	const Arg arg;
+} button;
 
 struct key {
 	unsigned int mod;
@@ -184,6 +198,7 @@ static void configure(client* c);
 static void detach(client* c);
 static void killclient();
 static void manage(Window parent, XWindowAttributes* wa);
+static void manipulate(const Arg arg);
 static void mapclients();
 static void moveclient(const Arg arg);
 static void moveclientup(client* c, int wantzoom);
@@ -240,7 +255,8 @@ static void view(const Arg arg);
 /* Backend */
 static void cleanup();
 static XftColor* createscheme(const char* clrnames[], size_t clrcount);
-static int getptrcoords(int rety);
+static int getptrcoords(int* x, int* y);
+static void grabbuttons(client* c, int focused);
 static void grabkeys();
 static void initdrw();
 static void setup();
@@ -309,22 +325,27 @@ static void (*events[LASTEvent])(XEvent* e) = {
 // TODO: monitor support
 /* dwm copypasta */
 void buttonpress(XEvent* e){
+	unsigned int click = ~0;
+	int i;
 	client* c;
 	monitor* m;
 	XButtonPressedEvent* ev = &e->xbutton;
 
-	if ( !(c = findclient(ev->window)) )
-		return;
-
-	// TODO: necessary?
-	if (justswitch) justswitch = 0;
-
 	if ( (m = findmon(ev->window)) && m != curmon)
 		changemon(m, NoFocus);
 
-	changecurrent(c, curmon->curdesk);
-	updatefocus();
-	XAllowEvents(dis, ReplayPointer, CurrentTime);
+	if ( (c = findclient(ev->window)) ){
+		changecurrent(c, curmon->curdesk);
+		updatefocus();
+		XAllowEvents(dis, ReplayPointer, CurrentTime);
+		click = ClkWin;
+	}
+
+	for (i = 0; i < TABLENGTH(buttons); i++)
+		if (click == buttons[i].click && buttons[i].func && buttons[i].btn == ev->button
+		&& CLEANMASK(buttons[i].mask) == CLEANMASK(ev->state))
+			buttons[i].func(buttons[i].arg);
+
 }
 
 /* dwm copypasta */
@@ -342,7 +363,7 @@ void buttonpress(XEvent* e){
 //
 //		for EACHMON(mhead){
 //			for EACHCLIENT(im->head) if (ic->isfull){
-//					resizeclient(ic, im->x, im->y, im->w, im->h);
+//					resizeclient(ic, im->x, im->y - im->bar->h, im->w, im->h);
 //				}
 //
 //			im->curlayout->arrange(im);
@@ -390,7 +411,6 @@ void destroynotify(XEvent* e){
 		unmanage(c);
 }
 
-// TODO: When spawn, moving into the new window should update focusing and allow new enternotify events
 /* mostly dwm copypasta */
 void enternotify(XEvent* e){
 	client* c;
@@ -400,9 +420,16 @@ void enternotify(XEvent* e){
 	if ((ev->mode != NotifyNormal || ev->detail == NotifyInferior) && ev->window != root)
 		return;
 
-	if ( !(c = findclient(ev->window)) || c == curmon->current )
+	if ( !(c = findclient(ev->window)) )
 		return;
 
+	/* if ptr in client, spawn new client (which pulls focus), ptr enters new client */
+	if (c == curmon->current){
+		if (justswitch) justswitch = 0;
+		return;
+	}
+
+	/* if ptr in same place, but moveclient */
 	if (justswitch){
 		justswitch = 0;
 		return;
@@ -536,20 +563,21 @@ void attachaside(client* c){
 		}
 	}
 
-	XSelectInput(dis, c->win, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
 	changecurrent(c, curmon->curdesk);
 }
 
 void changecurrent(client* c, unsigned int deskmask){
 	if (c){
 		c->iscur ^= deskmask;
-		XUngrabButton(dis, Button1, AnyModifier, c->win);
+		//XUngrabButton(dis, Button1, AnyModifier, c->win);
+		grabbuttons(c, 0);
 	}
 	
 	for EACHCLIENT(curmon->head) if (ic != c && (ic->iscur & deskmask)){
 			ic->iscur ^= deskmask;
-			XGrabButton(dis, Button1, 0, ic->win, False, ButtonPressMask,
-					GrabModeAsync, GrabModeSync, None, None);
+			grabbuttons(ic, 1);
+			//XGrabButton(dis, Button1, 0, ic->win, False, ButtonPressMask,
+			//		GrabModeAsync, GrabModeSync, None, None);
 		}
 
 	curmon->current = c;
@@ -621,6 +649,9 @@ void manage(Window parent, XWindowAttributes* wa){
 		applyrules(c);
 	}
 	if (!c->isfloat) c->isfloat = c->oldfloat = (trans != None);
+
+	XSelectInput(dis, c->win, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
+	grabbuttons(c, 0);
 
 	attachaside(c);
 
@@ -702,6 +733,92 @@ void movefocus(const Arg arg){
 
 	changecurrent(c, curmon->curdesk);
 	updatefocus();
+}
+
+/* dwm copypasta */
+void manipulate(const Arg arg){
+	int x, y, ocx, ocy, nx, ny, nw, nh, isoutside, trytoggle = 0;
+	client* c;
+	monitor* m;
+	XEvent ev;
+	Time lasttime = 0;
+
+	if ( !(c = curmon->current) || c->isfull )
+		return;
+	if (XGrabPointer(dis, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync,
+		None, XCreateFontCursor(dis, 68), CurrentTime) != GrabSuccess)
+		return;
+	if (!getptrcoords(&x, &y))
+		return;
+	if (arg.i == WantResize){
+		if ( !(m = findmon(c->win)) )
+			return;
+		XWarpPointer(dis, None, c->win, 0, 0, 0, 0, c->w + 1, c->h + 1);
+	}
+
+	ocx = c->x; ocy = c->y;
+	do {
+		XMaskEvent(dis, MOUSEMASK|ExposureMask|SubstructureRedirectMask, &ev);
+		switch(ev.type){
+		case ConfigureRequest:
+		case Expose:
+		case MapRequest:
+			events[ev.type](&ev);
+			break;
+		case MotionNotify:
+			if ((ev.xmotion.time - lasttime) <= (1000 / 60))
+				continue;
+			lasttime = ev.xmotion.time;
+
+			if (arg.i == WantResize){
+				nw = MAX(ev.xmotion.x - ocx + 1, 1);
+				nh = MAX(ev.xmotion.y - ocy + 1, 1);
+				/* if c extends beyond the boundaries of its monitor, make it a float */
+				if (m->x + nw >= curmon->x && m->x + nw <= curmon->x + curmon->w
+				&& m->y + nh >= curmon->y && m->y + nh <= curmon->y + curmon->h)
+					trytoggle = 1;
+				nx = c->x; ny = c->y;
+
+			} else {
+				nx = ocx + (ev.xmotion.x - x);
+				ny = ocy + (ev.xmotion.y - y);
+				if (abs(curmon->x - nx) < snap)
+					nx = curmon->x;
+				else if (abs((curmon->x + curmon->w) - (nx + c->w)) < snap)
+					nx = curmon->x + curmon->w - c->w;
+				if (abs(curmon->y - ny) < snap)
+					ny = curmon->y;
+				else if (abs((curmon->y + curmon->h) - (ny + c->h)) < snap)
+					ny = curmon->y + curmon->h - c->h;
+				trytoggle = 1;
+				nw = c->w; nh = c->h;
+			}
+			if (trytoggle)
+				if (!c->isfloat && ((abs(nw - c->w) > snap || abs(nh - c->h) > snap)
+				|| (abs(nx - c->x) > snap || abs(ny - c->y) > snap)))
+					togglefloat();
+			if (c->isfloat)
+				resizeclient(c, nx, ny, nw, nh);
+				// TODO: What does interact do?
+				//resize(c, nx, ny, c->w, c->h, 1);
+			break;
+		}
+	} while (ev.type != ButtonRelease);
+	if (arg.i == WantResize)
+		XWarpPointer(dis, None, c->win, 0, 0, 0, 0, c->w + 1, c->h + 1);
+	XUngrabPointer(dis, CurrentTime);
+
+	if (arg.i == WantResize)
+		while (XCheckMaskEvent(dis, EnterWindowMask, &ev));
+
+	isoutside = ISOUTSIDE(c->x, c->y, curmon->x, curmon->y - curmon->bar->h, curmon->w, curmon->h);
+	for EACHMON(mhead){
+		if (im != curmon && isoutside){
+			sendtomon(c, curmon, im, YesDetach, YesStay, NoFocus);
+			changemon(im, YesFocus);
+			return;
+		}
+	}
 }
 
 void raisefloats(){
@@ -808,8 +925,8 @@ void togglefs(){
 		curmon->current->oldfloat = curmon->current->isfloat;
 		curmon->current->isfloat = 0;
 
-		XMoveResizeWindow(dis, curmon->current->win, curmon->x, 0, curmon->w,
-				curmon->h + curmon->bar->h);
+		XMoveResizeWindow(dis, curmon->current->win, curmon->x, curmon->y - curmon->bar->h,
+				curmon->w, curmon->h + curmon->bar->h);
 		XRaiseWindow(dis, curmon->current->win);
 		XUnmapWindow(dis, curmon->bar->win);
 
@@ -1040,6 +1157,7 @@ void swapmon(monitor* x, monitor* y){
 
 ///* dwm copypasta - use the dwm 6.1 approach */
 //void updategeom(){
+//	int x, y;
 //	client* c;
 //	monitor* m, * oldmhead = mhead;
 //
@@ -1067,11 +1185,11 @@ void swapmon(monitor* x, monitor* y){
 //
 //		/* My laptop insists that the primary display is not
 //		 * :0. So reorder monitors by x_org if necessary.
+//		 * Don't renumber, as this messes with spawns like dmenu.
 //		 * I'm an idiot and can't write a sorting method,
 //		 * good thing no human being uses lots of monitors!
 //		 */
 //		for (i=0;i < j;i++) isortmons();
-//		for (m=mhead, i=0;m;m=m->next, i++) m->num = i;
 //
 //		free(unique);
 //		changemon(mhead, NoFocus);
@@ -1098,7 +1216,7 @@ void swapmon(monitor* x, monitor* y){
 //
 //	/* focus monitor that has the pointer inside it */
 //	for EACHMON(mhead)
-//		if (!ISOUTSIDE(getptrcoords(0), getptrcoords(1), im->x, im->y - im->bar->h, im->w, im->h)){
+//		if (getptrcoords(&x, &y) && !ISOUTSIDE(x, y, im->x, im->y - im->bar->h, im->w, im->h)){
 //			fprintf(stderr, "cursor is in, and changing to, monitor #%d\n", im->num);
 //			changemon(im, YesFocus);
 //			break;
@@ -1449,14 +1567,33 @@ XftColor* createscheme(const char* clrnames[], size_t clrcount){
 	return sch;
 }
 
-int getptrcoords(int rety){
-	int x, y, di;
+/* dwm copypasta */
+int getptrcoords(int* x, int* y){
+	int di;
 	unsigned int dui;
 	Window dummy;
 
-	XQueryPointer(dis, root, &dummy, &dummy, &x, &y, &di, &di, &dui);
+	return XQueryPointer(dis, root, &dummy, &dummy, x, y, &di, &di, &dui);
+}
 
-	return rety ? y : x;
+// TODO: Is LockMask Caps Lock?
+/* dwm copypasta */
+void grabbuttons(client* c, int focused){
+	unsigned int i, j;
+	unsigned int modifiers[] = { 0, LockMask };
+
+	XUngrabButton(dis, AnyButton, AnyModifier, c->win);
+	if (!focused)
+		XGrabButton(dis, AnyButton, AnyModifier, c->win, False,
+			BUTTONMASK, GrabModeSync, GrabModeSync, None, None);
+
+	for (i = 0; i < TABLENGTH(buttons); i++)
+		if (buttons[i].click == ClkWin)
+			for (j = 0; j < TABLENGTH(modifiers); j++)
+				XGrabButton(dis, buttons[i].btn,
+					buttons[i].mask | modifiers[j],
+					c->win, False, BUTTONMASK,
+					GrabModeAsync, GrabModeSync, None, None);
 }
 
 void grabkeys(){

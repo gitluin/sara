@@ -13,14 +13,8 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
- * v0.9.7.7	- More code cleanup. No more viewawll. xsendkill reinstated - removal caused many a problem.
- * v0.9.7.6	- Code cleanup. No more xsendkill - don't be nice, just XKillClient. Some other nice dwmizations.
- * v0.9.7.5	- Monitor list will be reordered by x origin as necessary. Pls don't look at my insertion sort code.
- * v0.9.7.4	- More TODO finishers. No more multiple GC, Drawable, etc. across all bars. I have my own mini-drw struct now.
- * v0.9.7.3	- Floats are always on top. Not sure if it's the most efficient way (just call raisefloats), but it works and as long as you don't have 8 bajillion windows you should be okay.
- * v0.9.7.2	- Bug fixes. TODOs slowly being knocked out.
- * v0.9.7.1	- Transient popup windows (Libreoffice, Firefox download, etc.) float like they ought to, instead of being tiled. This solved the Krita bug too. Yay!
- * v0.9.7	- Implemented rules! Just need to test that sending to a monitor works correctly. focusmon bug fixed.
+ * v0.9.9.0	- Mouse move and resize, in one mungo function! Cursor intentionally doesn't change shape. Just do bug fixing, code cleanup, TODOs, and I'll be done!
+ * v0.9.7.{0-7}	- Implemented rules, transient popup window support, proper float stacking, proper client killing, removal of redundant variables, plenty of code cleanup.
  * v0.9.2.{0-7} - Multiple monitors implemented, viewall added, reduction in global variable count, bar drawing fixes, enternotify improved, moveclient works by visibility, bugs with togglefs, send clients tomon.
  * v0.8.{1-7.7} - No drw and no alpha behavior for the bar. Can send clients to just a desktop, can view multiple desktops at once, enternotify works (maybe), gaps, window borders, bar boxes removed. Code cleanup. Memory freeing fixed. buttonpress works!
  * v0.7		- The dwm way of clients has been implemented, bug-free (I think)!
@@ -57,6 +51,7 @@ Features
 * No EWMH support, because fullscreening manually isn't so bad (see config.h).
 * One bar. I don't like to look to a particular monitor for the time, just the same spot on any monitor.
 * No unicode support. If you provide unicode characters to the bar, behavior is undefined. I get junk for symbols. You might crash. Behave yourself.
+* No support for doing things through CapsLock or NumLock.
 
 ### Why Use Sara Over Other Small WM, X?
 
@@ -118,7 +113,6 @@ To Do
    * Does it leak memory?
  * Discrete:
    * Finish TODOs (required for v1.0)
-   * Implement mouse move, resize support for clients (0.3 points)?
    * My own art.
    * Tutorial.
 

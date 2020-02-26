@@ -20,6 +20,7 @@
 #define MOD             Mod4Mask
 #define MASTER_SIZE     0.55
 
+static const unsigned int snap      = 32;       /* snap pixel */
 static const char* fontname	    = "Noto Sans:size=10";
 /* Normal theme! */
 static const char col_gray1[]       = "#222222";
@@ -188,6 +189,13 @@ static struct key keys[] = {
 	DESKTOPCHANGE(   	     XK_8,                      	7)
 	/* Banished for function keys */
 /*	DESKTOPCHANGE(   	     XK_9,                      	8) */
+};
+
+/* dwm copypasta */
+static button buttons[] = {
+	/* click                event mask      button          function        argument */
+	{ ClkWin,         	MOD,         	Button1,        manipulate,     {WantMove} },
+	{ ClkWin,         	MOD,         	Button3,        manipulate,     {WantResize} },
 };
 
 #endif
