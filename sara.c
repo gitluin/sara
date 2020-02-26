@@ -145,10 +145,6 @@ struct monitor {
  * ---------------------------------------
  */
 
-static void die(const char *fmt, ...);
-static void* ecalloc(size_t nmemb, size_t size);
-static int slen(const char* str);
-
 void die(const char* e, ...){
 	fprintf(stdout,"sara: %s\n",e);
 	exit(1);
@@ -188,7 +184,6 @@ static void maprequest(XEvent* e);
 static void motionnotify(XEvent* e);
 static void propertynotify(XEvent* e);
 static void unmapnotify(XEvent* e);
-
 /* Client & Linked List Manipulation */
 static void applyrules(client* c);
 static void attachaside(client* c);
