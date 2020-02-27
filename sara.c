@@ -43,7 +43,7 @@ enum { NoZoom, YesZoom };
 enum { NoDetach, YesDetach };
 enum { NoFocus, YesFocus };
 enum { NoStay, YesStay };
-enum { ClkWin };
+enum { ClkHldr, ClkWin };
 enum { WantMove, WantResize };
 
 
@@ -250,7 +250,7 @@ static void setup();
 static void sigchld(int unused);
 static void spawn(const Arg arg);
 static void start();
-static int xerror(Display* dis, XErrorEvent* ee);
+static int xerror(Display* dis, XErrorEvent* e);
 static int xerrordummy(Display* dis, XErrorEvent* e);
 static int xsendkill(Window w);
 static void youviolatedmymother();
@@ -426,6 +426,7 @@ void enternotify(XEvent* e){
 	updatefocus();
 }
 
+// TODO: Necessary? Prevents floats from being on top of bar?
 /* dwm copypasta */
 void expose(XEvent* e){
 	monitor* m;
@@ -1174,14 +1175,12 @@ client* findcurrent(){
 }
 
 client* findprevclient(client* c, int onlyvis){
-	client* i, * ret = NULL;
-	for (i=curmon->head;i && i != c;i=i->next){
-		if (onlyvis && ISVISIBLE(i)) ret = i;
+	client* ret;
 
-		if (i->next == c){
-			if (onlyvis) return ret;
-			else return i;
-		}
+	for EACHCLIENT(curmon->head){
+		if (ic == c) break;
+		if (onlyvis && ISVISIBLE(ic)) ret = ic;
+		if (ic->next == c) return onlyvis ? ret : ic;
 	}
 
 	return NULL;
@@ -1426,7 +1425,8 @@ void view(const Arg arg){
 
 	mapclients();
 
-	if ( !(curmon->current = findcurrent()) && (c = findvisclient(curmon->head)) )
+	changecurrent(findcurrent(), curmon->curdesk);
+	if ( !(curmon->current) && (c = findvisclient(curmon->head)) )
 		changecurrent(c, curmon->curdesk);
 
 	justswitch = 1;
