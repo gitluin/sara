@@ -1070,10 +1070,10 @@ void updategeom(){
 	client* c;
 	monitor* m, * tmp, * oldmhead = mhead;
 
-/* I think these grabs will prevent random crashes.
- * One happened to me while switching monitors,
- * and sara accidentally'd at an XSendEvent call.
- */
+	/* I think these grabs will prevent random crashes.
+	 * One happened to me while switching monitors,
+	 * and sara accidentally'd at an XSendEvent call.
+	 */
 #ifndef XINERAMA
 	XGrabServer(dis);
 	XSetErrorHandler(xerrordummy);
