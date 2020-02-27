@@ -407,6 +407,15 @@ void enternotify(XEvent* e){
 		return;
 	}
 
+	/* if ptr in same place, but movefocus and prevclient overlaps with new client */
+	/* client A on bottom, client B floating above, ptr in B
+	 * movefocus to A
+	 * enternotify generated on B
+	 * 	B is not current
+	 * 	justswitch is 0
+	 * focus on B
+	 */
+
 	/* if ptr in same place, but moveclient */
 	if (justswitch){
 		justswitch = 0;

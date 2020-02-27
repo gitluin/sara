@@ -104,7 +104,7 @@ Bugs
 ----
  * Need to XFree() in applyrules, I think? T'is unclear.
  * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when.
- * enternotify bug when ptr is on a floating window enclosed within the bottom window's border and you movefocus
+ * spawn client, spawn floating client, ptr in float, movefocus to client, enternotify triggers on float and updates focus
  * Same type of flickering bug as with being in the bar, but for the bottom of the screen (multimon only)
  * Function key spawns should not cause updatefocus() to trigger
 
