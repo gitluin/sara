@@ -98,19 +98,20 @@ struct bar {
 };
 
 struct client {
-	client* next;
-	Window win;
+	int x, y, w, h;
 	unsigned int desks;
 	unsigned int iscur;
-	int x, y, w, h;
 	/* being in monocle is not considered floating */
 	int isfloat;
 	int isfull;
 	/* prior to togglefs */
 	int oldfloat;
+	Window win;
+	client* next;
 }; 
 
 struct drw {
+	int w, h;
 	Drawable d;
 	GC gc;
 	XftColor* scheme;
@@ -211,9 +212,9 @@ static void zoom();
 static void changemon(monitor* m, int wantfocus);
 static void cleanupmon(monitor* m);
 static monitor* createmon(int num, int x, int y, int w, int h);
+static monitor* dirtomon(int dir);
 static monitor* findmon(Window w);
 static void focusmon(const Arg arg);
-static void initmons();
 static void updategeom();
 /* Client Interfacing */
 static client* findclient(Window w);
@@ -237,6 +238,7 @@ static void tile(monitor* m);
 static void toggleview(const Arg arg);
 static void view(const Arg arg);
 /* Backend */
+static void cleandrw();
 static void cleanup();
 static XftColor* createscheme(const char* clrnames[], size_t clrcount);
 static int getptrcoords(int* x, int* y);
@@ -299,7 +301,6 @@ static void (*events[LASTEvent])(XEvent* e) = {
  * ---------------------------------------
  */
 
-// TODO: monitor support
 /* dwm copypasta */
 void buttonpress(XEvent* e){
 	unsigned int click = 0;
@@ -332,11 +333,11 @@ void configurenotify(XEvent* e){
 
 	if (ev->window == root){
 		sw = ev->width; sh = ev->height;
-		updategeom();
-		if (sdrw){
-			if (sdrw->d) XFreePixmap(dis, sdrw->d);
-			sdrw->d = XCreatePixmap(dis, root, sw, sh, DefaultDepth(dis,screen));
+		if (sdrw && (sdrw->w != sw || sdrw->h != sh)){
+			cleandrw();
+			initdrw();
 		}
+		updategeom();
 
 		for EACHMON(mhead){
 			for EACHCLIENT(im->head) if (ic->isfull){
@@ -454,7 +455,7 @@ void maprequest(XEvent* e){
 
 void motionnotify(XEvent* e){
 	XMotionEvent* ev = &e->xmotion;
-	int isoutside = ISOUTSIDE(ev->x_root, ev->y_root, curmon->x, curmon->y - curmon->bar->h, curmon->w, curmon->h);
+	int isoutside = ISOUTSIDE(ev->x_root, ev->y_root, curmon->x, curmon->y - curmon->bar->h, curmon->w, curmon->h + curmon->bar->h);
 
 	if (ev->window != root)
 		return;
@@ -480,7 +481,6 @@ void propertynotify(XEvent* e){
  * ---------------------------------------
  */
 
-// TODO: Focused monitor thing doesn't work
 /* mostly dwm copypasta */
 void applyrules(client* c){
 	const char* class, * instance;
@@ -605,6 +605,7 @@ void killclient(){
 
 void manage(Window parent, XWindowAttributes* wa){
 	client* c, * t;
+	monitor* m;
 	Window trans = None;
 
 	if ( !(c = ecalloc(1, sizeof(client))) )
@@ -612,8 +613,7 @@ void manage(Window parent, XWindowAttributes* wa){
 
 	c->win = parent;
 	c->isfloat = c->oldfloat = c->isfull = c->iscur = 0;
-	c->x = wa->x;
-	c->y = (wa->y < curmon->y) ? curmon->y : wa->y;
+	c->x = wa->x; c->y = wa->y;
 	c->w = wa->width; c->h = wa->height;
 
 	if (XGetTransientForHint(dis, parent, &trans) && (t = findclient(trans))){
@@ -625,10 +625,27 @@ void manage(Window parent, XWindowAttributes* wa){
 	}
 	if (!c->isfloat) c->isfloat = c->oldfloat = (trans != None);
 
+	configure(c);
 	XSelectInput(dis, c->win, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
 	grabbuttons(c, 0);
 
 	attachaside(c);
+
+	if ( (m = findmon(c->win)) ){
+		if (ISOUTSIDE(c->x, c->y, m->x, m->y - m->bar->h, m->w, m->h + m->bar->h)){
+			fprintf(stderr, "c is outside its monitor's boundaries\n");
+
+			/* find which one it is inside */
+			for EACHMON(mhead)
+				if (!ISOUTSIDE(c->x, c->y, im->x, im->y - im->bar->h, im->w, im->h + im->bar->h)){
+					c->x += (im->x < m->x) ? m->x : -im->x;
+					c->y += (im->y < m->y) ? m->y : -im->y;
+					break;
+				}
+		}
+
+		c->y = (c->y < m->y) ? m->y : c->y;
+	}
 
 	/* move out of the way until told otherwise */
 	XMoveResizeWindow(dis, c->win, c->x + 2*sw, c->y, c->w, c->h);
@@ -913,20 +930,13 @@ void togglefs(){
 }
 
 void tomon(const Arg arg){
-	client* c;
 	monitor* m;
 
-	if ( !(c = curmon->current) ) return;
-
-	if (arg.i > 0){
-		if (!curmon->next) return;
-		else m = curmon->next;
-
-	} else {
-		for (m=mhead;m && m != curmon && m->next != curmon;m=m->next);
-	}
-
-	if (m && m != curmon) sendtomon(c, curmon, m, YesDetach, NoStay, YesFocus);
+	if (!curmon->current || !mhead->next)
+		return;
+	if ( (m = dirtomon(arg.i)) && m == curmon )
+		return;
+	sendtomon(curmon->current, curmon, m, YesDetach, NoStay, YesFocus);
 }
 
 void unmanage(client* c){
@@ -1010,6 +1020,23 @@ monitor* createmon(int num, int x, int y, int w, int h){
 	return m;
 }
 
+/* dwm copypasta */
+monitor* dirtomon(int dir){
+	monitor* m;
+
+	if (dir > 0){
+		if ( !(m = curmon->next) ) m = mhead;
+
+	} else if (curmon == mhead){
+		for (m=mhead;m->next;m=m->next);
+
+	} else {
+		for (m=mhead;m->next != curmon;m=m->next);
+	}
+
+	return m;
+}
+
 monitor* findmon(Window w){
 	for EACHMON(mhead)
 		for EACHCLIENT(im->head)
@@ -1022,16 +1049,9 @@ monitor* findmon(Window w){
 void focusmon(const Arg arg){
 	monitor* m;
 
-	if (arg.i > 0){
-		if (!curmon->next) return;
-		else m = curmon->next;
-
-	} else {
-		if (curmon == mhead) return;
-		else for (m=mhead;m && m != curmon && m->next != curmon;m=m->next);
-	}
-
-	if (m && m != curmon) changemon(m, YesFocus);
+	if ( (m = dirtomon(arg.i)) && m == curmon )
+		return;
+	changemon(m, YesFocus);
 }
 
 /* dwm copypasta */
@@ -1044,47 +1064,20 @@ static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo
 }
 #endif
 
-///* some dwm copypasta */
-//void initmons(){
-//	monitor* m;
-//
-//#ifdef XINERAMA
-//	if (XineramaIsActive(dis)){
-//		int i, j, ns;
-//
-//		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
-//		XineramaScreenInfo* unique;
-//
-//      		/* only consider unique geometries as separate screens */
-//		unique = ecalloc(ns, sizeof(XineramaScreenInfo));
-//		for (i = 0, j = 0; i < ns; i++)
-//			if (isuniquegeom(unique, j, &info[i]))
-//				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
-//		XFree(info);
-//		
-//		mhead = m = createmon(0, unique[0].x_org, unique[0].y_org,
-//				unique[0].width, unique[0].height);
-//		for (i=1;i < j;i++){
-//			m->next = createmon(i, unique[i].x_org, unique[i].y_org,
-//					unique[i].width, unique[i].height);
-//			m = m->next;
-//		}
-//
-//		free(unique);
-//		changemon(mhead, NoFocus);
-//	}
-//#endif
-//	if (!mhead){
-//		mhead = createmon(0, 0, 0, sw, sh);
-//		changemon(mhead, NoFocus);
-//	}
-//}
-
 /* dwm copypasta - use the dwm 6.1 approach */
 void updategeom(){
 	int x, y;
 	client* c;
 	monitor* m, * tmp, * oldmhead = mhead;
+
+/* I think these grabs will prevent random crashes.
+ * One happened to me while switching monitors,
+ * and sara accidentally'd at an XSendEvent call.
+ */
+#ifndef XINERAMA
+	XGrabServer(dis);
+	XSetErrorHandler(xerrordummy);
+#endif
 
 #ifdef XINERAMA
 	if (XineramaIsActive(dis)){
@@ -1092,6 +1085,9 @@ void updategeom(){
 
 		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
 		XineramaScreenInfo* unique;
+
+		XGrabServer(dis);
+		XSetErrorHandler(xerrordummy);
 
       		/* only consider unique geometries as separate screens */
 		unique = ecalloc(ns, sizeof(XineramaScreenInfo));
@@ -1117,6 +1113,9 @@ void updategeom(){
 		mhead = createmon(0, 0, 0, sw, sh);
 		changemon(mhead, NoFocus);
 	}
+
+	XSetErrorHandler(xerror);
+	XUngrabServer(dis);
 
 	/* reattach any old clients to the new mhead */
 	m = oldmhead;
@@ -1430,6 +1429,14 @@ void view(const Arg arg){
  */
 
 
+void cleandrw(){
+	XftDrawDestroy(sdrw->xd);
+	XFreeGC(dis, sdrw->gc);
+	XftFontClose(dis, sdrw->xfont);
+	XFreePixmap(dis, sdrw->d);
+	free(sdrw);
+}
+
 /* Kill off any remaining clients
  * Free all the things
  */
@@ -1456,11 +1463,7 @@ void cleanup(){
 
 	for (i=0;i < TABLENGTH(colors);i++) free(scheme[i]);
 	free(scheme);
-
-	XftDrawDestroy(sdrw->xd);
-	XFreeGC(dis, sdrw->gc);
-	XftFontClose(dis, sdrw->xfont);
-	XFreePixmap(dis, sdrw->d);
+	cleandrw();
 
 	XSync(dis, False);
 	XSetInputFocus(dis, PointerRoot, RevertToPointerRoot, CurrentTime);
@@ -1529,7 +1532,8 @@ void initdrw(){
 
 	lrpad = sdrw->xfont->ascent + sdrw->xfont->descent;
 
-	sdrw->d = XCreatePixmap(dis, root, sw, sh, DefaultDepth(dis, screen));
+	sdrw->w = sw; sdrw->h = sh;
+	sdrw->d = XCreatePixmap(dis, root, sdrw->w, sdrw->h, DefaultDepth(dis, screen));
 	sdrw->gc = XCreateGC(dis, sdrw->d, 0, NULL);
 	sdrw->xd = XftDrawCreate(dis, sdrw->d, DefaultVisual(dis,screen), DefaultColormap(dis,screen));
 }
@@ -1555,7 +1559,6 @@ void setup(){
 	curmon = NULL;
 
 	initdrw();
-	//initmons();
 	updategeom();
 	loaddesktop(0);
 

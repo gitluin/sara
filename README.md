@@ -13,7 +13,8 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
- * v0.9.9.1	- updategeom analgous to the dwm 6.1 is in place! Just need to check that it works properly.
+ * v0.9.9.2	- updategeom works, motionnotify bug fixed, focusmon and tomon directions adjusted in config.h to fit updategeom.
+ * v0.9.9.1	- updategeom analagous to the dwm 6.1 is in place! Just need to check that it works properly.
  * v0.9.9.0	- Mouse move and resize, in one mungo function! Cursor intentionally doesn't change shape. Just do bug fixing, code cleanup, TODOs, and I'll be done!
  * v0.9.7.{0-7}	- Implemented rules, transient popup window support, proper float stacking, proper client killing, removal of redundant variables, plenty of code cleanup.
  * v0.9.2.{0-7} - Multiple monitors implemented, viewall added, reduction in global variable count, bar drawing fixes, enternotify improved, moveclient works by visibility, bugs with togglefs, send clients tomon.
@@ -105,8 +106,8 @@ Bugs
  * Need to XFree() in applyrules, I think? T'is unclear.
  * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when.
  * spawn client, spawn floating client, ptr in float, movefocus to client, enternotify triggers on float and updates focus
- * Same type of flickering bug as with being in the bar, but for the bottom of the screen (multimon only)
  * Function key spawns should not cause updatefocus() to trigger
+ * bar draw is not immediate on xinit
 
 To Do
 ----
