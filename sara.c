@@ -182,7 +182,6 @@ static void keypress(XEvent* e);
 static void maprequest(XEvent* e);
 static void motionnotify(XEvent* e);
 static void propertynotify(XEvent* e);
-static void unmapnotify(XEvent* e);
 /* Client & Linked List Manipulation */
 static void applyrules(client* c);
 static void attachaside(client* c);
@@ -291,8 +290,7 @@ static void (*events[LASTEvent])(XEvent* e) = {
 	[KeyPress] = keypress,
 	[MapRequest] = maprequest,
 	[MotionNotify] = motionnotify,
-	[PropertyNotify] = propertynotify,
-	[UnmapNotify] = unmapnotify
+	[PropertyNotify] = propertynotify
 };
 
 
@@ -390,6 +388,7 @@ void destroynotify(XEvent* e){
 		unmanage(c);
 }
 
+// TODO: spawn client, spawn floating client, ptr in float, movefocus to client, enternotify triggers on float and updates focus
 /* mostly dwm copypasta */
 void enternotify(XEvent* e){
 	client* c;
@@ -464,10 +463,6 @@ void propertynotify(XEvent* e){
 
 	if ((ev->window == root) && (ev->atom == XA_WM_NAME))
 		updatestatus();
-}
-
-void unmapnotify(XEvent* e){
-	curmon->curlayout->arrange(curmon);
 }
 
 
