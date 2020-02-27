@@ -104,7 +104,6 @@ Keys
 Bugs
 ----
  * Need to XFree() in applyrules, I think? T'is unclear.
- * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when.
  * spawn client, spawn floating client, ptr in float, movefocus to client, enternotify triggers on float and updates focus
  * Function key spawns should not cause updatefocus() to trigger
  * bar draw is not immediate on xinit

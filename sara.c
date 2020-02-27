@@ -408,16 +408,9 @@ void enternotify(XEvent* e){
 		return;
 	}
 
-	/* if ptr in same place, but movefocus and prevclient overlaps with new client */
-	/* client A on bottom, client B floating above, ptr in B
-	 * movefocus to A
-	 * enternotify generated on B
-	 * 	B is not current
-	 * 	justswitch is 0
-	 * focus on B
-	 */
+	/* if ptr in same prev window bounds, but movefocus, and new client overlaps current */
 
-	/* if ptr in same place, but moveclient */
+	/* if ptr in same prev window bounds, but moveclient */
 	if (justswitch){
 		justswitch = 0;
 		return;
@@ -723,6 +716,7 @@ void movefocus(const Arg arg){
 			for (c=curmon->head;c && !ISVISIBLE(c);c=c->next);
 	}
 
+	justswitch = 1;
 	changecurrent(c, curmon->curdesk);
 	updatefocus();
 }
