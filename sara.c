@@ -146,7 +146,7 @@ struct monitor {
  */
 
 void die(const char* e, ...){
-	fprintf(stdout,"sara: %s\n",e);
+	fprintf(stdout, "sara: %s\n", e);
 	exit(1);
 }
 
@@ -160,9 +160,8 @@ void* ecalloc(size_t nmemb, size_t size){
 
 int slen(const char* str){
 	int i = 0;
-	const char* c = str;
 
-	while (*c){ c++; i++; }
+	while (*str){ str++; i++; }
 
 	return i;
 }
@@ -179,7 +178,6 @@ static void configurenotify(XEvent* e);
 static void configurerequest(XEvent* e);
 static void destroynotify(XEvent* e);
 static void enternotify(XEvent* e);
-static void expose(XEvent* e);
 static void keypress(XEvent* e);
 static void maprequest(XEvent* e);
 static void motionnotify(XEvent* e);
@@ -269,13 +267,11 @@ static void youviolatedmymother();
 static Display* dis;
 static Window root;
 static int screen;
-static int sh;
-static int sw;
+static int sh, sw;
 /* Client Interfacing */
 static int justswitch;
 /* Monitor Interfacing */
-static monitor* curmon;
-static monitor* mhead;
+static monitor* curmon, * mhead;
 /* Backend */
 static client* ic; /* for EACHCLIENT iterating */
 static monitor* im; /* for EACHMON iterating */
@@ -292,7 +288,6 @@ static void (*events[LASTEvent])(XEvent* e) = {
 	[ConfigureRequest] = configurerequest,
 	[DestroyNotify] = destroynotify,
 	[EnterNotify] = enternotify,
-	[Expose] = expose,
 	[KeyPress] = keypress,
 	[MapRequest] = maprequest,
 	[MotionNotify] = motionnotify,
@@ -309,7 +304,7 @@ static void (*events[LASTEvent])(XEvent* e) = {
 // TODO: monitor support
 /* dwm copypasta */
 void buttonpress(XEvent* e){
-	unsigned int click = ~0;
+	unsigned int click = 0;
 	int i;
 	client* c;
 	monitor* m;
@@ -424,16 +419,6 @@ void enternotify(XEvent* e){
 
 	changecurrent(c, curmon->curdesk);
 	updatefocus();
-}
-
-// TODO: Necessary? Prevents floats from being on top of bar?
-/* dwm copypasta */
-void expose(XEvent* e){
-	monitor* m;
-	XExposeEvent* ev = &e->xexpose;
-
-	if ( ev->count == 0 && (m = findmon(ev->window)) )
-		drawbar(m);
 }
 
 void keypress(XEvent* e){
