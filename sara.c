@@ -175,6 +175,7 @@ int slen(const char* str){
 
 /* X Event Processing */
 static void buttonpress(XEvent* e);
+static void configurenotify(XEvent* e);
 static void configurerequest(XEvent* e);
 static void destroynotify(XEvent* e);
 static void enternotify(XEvent* e);
@@ -214,10 +215,9 @@ static void changemon(monitor* m, int wantfocus);
 static void cleanupmon(monitor* m);
 static monitor* createmon(int num, int x, int y, int w, int h);
 static monitor* findmon(Window w);
-static monitor* findprevmon(monitor* m);
 static void focusmon(const Arg arg);
 static void initmons();
-//static void updategeom();
+static void updategeom();
 /* Client Interfacing */
 static client* findclient(Window w);
 static client* findcurrent();
@@ -288,7 +288,7 @@ static char xsetr_text[256];
 /* Events array */
 static void (*events[LASTEvent])(XEvent* e) = {
 	[ButtonPress] = buttonpress,
-	//[ConfigureNotify] = configurenotify,
+	[ConfigureNotify] = configurenotify,
 	[ConfigureRequest] = configurerequest,
 	[DestroyNotify] = destroynotify,
 	[EnterNotify] = enternotify,
@@ -333,30 +333,28 @@ void buttonpress(XEvent* e){
 
 }
 
-// TODO: This will solve the monitor ordering issue
 /* dwm copypasta */
-//void configurenotify(XEvent* e){
-//	client* c;
-//	XConfigureEvent* ev = &e->xconfigure;
-//
-//	if (ev->window == root){
-//		sw = ev->width; sh = ev->height;
-//		updategeom();
-//		if (sdrw){
-//			if (sdrw->d) XFreePixmap(dis, sdrw->d);
-//			sdrw->d = XCreatePixmap(dis, root, sw, sh, DefaultDepth(dis,screen));
-//		}
-//
-//		for EACHMON(mhead){
-//			for EACHCLIENT(im->head) if (ic->isfull){
-//					resizeclient(ic, im->x, im->y - im->bar->h, im->w, im->h);
-//				}
-//
-//			im->curlayout->arrange(im);
-//		}
-//		updatefocus();
-//	}
-//}
+void configurenotify(XEvent* e){
+	XConfigureEvent* ev = &e->xconfigure;
+
+	if (ev->window == root){
+		sw = ev->width; sh = ev->height;
+		updategeom();
+		if (sdrw){
+			if (sdrw->d) XFreePixmap(dis, sdrw->d);
+			sdrw->d = XCreatePixmap(dis, root, sw, sh, DefaultDepth(dis,screen));
+		}
+
+		for EACHMON(mhead){
+			for EACHCLIENT(im->head) if (ic->isfull){
+					resizeclient(ic, im->x, im->y - im->bar->h, im->w, im->h);
+				}
+
+			im->curlayout->arrange(im);
+		}
+		updatefocus();
+	}
+}
 
 /* dwm copypasta */
 void configurerequest(XEvent* e){
@@ -556,15 +554,15 @@ void attachaside(client* c){
 void changecurrent(client* c, unsigned int deskmask){
 	if (c){
 		c->iscur ^= deskmask;
-		//XUngrabButton(dis, Button1, AnyModifier, c->win);
+		XUngrabButton(dis, Button1, AnyModifier, c->win);
 		grabbuttons(c, 0);
 	}
 	
 	for EACHCLIENT(curmon->head) if (ic != c && (ic->iscur & deskmask)){
 			ic->iscur ^= deskmask;
 			grabbuttons(ic, 1);
-			//XGrabButton(dis, Button1, 0, ic->win, False, ButtonPressMask,
-			//		GrabModeAsync, GrabModeSync, None, None);
+			XGrabButton(dis, Button1, 0, ic->win, False, ButtonPressMask,
+					GrabModeAsync, GrabModeSync, None, None);
 		}
 
 	curmon->current = c;
@@ -786,8 +784,6 @@ void manipulate(const Arg arg){
 					togglefloat();
 			if (c->isfloat)
 				resizeclient(c, nx, ny, nw, nh);
-				// TODO: What does interact do?
-				//resize(c, nx, ny, c->w, c->h, 1);
 			break;
 		}
 	} while (ev.type != ButtonRelease);
@@ -1033,16 +1029,6 @@ monitor* findmon(Window w){
 	return curmon;
 }
 
-monitor* findprevmon(monitor* m){
-	monitor* i;
-
-	for (i=mhead;i && i != m;i=i->next)
-		if (i->next == m)
-			return i;
-
-	return NULL;
-}
-
 void focusmon(const Arg arg){
 	monitor* m;
 
@@ -1068,11 +1054,47 @@ static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo
 }
 #endif
 
-// TODO: Support adding/removing monitors and transferring the clients
-/* some dwm copypasta */
-void initmons(){
+///* some dwm copypasta */
+//void initmons(){
+//	monitor* m;
+//
+//#ifdef XINERAMA
+//	if (XineramaIsActive(dis)){
+//		int i, j, ns;
+//
+//		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
+//		XineramaScreenInfo* unique;
+//
+//      		/* only consider unique geometries as separate screens */
+//		unique = ecalloc(ns, sizeof(XineramaScreenInfo));
+//		for (i = 0, j = 0; i < ns; i++)
+//			if (isuniquegeom(unique, j, &info[i]))
+//				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
+//		XFree(info);
+//		
+//		mhead = m = createmon(0, unique[0].x_org, unique[0].y_org,
+//				unique[0].width, unique[0].height);
+//		for (i=1;i < j;i++){
+//			m->next = createmon(i, unique[i].x_org, unique[i].y_org,
+//					unique[i].width, unique[i].height);
+//			m = m->next;
+//		}
+//
+//		free(unique);
+//		changemon(mhead, NoFocus);
+//	}
+//#endif
+//	if (!mhead){
+//		mhead = createmon(0, 0, 0, sw, sh);
+//		changemon(mhead, NoFocus);
+//	}
+//}
+
+/* dwm copypasta - use the dwm 6.1 approach */
+void updategeom(){
+	int x, y;
 	client* c;
-	monitor* m, * oldmhead = mhead;
+	monitor* m, * tmp, * oldmhead = mhead;
 
 #ifdef XINERAMA
 	if (XineramaIsActive(dis)){
@@ -1098,81 +1120,35 @@ void initmons(){
 
 		free(unique);
 		changemon(mhead, NoFocus);
-	}
+	} else
 #endif
-	if (!mhead){
+	{
+		if (mhead) cleanupmon(mhead);
 		mhead = createmon(0, 0, 0, sw, sh);
 		changemon(mhead, NoFocus);
 	}
-}
 
-///* dwm copypasta - use the dwm 6.1 approach */
-//void updategeom(){
-//	int x, y;
-//	client* c;
-//	monitor* m, * oldmhead = mhead;
-//
-//#ifdef XINERAMA
-//	if (XineramaIsActive(dis)){
-//		int i, j, ns;
-//
-//		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
-//		XineramaScreenInfo* unique;
-//
-//      		/* only consider unique geometries as separate screens */
-//		unique = ecalloc(ns, sizeof(XineramaScreenInfo));
-//		for (i = 0, j = 0; i < ns; i++)
-//			if (isuniquegeom(unique, j, &info[i]))
-//				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
-//		XFree(info);
-//		
-//		mhead = m = createmon(0, unique[0].x_org, unique[0].y_org,
-//				unique[0].width, unique[0].height);
-//		for (i=1;i < j;i++){
-//			m->next = createmon(i, unique[i].x_org, unique[i].y_org,
-//					unique[i].width, unique[i].height);
-//			m = m->next;
-//		}
-//
-//		/* My laptop insists that the primary display is not
-//		 * :0. So reorder monitors by x_org if necessary.
-//		 * Don't renumber, as this messes with spawns like dmenu.
-//		 * I'm an idiot and can't write a sorting method,
-//		 * good thing no human being uses lots of monitors!
-//		 */
-//		for (i=0;i < j;i++) isortmons();
-//
-//		free(unique);
-//		changemon(mhead, NoFocus);
-//	} else
-//#endif
-//	{
-//		if (mhead) cleanupmon(mhead)
-//		mhead = createmon(0, 0, 0, sw, sh);
-//		changemon(mhead, NoFocus);
-//	}
-//
-//	/* reattach any old clients to the new mhead */
-//	m = oldmhead;
-//	while (m){
-//		while ( (c = m->head) ){
-//			m->head = c->next;
-//			/* send client to mhead */
-//			sendtomon(c, m, mhead, YesDetach, YesStay, YesFocus);
-//		}
-//		tmp = m->next;
-//		cleanupmon(m);
-//		m = tmp;
-//	}
-//
-//	/* focus monitor that has the pointer inside it */
-//	for EACHMON(mhead)
-//		if (getptrcoords(&x, &y) && !ISOUTSIDE(x, y, im->x, im->y - im->bar->h, im->w, im->h)){
-//			fprintf(stderr, "cursor is in, and changing to, monitor #%d\n", im->num);
-//			changemon(im, YesFocus);
-//			break;
-//		}
-//}
+	/* reattach any old clients to the new mhead */
+	m = oldmhead;
+	while (m){
+		while ( (c = m->head) ){
+			m->head = c->next;
+			/* send client to mhead */
+			sendtomon(c, m, mhead, YesDetach, YesStay, YesFocus);
+		}
+		tmp = m->next;
+		cleanupmon(m);
+		m = tmp;
+	}
+
+	/* focus monitor that has the pointer inside it */
+	for EACHMON(mhead)
+		if (getptrcoords(&x, &y) && !ISOUTSIDE(x, y, im->x, im->y - im->bar->h, im->w, im->h)){
+			fprintf(stderr, "cursor is in, and changing to, monitor #%d\n", im->num);
+			changemon(im, YesFocus);
+			break;
+		}
+}
 
 
 /* ---------------------------------------
@@ -1308,7 +1284,6 @@ int gettextprop(Window w, Atom atom, char *text, unsigned int size){
 	return 1;
 }
 
-// TODO: does anything here need to be free() or XFree()?
 int gettextwidth(monitor* m, const char* str, int len){
 	XGlyphInfo xgi;
 	XftTextExtents8(dis, sdrw->xfont, (XftChar8*)str, len, &xgi);
@@ -1527,7 +1502,6 @@ int getptrcoords(int* x, int* y){
 	return XQueryPointer(dis, root, &dummy, &dummy, x, y, &di, &di, &dui);
 }
 
-// TODO: Is LockMask Caps Lock?
 /* dwm copypasta */
 void grabbuttons(client* c, int focused){
 	unsigned int i, j;
@@ -1592,7 +1566,8 @@ void setup(){
 	curmon = NULL;
 
 	initdrw();
-	initmons();
+	//initmons();
+	updategeom();
 	loaddesktop(0);
 
 	wa.cursor = XCreateFontCursor(dis, 68);
