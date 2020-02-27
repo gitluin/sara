@@ -217,8 +217,6 @@ static monitor* findmon(Window w);
 static monitor* findprevmon(monitor* m);
 static void focusmon(const Arg arg);
 static void initmons();
-static void isortmons();
-static void swapmon(monitor* x, monitor* y);
 //static void updategeom();
 /* Client Interfacing */
 static client* findclient(Window w);
@@ -335,6 +333,7 @@ void buttonpress(XEvent* e){
 
 }
 
+// TODO: This will solve the monitor ordering issue
 /* dwm copypasta */
 //void configurenotify(XEvent* e){
 //	client* c;
@@ -493,6 +492,7 @@ void unmapnotify(XEvent* e){
  * ---------------------------------------
  */
 
+// TODO: Focused monitor thing doesn't work
 /* mostly dwm copypasta */
 void applyrules(client* c){
 	const char* class, * instance;
@@ -1096,14 +1096,6 @@ void initmons(){
 			m = m->next;
 		}
 
-		/* My laptop insists that the primary display is not
-		 * :0. So reorder monitors by x_org if necessary.
-		 * Don't renumber, as this messes with spawns like dmenu.
-		 * I'm an idiot and can't write a sorting method,
-		 * good thing no human being uses lots of monitors!
-		 */
-		for (i=0;i < j;i++) isortmons();
-
 		free(unique);
 		changemon(mhead, NoFocus);
 	}
@@ -1112,34 +1104,6 @@ void initmons(){
 		mhead = createmon(0, 0, 0, sw, sh);
 		changemon(mhead, NoFocus);
 	}
-}
-
-/* thanks to firmcodes.com */
-void isortmons(){
-	monitor* min, * i, * m = mhead;
-
-	while (m && m->next){
-		min = m; i = m->next;
-		
-		while (i){
-			if (min->x > i->x) min = i;
-			i = i->next;
-		}
-
-		swapmon(m, min);
-		m = m->next;
-	}
-}
-
-void swapmon(monitor* x, monitor* y){
-	monitor* px = findprevmon(x), * py = findprevmon(y);
-
-	if (x == y) return;
-
-	if (x == mhead) mhead = y;
-	if (px) px->next = y;
-	if (py) py->next = y->next;
-	y->next = x;
 }
 
 ///* dwm copypasta - use the dwm 6.1 approach */

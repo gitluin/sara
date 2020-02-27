@@ -104,6 +104,9 @@ Bugs
  * Bar doesn't redraw on laptop lid reopen until maprequest, changedesktop, etc. (also a problem with dwm)
  * Need to XFree() in applyrules, I think? T'is unclear.
  * buttonpress doesn't draw focus to new monitors, and sometimes not to new windows, but unsure when.
+ * enternotify bug when ptr is on a floating window enclosed within the bottom window's border
+ * buttonpress doesn't always raise windows, but does draw focus
+ * Same type of flickering bug as with being in the bar, but for the bottom of the screen
 
 To Do
 ----
