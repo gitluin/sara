@@ -101,6 +101,7 @@ Keys
 | Mod+R				| Spawn R session					|
 | Mod+C				| Spawn calendar					|
 | Mod+D				| Spawn dmenu						|
+| Mod+Tab			| Spawn non-immortal scratchpad (new .txt each time)	|
 
 Bugs
 ----
