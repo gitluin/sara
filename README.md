@@ -68,40 +68,9 @@ Installation
 ------------
 Need Xlib, then sudo make install clean
 
-Keys
+Help Me!
 ------------
-
-| Key				| Function 						|
-| -----------------------------	| -----------------------------------------------------	|
-| Mod+NUMKEY			| View desktop NUMKEY					|
-| Mod+Shift+NUMKEY		| Toggle focused client to/from desktop NUMKEY		|
-| Mod+Control+NUMKEY		| Toggle desktop NUMKEY to/from view			|
-| Mod+Shift+Control+NUMKEY	| Put focused client on only desktop NUMKEY		|
-| Mod+XK\_0			| View all desktops					|
-| Mod+K				| Move focus up stack					|
-| Mod+J				| Move focus down stack					|
-| Mod+Shift+K			| Move focused client up stack				|
-| Mod+Shift+J			| Move focused client down stack			|
-| Mod+Return			| Move focused client to master				|
-| Mod+Shift+Space		| Toggle focused client to floating			|
-| Mod+Shift+Return		| Toggle focused client to fullscreen			|
-| Mod+Comma			| Move focus to previous monitor			|
-| Mod+Period			| Move focus to next monitor				|
-| Mod+Shift+Comma		| Move focused client to previous monitor		|
-| Mod+Shift+Period		| Move focused client to next monitor			|
-| Mod+Shift+Q			| Kill focused client ("force quit")			|
-| Mod+H				| Decrease master area					|
-| Mod+L				| Increase master area					|
-| Mod+Control+T			| Change layout to tiling				|
-| Mod+Control+M			| Change layout to monocle				|
-| Mod+Shift+E			| Quit sara (shuts down X)				|
-| Mod+T				| Spawn st						|
-| Mod+W				| Spawn firefox						|
-| Mod+F				| Spawn vifm						|
-| Mod+R				| Spawn R session					|
-| Mod+C				| Spawn calendar					|
-| Mod+D				| Spawn dmenu						|
-| Mod+Tab			| Spawn non-immortal scratchpad (new .txt each time)	|
+For more information, see the [wiki](https://github.com/gitluin/sara/wiki)!
 
 Bugs
 ----
