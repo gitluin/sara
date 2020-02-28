@@ -77,6 +77,8 @@ Bugs
 ----
  * bar draw is not always immediate on xinit
  * very strange behavior when adding a new monitor. must diagnose and enumerate problems.
+   * it appears as though m->head gets on mhead, but the rest are stuck in some phantom monitor
+ * spawn new window underneath float, ptr in float, focus freaks tf out
 
 To Do
 ----

@@ -270,14 +270,13 @@ static Display* dis;
 static Window root;
 static int screen;
 static int sh, sw;
-/* Client Interfacing */
-static int justmanage;
-static int justswitch;
 /* Monitor Interfacing */
 static monitor* curmon, * mhead;
 /* Backend */
 static client* ic; /* for EACHCLIENT iterating */
 static monitor* im; /* for EACHMON iterating */
+static int justmanage;
+static int justswitch;
 static int lrpad;
 static int running;
 static XftColor** scheme;
@@ -287,7 +286,7 @@ static char xsetr_text[256];
 /* Events array */
 static void (*events[LASTEvent])(XEvent* e) = {
 	[ButtonPress] = buttonpress,
-	[ConfigureNotify] = configurenotify,
+	//[ConfigureNotify] = configurenotify,
 	[ConfigureRequest] = configurerequest,
 	[DestroyNotify] = destroynotify,
 	[EnterNotify] = enternotify,
@@ -335,6 +334,7 @@ void configurenotify(XEvent* e){
 	XConfigureEvent* ev = &e->xconfigure;
 
 	if (ev->window == root){
+		fprintf(stderr, "configurenotifying\n");
 		sw = ev->width; sh = ev->height;
 		if (sdrw && (sdrw->w != sw || sdrw->h != sh)){
 			cleandrw();
@@ -497,12 +497,12 @@ void applyrules(client* c){
 			c->isfloat = r->isfloat;
 			c->isfull = r->isfull;
 			c->desks = 0; c->desks |= r->desks;
-			for EACHMON(mhead){
-				if (im->num == r->monitor){
-					sendtomon(c, curmon, im, NoDetach, YesStay, NoFocus);
-					break;
-				}
-			}
+//			for EACHMON(mhead){
+//				if (im->num == r->monitor){
+//					sendtomon(c, curmon, im, NoDetach, YesStay, NoFocus);
+//					break;
+//				}
+//			}
 		}
 	}
 	if (!c->desks) c->desks = curmon->seldesks;
@@ -515,7 +515,7 @@ void attachaside(client* c){
 	client* l;
 
 	/* if attached to a monitor already (applyrules) */
-	if (findclient(c->win)) return;
+//	if (findclient(c->win)) return;
 
 	if (!curmon->head){
 		curmon->head = c;
@@ -597,7 +597,7 @@ void killclient(){
 
 void manage(Window parent, XWindowAttributes* wa){
 	client* c, * t;
-	monitor* m;
+//	monitor* m;
 	Window trans = None;
 
 	if ( !(c = ecalloc(1, sizeof(client))) )
@@ -623,19 +623,19 @@ void manage(Window parent, XWindowAttributes* wa){
 
 	attachaside(c);
 
-	if ( (m = findmon(c->win)) ){
-		if (ISOUTSIDE(c->x, c->y, m->x, m->y - m->bar->h, m->w, m->h + m->bar->h)){
-			/* find which one it is inside */
-			for EACHMON(mhead)
-				if (!ISOUTSIDE(c->x, c->y, im->x, im->y - im->bar->h, im->w, im->h + im->bar->h)){
-					c->x += (im->x < m->x) ? m->x : -im->x;
-					c->y += (im->y < m->y) ? m->y : -im->y;
-					break;
-				}
-		}
-
-		c->y = (c->y < m->y) ? m->y : c->y;
-	}
+//	if ( (m = findmon(c->win)) ){
+//		if (ISOUTSIDE(c->x, c->y, m->x, m->y - m->bar->h, m->w, m->h + m->bar->h)){
+//			/* find which one it is inside */
+//			for EACHMON(mhead)
+//				if (!ISOUTSIDE(c->x, c->y, im->x, im->y - im->bar->h, im->w, im->h + im->bar->h)){
+//					c->x += (im->x < m->x) ? m->x : -im->x;
+//					c->y += (im->y < m->y) ? m->y : -im->y;
+//					break;
+//				}
+//		}
+//
+//		c->y = (c->y < m->y) ? m->y : c->y;
+//	}
 
 	/* move out of the way until told otherwise */
 	XMoveResizeWindow(dis, c->win, c->x + 2*sw, c->y, c->w, c->h);
@@ -726,7 +726,7 @@ void movefocus(const Arg arg){
 
 /* dwm copypasta */
 void manipulate(const Arg arg){
-	int x, y, ocx, ocy, nx, ny, nw, nh, isoutside, trytoggle = 0;
+	int x, y, ocx, ocy, nx, ny, nw, nh, trytoggle = 0;
 	client* c;
 	monitor* m;
 	XEvent ev;
@@ -798,12 +798,13 @@ void manipulate(const Arg arg){
 	if (arg.i == WantResize)
 		while (XCheckMaskEvent(dis, EnterWindowMask, &ev));
 
-	isoutside = ISOUTSIDE(c->x, c->y, curmon->x, curmon->y - curmon->bar->h, curmon->w, curmon->h);
-	for EACHMON(mhead){
-		if (im != curmon && isoutside){
-			sendtomon(c, curmon, im, YesDetach, YesStay, NoFocus);
-			changemon(im, YesFocus);
-			return;
+	if (ISOUTSIDE(c->x, c->y, curmon->x, curmon->y - curmon->bar->h, curmon->w, curmon->h + curmon->bar->h)){
+		for EACHMON(mhead){
+			if (im != curmon && !ISOUTSIDE(c->x, c->y, im->x, im->y - im->bar->h, im->w, im->h + im->bar->h)){
+				sendtomon(c, curmon, im, YesDetach, YesStay, NoFocus);
+				changemon(im, YesFocus);
+				return;
+			}
 		}
 	}
 }
@@ -931,7 +932,7 @@ void tomon(const Arg arg){
 
 	if (!curmon->current || !mhead->next)
 		return;
-	if ( (m = dirtomon(arg.i)) && m == curmon )
+	if ( !(m = dirtomon(arg.i)) || m == curmon )
 		return;
 	sendtomon(curmon->current, curmon, m, YesDetach, NoStay, YesFocus);
 }
@@ -971,7 +972,10 @@ void zoom(){
  */
 
 void changemon(monitor* m, int wantfocus){
-	justswitch = 0;
+	if (!m){
+		fprintf(stderr, "changemon - m is NULL!\n");
+		return;
+	}
 	curmon = m;
 	if (wantfocus) updatefocus();
 }
@@ -1046,7 +1050,7 @@ monitor* findmon(Window w){
 void focusmon(const Arg arg){
 	monitor* m;
 
-	if ( (m = dirtomon(arg.i)) && m == curmon )
+	if ( !(m = dirtomon(arg.i)) || m == curmon )
 		return;
 	changemon(m, YesFocus);
 }
@@ -1064,27 +1068,28 @@ static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo
 /* dwm copypasta - use the dwm 6.1 approach */
 void updategeom(){
 	int x, y;
-	client* c;
-	monitor* m, * tmp, * oldmhead = mhead;
 
-	/* I think these grabs will prevent random crashes.
-	 * One happened to me while switching monitors,
-	 * and sara accidentally'd at an XSendEvent call.
-	 */
-#ifndef XINERAMA
-	XGrabServer(dis);
-	XSetErrorHandler(xerrordummy);
-#endif
+//	/* I think these grabs will prevent random crashes.
+//	 * One happened to me while switching monitors,
+//	 * and sara accidentally'd at an XSendEvent call.
+//	 */
+//#ifndef XINERAMA
+//	XGrabServer(dis);
+//	XSetErrorHandler(xerrordummy);
+//#endif
 
 #ifdef XINERAMA
 	if (XineramaIsActive(dis)){
+		fprintf(stderr, "xinerama active - updategeoming\n");
 		int i, j, ns;
+		client* c;
+		monitor* m, * oldmhead = mhead;
 
 		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
 		XineramaScreenInfo* unique;
 
-		XGrabServer(dis);
-		XSetErrorHandler(xerrordummy);
+//		XGrabServer(dis);
+//		XSetErrorHandler(xerrordummy);
 
       		/* only consider unique geometries as separate screens */
 		unique = ecalloc(ns, sizeof(XineramaScreenInfo));
@@ -1102,30 +1107,41 @@ void updategeom(){
 		}
 
 		free(unique);
-		changemon(mhead, NoFocus);
+
+		/* reattach any old clients to the new mhead */
+		while ( (m = oldmhead) ){
+			fprintf(stderr, "working on monitor #%d\n", m->num);
+
+			i = 0;
+			fprintf(stderr, "reattaching old clients\n");
+			while ( (c = m->head) ){
+				fprintf(stderr, "working on client #%d\n", i);
+				m->head = c->next;
+				changemon(m, NoFocus);
+				detach(c);
+				changemon(mhead, NoFocus);
+				attachaside(c);
+				i++;
+				for EACHMON(mhead) for EACHCLIENT(im->head) if (ic == c)
+					fprintf(stderr, "c is on monitor #%d\n", im->num);
+			}
+			oldmhead = m->next;
+			cleanupmon(m);
+		}
+
 	} else
 #endif
 	{
-		if (mhead) cleanupmon(mhead);
-		mhead = createmon(0, 0, 0, sw, sh);
-		changemon(mhead, NoFocus);
-	}
-
-	XSetErrorHandler(xerror);
-	XUngrabServer(dis);
-
-	/* reattach any old clients to the new mhead */
-	m = oldmhead;
-	while (m){
-		while ( (c = m->head) ){
-			m->head = c->next;
-			/* send client to mhead */
-			sendtomon(c, m, mhead, YesDetach, YesStay, YesFocus);
+		fprintf(stderr, "no xinerama\n");
+		if (mhead){
+			fprintf(stderr, "cleaning up mhead\n");
+			cleanupmon(mhead);
 		}
-		tmp = m->next;
-		cleanupmon(m);
-		m = tmp;
+		mhead = createmon(0, 0, 0, sw, sh);
 	}
+
+//	XSetErrorHandler(xerror);
+//	XUngrabServer(dis);
 
 	/* focus monitor that has the pointer inside it */
 	for EACHMON(mhead)
