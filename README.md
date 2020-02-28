@@ -13,12 +13,8 @@ sara is a very simple and lightweight tiling window manager. Originally started 
 
 Recent Statii
 ------
- * v0.9.9.5	- Some dwmization that was ultimately unnecessary to fix the pesky c->next = NULL bug, but I'll leave it there unless the SLOC is increased. Think all enternotify is actually, finally done.
- * v0.9.9.4	- Everything enternotify related is done. moving in the stack is based on tiling, not visibility. applyrules has fullscreen support, though without wm hints it can be goofy depending on your use case. Final code review.
- * v0.9.9.3	- Some enternotify bug fixing, but not everything is resolved yet.
- * v0.9.9.2	- updategeom works, motionnotify bug fixed, focusmon and tomon directions adjusted in config.h to fit updategeom.
- * v0.9.9.1	- updategeom analagous to the dwm 6.1 is in place! Just need to check that it works properly.
- * v0.9.9.0	- Mouse move and resize, in one mungo function! Cursor intentionally doesn't change shape. Just do bug fixing, code cleanup, TODOs, and I'll be done!
+ * v1.0		- Oh my god I did it.
+ * v0.9.9.{0-5} - Mouse move and resize, updategeom a la dwm 6.1, majorly obnoxious but easily fixed sendmon-related bug, enternotify/motionnotify/general bugfixing, applyrules supports fullscreen. Heckin yeet.
  * v0.9.7.{0-7}	- Implemented rules, transient popup window support, proper float stacking, proper client killing, removal of redundant variables, plenty of code cleanup.
  * v0.9.2.{0-7} - Multiple monitors implemented, viewall added, reduction in global variable count, bar drawing fixes, enternotify improved, moveclient works by visibility, bugs with togglefs, send clients tomon.
  * v0.8.{1-7.7} - No drw and no alpha behavior for the bar. Can send clients to just a desktop, can view multiple desktops at once, enternotify works (maybe), gaps, window borders, bar boxes removed. Code cleanup. Memory freeing fixed. buttonpress works!
