@@ -186,6 +186,7 @@ static void maprequest(XEvent* e);
 static void motionnotify(XEvent* e);
 static void propertynotify(XEvent* e);
 /* Client & Linked List Manipulation */
+static void adjustcoords(client* c);
 static void applyrules(client* c);
 static void attachaside(client* c);
 static void changecurrent(client* c, unsigned int deskmask);
@@ -481,6 +482,18 @@ void propertynotify(XEvent* e){
  * ---------------------------------------
  */
 
+void adjustcoords(client* c){
+	if (ISOUTSIDE(c->x, c->y, c->mon->x, c->mon->y - c->mon->bar->h, c->mon->w, c->mon->h + c->mon->bar->h)){
+		/* find which one it is inside */
+		for EACHMON(mhead)
+			if (!ISOUTSIDE(c->x, c->y, im->x, im->y - im->bar->h, im->w, im->h + im->bar->h)){
+				c->x += (im->x < c->mon->x) ? c->mon->x : -im->x;
+				c->y += (im->y < c->mon->y) ? c->mon->y : -im->y;
+				break;
+			}
+	}
+}
+
 /* mostly dwm copypasta */
 void applyrules(client* c){
 	const char* class, * instance;
@@ -630,17 +643,7 @@ void manage(Window parent, XWindowAttributes* wa){
 	grabbuttons(c, 0);
 
 	attachaside(c);
-
-	if (ISOUTSIDE(c->x, c->y, c->mon->x, c->mon->y - c->mon->bar->h, c->mon->w, c->mon->h + c->mon->bar->h)){
-		/* find which one it is inside */
-		for EACHMON(mhead)
-			if (!ISOUTSIDE(c->x, c->y, im->x, im->y - im->bar->h, im->w, im->h + im->bar->h)){
-				c->x += (im->x < c->mon->x) ? c->mon->x : -im->x;
-				c->y += (im->y < c->mon->y) ? c->mon->y : -im->y;
-				break;
-			}
-	}
-
+	adjustcoords(c);
 	c->y = (c->y < c->mon->y) ? c->mon->y : c->y;
 
 	/* move out of the way until told otherwise */
@@ -841,12 +844,14 @@ void resizeclient(client* c, int x, int y, int w, int h){
 }
 
 void sendmon(client* c, monitor* m){
-	if (c->mon == m) return;
+	if (c->mon == m || c->isfull) return;
 
 	detach(c);
 	c->mon = m;
 	c->desks = m->seldesks;
+
 	attachaside(c);
+	if (c->isfloat) adjustcoords(c);
 
 	curmon->current = findcurrent();
 	for EACHMON(mhead){
@@ -926,6 +931,7 @@ void togglefs(){
 		XUnmapWindow(dis, curmon->bar->win);
 
 	} else {
+		justswitch = 1;
 		curmon->current->isfloat = curmon->current->oldfloat;
 		curmon->curlayout->arrange(curmon);
 

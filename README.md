@@ -82,11 +82,9 @@ To Do
 ----
  * Continuous:
    * No bugs (just use [XGH](https://gist.github.com/banaslee/4147370)) (required for v1.0)
-   * Code cleanup (as a constant) - function naming conventions.
-   * Does it leak memory?
+   * Code cleanup (as a constant)
  * Discrete:
-   * Finish TODOs (required for v1.0)
    * My own art.
-   * Wiki information.
+   * A wiki.
 
 If you have some particular request, don't send me an e-mail, I won't do it!
