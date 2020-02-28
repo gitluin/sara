@@ -13,6 +13,7 @@ sara is a very simple and lightweight tiling window manager, with the goal of ma
 
 Recent Statii
 ------
+ * v0.9.9.3	- some enternotify bug fixing, but not everything is resolved yet.
  * v0.9.9.2	- updategeom works, motionnotify bug fixed, focusmon and tomon directions adjusted in config.h to fit updategeom.
  * v0.9.9.1	- updategeom analagous to the dwm 6.1 is in place! Just need to check that it works properly.
  * v0.9.9.0	- Mouse move and resize, in one mungo function! Cursor intentionally doesn't change shape. Just do bug fixing, code cleanup, TODOs, and I'll be done!
@@ -104,9 +105,8 @@ Keys
 Bugs
 ----
  * Need to XFree() in applyrules, I think? T'is unclear.
- * spawn client, spawn floating client, ptr in float, movefocus to client, enternotify triggers on float and updates focus
- * Function key spawns should not cause updatefocus() to trigger
- * bar draw is not immediate on xinit
+ * move tiled clients through stack while ptr is underneath float, and focus is eventually drawn to float
+ * bar draw is not always immediate on xinit
 
 To Do
 ----
@@ -116,6 +116,7 @@ To Do
    * Does it leak memory?
  * Discrete:
    * Finish TODOs (required for v1.0)
+   * fullscreen support for applyrules
    * My own art.
    * Tutorial.
 
