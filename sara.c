@@ -533,12 +533,11 @@ void attachaside(client* c){
 			c->mon->current->next = c;
 
 		} else {
-			for (l=c->mon->current;l->next;l=l->next);
+			for (l=c->mon->head;l->next;l=l->next);
 			l->next = c;
 		}
 	}
 
-	// TODO: Check effect
 	if (c->mon->current && c->mon->current->isfloat) justmanageunder = 1;
 
 	changecurrent(c, c->mon->curdesk);
