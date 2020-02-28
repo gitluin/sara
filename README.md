@@ -76,6 +76,7 @@ For more information, see the [wiki](https://github.com/gitluin/sara/wiki)!
 Bugs
 ----
  * bar draw is not always immediate on xinit
+ * very strange behavior when adding a new monitor. must diagnose and enumerate problems.
 
 To Do
 ----
