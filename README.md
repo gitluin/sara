@@ -13,6 +13,7 @@ sara is a very simple and lightweight tiling window manager. Originally started 
 
 Recent Statii
 ------
+ * v0.9.9.5	- Some dwmization that was ultimately unnecessary to fix the pesky c->next = NULL bug, but I'll leave it there unless the SLOC is increased. Think all enternotify is actually, finally done.
  * v0.9.9.4	- Everything enternotify related is done. moving in the stack is based on tiling, not visibility. applyrules has fullscreen support, though without wm hints it can be goofy depending on your use case. Final code review.
  * v0.9.9.3	- Some enternotify bug fixing, but not everything is resolved yet.
  * v0.9.9.2	- updategeom works, motionnotify bug fixed, focusmon and tomon directions adjusted in config.h to fit updategeom.
@@ -76,9 +77,6 @@ For more information, see the [wiki](https://github.com/gitluin/sara/wiki)!
 Bugs
 ----
  * bar draw is not always immediate on xinit
- * very strange behavior when adding a new monitor. must diagnose and enumerate problems.
-   * it appears as though m->head gets on mhead, but the rest are stuck in some phantom monitor
- * spawn new window underneath float, ptr in float, focus freaks tf out
 
 To Do
 ----

@@ -277,6 +277,7 @@ static monitor* curmon, * mhead;
 static client* ic; /* for EACHCLIENT iterating */
 static monitor* im; /* for EACHMON iterating */
 static int justmanage;
+static int justmanageunder;
 static int justswitch;
 static int lrpad;
 static int running;
@@ -287,7 +288,7 @@ static char xsetr_text[256];
 /* Events array */
 static void (*events[LASTEvent])(XEvent* e) = {
 	[ButtonPress] = buttonpress,
-	//[ConfigureNotify] = configurenotify,
+	[ConfigureNotify] = configurenotify,
 	[ConfigureRequest] = configurerequest,
 	[DestroyNotify] = destroynotify,
 	[EnterNotify] = enternotify,
@@ -335,7 +336,6 @@ void configurenotify(XEvent* e){
 	XConfigureEvent* ev = &e->xconfigure;
 
 	if (ev->window == root){
-		fprintf(stderr, "configurenotifying\n");
 		sw = ev->width; sh = ev->height;
 		if (sdrw && (sdrw->w != sw || sdrw->h != sh)){
 			cleandrw();
@@ -409,6 +409,11 @@ void enternotify(XEvent* e){
 	if (c == c->mon->current){
 		if (justmanage)
 			justmanage = justswitch = 0;
+		return;
+	}
+
+	if (justmanageunder){
+		justmanageunder = justswitch = 0;
 		return;
 	}
 
@@ -533,6 +538,9 @@ void attachaside(client* c){
 		}
 	}
 
+	// TODO: Check effect
+	if (c->mon->current && c->mon->current->isfloat) justmanageunder = 1;
+
 	changecurrent(c, c->mon->curdesk);
 }
 
@@ -624,17 +632,17 @@ void manage(Window parent, XWindowAttributes* wa){
 
 	attachaside(c);
 
-//	if (ISOUTSIDE(c->x, c->y, c->mon->x, c->mon->y - c->mon->bar->h, c->mon->w, c->mon->h + c->mon->bar->h)){
-//		/* find which one it is inside */
-//		for EACHMON(mhead)
-//			if (!ISOUTSIDE(c->x, c->y, im->x, im->y - im->bar->h, im->w, im->h + im->bar->h)){
-//				c->x += (im->x < c->mon->x) ? c->mon->x : -im->x;
-//				c->y += (im->y < c->mon->y) ? c->mon->y : -im->y;
-//				break;
-//			}
-//	}
-//
-//	c->y = (c->y < c->mon->y) ? c->mon->y : c->y;
+	if (ISOUTSIDE(c->x, c->y, c->mon->x, c->mon->y - c->mon->bar->h, c->mon->w, c->mon->h + c->mon->bar->h)){
+		/* find which one it is inside */
+		for EACHMON(mhead)
+			if (!ISOUTSIDE(c->x, c->y, im->x, im->y - im->bar->h, im->w, im->h + im->bar->h)){
+				c->x += (im->x < c->mon->x) ? c->mon->x : -im->x;
+				c->y += (im->y < c->mon->y) ? c->mon->y : -im->y;
+				break;
+			}
+	}
+
+	c->y = (c->y < c->mon->y) ? c->mon->y : c->y;
 
 	/* move out of the way until told otherwise */
 	XMoveResizeWindow(dis, c->win, c->x + 2*sw, c->y, c->w, c->h);
@@ -649,19 +657,6 @@ void manage(Window parent, XWindowAttributes* wa){
 	justmanage = 1;
 	c->mon->curlayout->arrange(c->mon);
 	if (c->desks & curmon->seldesks) updatefocus();
-
-	fprintf(stderr, "done managing - searching for c\n");
-	for EACHMON(mhead)
-		for EACHCLIENT(im->head)
-			if (ic == c)
-				fprintf(stderr, "found c in monitor #%d!\n", im->num);
-	fprintf(stderr, "done searching!\n");
-
-	fprintf(stderr, "done managing - tallying clients\n");
-	for EACHMON(mhead)
-		for EACHCLIENT(im->head)
-			fprintf(stderr, "found client #%lu in monitor #%d!\n", ic->win, im->num);
-	fprintf(stderr, "done tallying!\n");
 }
 
 void mapclients(monitor* m){
@@ -849,30 +844,10 @@ void resizeclient(client* c, int x, int y, int w, int h){
 void sendmon(client* c, monitor* m){
 	if (c->mon == m) return;
 
-	fprintf(stderr, "about to sendmon - searching for c\n");
-	for EACHMON(mhead)
-		for EACHCLIENT(im->head)
-			if (ic == c)
-				fprintf(stderr, "found c in monitor #%d!\n", im->num);
-	fprintf(stderr, "done searching!\n");
-
-	fprintf(stderr, "about to sendmon - tallying clients\n");
-	for EACHMON(mhead)
-		for EACHCLIENT(im->head)
-			fprintf(stderr, "found client #%lu in monitor #%d!\n", ic->win, im->num);
-	fprintf(stderr, "done tallying!\n");
-
 	detach(c);
 	c->mon = m;
 	c->desks = m->seldesks;
 	attachaside(c);
-
-	fprintf(stderr, "just attached to m - tallying clients\n");
-	for EACHMON(mhead)
-		for EACHCLIENT(im->head)
-			fprintf(stderr, "found client #%lu in monitor #%d!\n", ic->win, im->num);
-	fprintf(stderr, "done tallying!\n");
-
 
 	curmon->current = findcurrent();
 	for EACHMON(mhead){
@@ -880,18 +855,6 @@ void sendmon(client* c, monitor* m){
 		im->curlayout->arrange(im);
 	}
 	changemon(c->mon, YesFocus);
-	fprintf(stderr, "done sendmoning - searching for c\n");
-	for EACHMON(mhead)
-		for EACHCLIENT(im->head)
-			if (ic == c)
-				fprintf(stderr, "found c in monitor #%d!\n", im->num);
-	fprintf(stderr, "done searching!\n");
-
-	fprintf(stderr, "done sendmoning - tallying clients\n");
-	for EACHMON(mhead)
-		for EACHCLIENT(im->head)
-			fprintf(stderr, "found client #%lu in monitor #%d!\n", ic->win, im->num);
-	fprintf(stderr, "done tallying!\n");
 }
 
 void todesktop(const Arg arg){
@@ -1014,10 +977,7 @@ void zoom(){
  */
 
 void changemon(monitor* m, int wantfocus){
-	if (!m){
-		fprintf(stderr, "changemon - m is NULL!\n");
-		return;
-	}
+	if (!m) return;
 	curmon = m;
 	if (wantfocus) updatefocus();
 }
@@ -1124,7 +1084,6 @@ void updategeom(){
 
 #ifdef XINERAMA
 	if (XineramaIsActive(dis)){
-		fprintf(stderr, "xinerama active - updategeoming\n");
 		int i, j, ns;
 		client* c;
 		monitor* m, * oldmhead = mhead;
@@ -1144,9 +1103,7 @@ void updategeom(){
 		
 		mhead = m = createmon(0, unique[0].x_org, unique[0].y_org,
 				unique[0].width, unique[0].height);
-		fprintf(stderr, "made first monitor\n");
 		for (i=1;i < j;i++){
-			fprintf(stderr, "working on monitor #%d\n", i);
 			m->next = createmon(i, unique[i].x_org, unique[i].y_org,
 					unique[i].width, unique[i].height);
 			m = m->next;
@@ -1169,25 +1126,19 @@ void updategeom(){
 	} else
 #endif
 	{
-		fprintf(stderr, "no xinerama\n");
-		if (mhead){
-			fprintf(stderr, "cleaning up mhead\n");
-			cleanupmon(mhead);
-		}
+		if (mhead) cleanupmon(mhead);
 		mhead = createmon(0, 0, 0, sw, sh);
 	}
-
-	changemon(mhead, YesFocus);
 
 //	XSetErrorHandler(xerror);
 //	XUngrabServer(dis);
 
 	/* focus monitor that has the pointer inside it */
-//	for EACHMON(mhead)
-//		if (getptrcoords(&x, &y) && !ISOUTSIDE(x, y, im->x, im->y - im->bar->h, im->w, im->h)){
-//			changemon(im, YesFocus);
-//			break;
-//		}
+	for EACHMON(mhead)
+		if (getptrcoords(&x, &y) && !ISOUTSIDE(x, y, im->x, im->y - im->bar->h, im->w, im->h)){
+			changemon(im, YesFocus);
+			break;
+		}
 }
 
 
