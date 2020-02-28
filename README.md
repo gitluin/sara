@@ -76,7 +76,7 @@ For more information, see the [wiki](https://github.com/gitluin/sara/wiki)!
 
 Bugs
 ----
- * bar draw is not always immediate on xinit
+ * N O N E T H A T I K N O W O F !
 
 To Do
 ----

@@ -181,6 +181,7 @@ static void configurenotify(XEvent* e);
 static void configurerequest(XEvent* e);
 static void destroynotify(XEvent* e);
 static void enternotify(XEvent* e);
+static void expose(XEvent* e);
 static void keypress(XEvent* e);
 static void maprequest(XEvent* e);
 static void motionnotify(XEvent* e);
@@ -271,7 +272,7 @@ static void youviolatedmymother();
 static Display* dis;
 static Window root;
 static int screen;
-static int sh
+static int sh;
 static int sw;
 /* Monitor Interfacing */
 static monitor* curmon;
@@ -295,6 +296,7 @@ static void (*events[LASTEvent])(XEvent* e) = {
 	[ConfigureRequest] = configurerequest,
 	[DestroyNotify] = destroynotify,
 	[EnterNotify] = enternotify,
+	[Expose] = expose,
 	[KeyPress] = keypress,
 	[MapRequest] = maprequest,
 	[MotionNotify] = motionnotify,
@@ -348,7 +350,7 @@ void configurenotify(XEvent* e){
 
 		for EACHMON(mhead){
 			for EACHCLIENT(im->head) if (ic->isfull){
-					resizeclient(ic, im->x, im->y - im->bar->h, im->w, im->h);
+					resizeclient(ic, im->x, im->y - im->bar->h, im->w, im->h + im->bar->h);
 				}
 
 			im->curlayout->arrange(im);
@@ -432,6 +434,13 @@ void enternotify(XEvent* e){
 
 	changecurrent(c, c->mon->curdesk);
 	updatefocus();
+}
+
+void expose(XEvent* e){
+	XExposeEvent* ev = &e->xexpose;
+
+	if (ev->count == 0 && findmon(ev->window))
+		drawbars();
 }
 
 void keypress(XEvent* e){
@@ -1579,7 +1588,6 @@ void setup(){
 
 	grabkeys();
 	updatestatus();
-	drawbars();
 }
 
 /* dwm copypasta */
