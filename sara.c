@@ -271,9 +271,11 @@ static void youviolatedmymother();
 static Display* dis;
 static Window root;
 static int screen;
-static int sh, sw;
+static int sh
+static int sw;
 /* Monitor Interfacing */
-static monitor* curmon, * mhead;
+static monitor* curmon;
+static monitor* mhead;
 /* Backend */
 static client* ic; /* for EACHCLIENT iterating */
 static monitor* im; /* for EACHMON iterating */
@@ -413,6 +415,7 @@ void enternotify(XEvent* e){
 		return;
 	}
 
+	/* prevent focus from freaking out if you spawn a client underneath a ptr-focused float */
 	if (justmanageunder){
 		justmanageunder = justswitch = 0;
 		return;
@@ -843,6 +846,7 @@ void resizeclient(client* c, int x, int y, int w, int h){
 	XSync(dis, False);
 }
 
+/* mostly dwm copypasta */
 void sendmon(client* c, monitor* m){
 	if (c->mon == m || c->isfull) return;
 
@@ -1078,15 +1082,6 @@ static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo
 void updategeom(){
 	int x, y;
 
-//	/* I think these grabs will prevent random crashes.
-//	 * One happened to me while switching monitors,
-//	 * and sara accidentally'd at an XSendEvent call.
-//	 */
-//#ifndef XINERAMA
-//	XGrabServer(dis);
-//	XSetErrorHandler(xerrordummy);
-//#endif
-
 #ifdef XINERAMA
 	if (XineramaIsActive(dis)){
 		int i, j, ns;
@@ -1095,9 +1090,6 @@ void updategeom(){
 
 		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
 		XineramaScreenInfo* unique;
-
-//		XGrabServer(dis);
-//		XSetErrorHandler(xerrordummy);
 
       		/* only consider unique geometries as separate screens */
 		unique = ecalloc(ns, sizeof(XineramaScreenInfo));
@@ -1134,9 +1126,6 @@ void updategeom(){
 		if (mhead) cleanupmon(mhead);
 		mhead = createmon(0, 0, 0, sw, sh);
 	}
-
-//	XSetErrorHandler(xerror);
-//	XUngrabServer(dis);
 
 	/* focus monitor that has the pointer inside it */
 	for EACHMON(mhead)
