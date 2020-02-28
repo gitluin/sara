@@ -14,9 +14,7 @@ sara is a very simple and lightweight tiling window manager. Originally started 
 Recent Statii
 ------
  * v1.0		- Oh my god I did it.
- * v0.9.9.{0-5} - Mouse move and resize, updategeom a la dwm 6.1, majorly obnoxious but easily fixed sendmon-related bug, enternotify/motionnotify/general bugfixing, applyrules supports fullscreen. Heckin yeet.
- * v0.9.7.{0-7}	- Implemented rules, transient popup window support, proper float stacking, proper client killing, removal of redundant variables, plenty of code cleanup.
- * v0.9.2.{0-7} - Multiple monitors implemented, viewall added, reduction in global variable count, bar drawing fixes, enternotify improved, moveclient works by visibility, bugs with togglefs, send clients tomon.
+ * v0.9.{2-9.5}	- Multiple monitor support, viewall, reduced redundant variables, solved many enternotify edge cases, moveclient works by visibility, updategeom a la dwm 6.1, implemented rules, transient popup support, proper client killing, proper float stacking, code cleanup, mouse move and resize, lots of time wasted on easy (but sometimes obscure) bugs.
  * v0.8.{1-7.7} - No drw and no alpha behavior for the bar. Can send clients to just a desktop, can view multiple desktops at once, enternotify works (maybe), gaps, window borders, bar boxes removed. Code cleanup. Memory freeing fixed. buttonpress works!
  * v0.7		- The dwm way of clients has been implemented, bug-free (I think)!
  * v0.6.{0-5}	- There's a bar with alpha support! Tags in the bar are updated properly by client movement, floating windows always appear raised, manual fullscreen toggling, no more swindows (the buggy version).
