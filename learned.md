@@ -1,26 +1,31 @@
 Things I've Learned
 =====================
 
-# General things
+# General Things
 
-* Man pages probably won't help you conceptually understand a(n) (X)lib
-* Doodling is still a useful way to debug
+* Man pages probably won't help you conceptually understand a(n) (X)lib.
+* Drawing is probably the best tool I have for debugging.
 
-# C-specific things
+# C-specific Things
 
-* enums
-* unions
-* Batshit insane pointer manipulation with for loops
-* Complex stopping conditions in for loops
-* #include makes things visible between files based on line of incorporation
-* #defines are pretty nifty
-* Assign and check within if statements
-* The ternary operator is wonderful
-* You can iterate multiple things in a for loop. Why don't they teach us this in school, fuq
+* Enums.
+* Unions.
+* Batshit insane pointer manipulation with for loops.
+* Complex stopping conditions in for loops.
+* #include makes things visible between files based on line of incorporation.
+* #defines are pretty nifty.
+* Some rudimentary understanding of #ifdef, #ifndef, #endif.
+* Assign and check within if statements.
+* The ternary operator is wonderful.
+* You can iterate multiple things in a for loop. Why don't they teach us this in school, fuq.
 * You'll waste time trying to solve things if you don't make sure your Makefile does what you think it does .\_.
 
-# XOrg things
+# XOrg Things
 
-* Mostly how the Xlib Window system works (I found a nice picture somewhere but have lost it, and have not gone looking yet)
-* That Xft has no Xfucking documentation
+* Mostly how the Xlib Window system works (I found a nice picture somewhere but have lost it, and have not gone looking yet).
 * That Xlib has a lot of [documentation](https://www.x.org/releases/current/doc/libX11/libX11/libX11.pdf) and extra [documentation](https://tronche.com/gui/x/).
+* That Xft has no Xfucking documentation.
+
+# WM Things
+
+* I can absolutely recite for you how sara works off the top of my head. A little less so with dwm, but I've reverse-engineered most of it at this point. I never copied code that I didn't make sure to understand at least somewhat first.
