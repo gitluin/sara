@@ -315,7 +315,7 @@ void buttonpress(XEvent* e){
 		changemon(m, NoFocus);
 
 	if ( (c = findclient(ev->window)) ){
-		changecurrent(c, c->mon->curdesk);
+		changecurrent(c, curmon->curdesk);
 		updatefocus();
 		XAllowEvents(dis, ReplayPointer, CurrentTime);
 		click = ClkWin;
@@ -406,7 +406,7 @@ void enternotify(XEvent* e){
 		return;
 
 	/* if focus is pulled by manage, and ptr enters that client, allow new events */
-	if (c == c->mon->current){
+	if (c == curmon->current){
 		if (justmanage)
 			justmanage = justswitch = 0;
 		return;
@@ -514,9 +514,7 @@ void attachaside(client* c){
 	client* l;
 
 	/* if attached to a monitor already (applyrules) */
-	if (findclient(c->win)) return;
-
-	c->next = NULL;
+//	if (findclient(c->win)) return;
 
 	if (!c->mon->head){
 		c->mon->head = c;
@@ -649,19 +647,6 @@ void manage(Window parent, XWindowAttributes* wa){
 	justmanage = 1;
 	c->mon->curlayout->arrange(c->mon);
 	if (c->desks & curmon->seldesks) updatefocus();
-
-	fprintf(stderr, "done managing - searching for c\n");
-	for EACHMON(mhead)
-		for EACHCLIENT(im->head)
-			if (ic == c)
-				fprintf(stderr, "found c in monitor #%d!\n", im->num);
-	fprintf(stderr, "done searching!\n");
-
-	fprintf(stderr, "done managing - tallying clients\n");
-	for EACHMON(mhead)
-		for EACHCLIENT(im->head)
-			fprintf(stderr, "found client #%lu in monitor #%d!\n", ic->win, im->num);
-	fprintf(stderr, "done tallying!\n");
 }
 
 void mapclients(monitor* m){
@@ -849,49 +834,16 @@ void resizeclient(client* c, int x, int y, int w, int h){
 void sendmon(client* c, monitor* m){
 	if (c->mon == m) return;
 
-	fprintf(stderr, "about to sendmon - searching for c\n");
-	for EACHMON(mhead)
-		for EACHCLIENT(im->head)
-			if (ic == c)
-				fprintf(stderr, "found c in monitor #%d!\n", im->num);
-	fprintf(stderr, "done searching!\n");
-
-	fprintf(stderr, "about to sendmon - tallying clients\n");
-	for EACHMON(mhead)
-		for EACHCLIENT(im->head)
-			fprintf(stderr, "found client #%lu in monitor #%d!\n", ic->win, im->num);
-	fprintf(stderr, "done tallying!\n");
-
 	detach(c);
 	c->mon = m;
 	c->desks = m->seldesks;
 	attachaside(c);
-
-	fprintf(stderr, "just attached to m - tallying clients\n");
-	for EACHMON(mhead)
-		for EACHCLIENT(im->head)
-			fprintf(stderr, "found client #%lu in monitor #%d!\n", ic->win, im->num);
-	fprintf(stderr, "done tallying!\n");
-
-
 	curmon->current = findcurrent();
 	for EACHMON(mhead){
 		mapclients(im);
 		im->curlayout->arrange(im);
 	}
 	changemon(c->mon, YesFocus);
-	fprintf(stderr, "done sendmoning - searching for c\n");
-	for EACHMON(mhead)
-		for EACHCLIENT(im->head)
-			if (ic == c)
-				fprintf(stderr, "found c in monitor #%d!\n", im->num);
-	fprintf(stderr, "done searching!\n");
-
-	fprintf(stderr, "done sendmoning - tallying clients\n");
-	for EACHMON(mhead)
-		for EACHCLIENT(im->head)
-			fprintf(stderr, "found client #%lu in monitor #%d!\n", ic->win, im->num);
-	fprintf(stderr, "done tallying!\n");
 }
 
 void todesktop(const Arg arg){
@@ -1144,9 +1096,7 @@ void updategeom(){
 		
 		mhead = m = createmon(0, unique[0].x_org, unique[0].y_org,
 				unique[0].width, unique[0].height);
-		fprintf(stderr, "made first monitor\n");
 		for (i=1;i < j;i++){
-			fprintf(stderr, "working on monitor #%d\n", i);
 			m->next = createmon(i, unique[i].x_org, unique[i].y_org,
 					unique[i].width, unique[i].height);
 			m = m->next;
@@ -1177,17 +1127,15 @@ void updategeom(){
 		mhead = createmon(0, 0, 0, sw, sh);
 	}
 
-	changemon(mhead, YesFocus);
-
 //	XSetErrorHandler(xerror);
 //	XUngrabServer(dis);
 
 	/* focus monitor that has the pointer inside it */
-//	for EACHMON(mhead)
-//		if (getptrcoords(&x, &y) && !ISOUTSIDE(x, y, im->x, im->y - im->bar->h, im->w, im->h)){
-//			changemon(im, YesFocus);
-//			break;
-//		}
+	for EACHMON(mhead)
+		if (getptrcoords(&x, &y) && !ISOUTSIDE(x, y, im->x, im->y - im->bar->h, im->w, im->h)){
+			changemon(im, YesFocus);
+			break;
+		}
 }
 
 
