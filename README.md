@@ -70,7 +70,7 @@ For more information, see the [wiki](https://github.com/gitluin/sara/wiki)!
 
 Bugs
 ----
- * N O N E T H A T I K N O W O F !
+ * Well, that was shortlived. There's some dumb focusing bug that only applies to Firefox on another monitor.
 
 To Do
 ----
