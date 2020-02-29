@@ -24,15 +24,12 @@ Recent Statii
 
 Features
 -----
-
 ### Modes
-
 * Tiling mode (master window with right-hand vertical stack)
 * Monocle mode
 * Fullscreen mode (see limitations)
 
 ### Behavior
-
 * dwm-like: tags
 * patch-like:
 	* attachaside
@@ -42,9 +39,9 @@ Features
 	* pertag-like: layouts, master_size
 	* singular borders
 * worst
+* Multiple monitor support!
 
 ### Design Limitations
-
 * No support for urgency coloring in the bar, because nothing I do is urgent.
 * No [ICCCM](https://web.archive.org/web/20190617214524/https://raw.githubusercontent.com/kfish/xsel/1a1c5edf0dc129055f7764c666da2dd468df6016/rant.txt) (found thanks to [dylan](https://github.com/dylanaraps/sowm)). This is mostly felt in the lack of the applysizehints behavior that dwm has (ex. cmatrix won't redraw using larger window bounds if you give it more space via togglefs, changemsize, etc.)
 * No EWMH support, because fullscreening manually isn't so bad (see config.h).
@@ -59,10 +56,11 @@ A few examples I was able to find:
 * [dminiwm](https://github.com/moetunes/dminiwm) No status bar. No XINERAMA support. Also, some of the code: compare add\_window() to the combination of manage(), attachaside(), etc.
 * [berry](https://github.com/JLErvin/berry) CLI-config vs. config.h. Extremely standards-compliant. Codebase is much larger as a consequence (wm.c is 1912 SLOC).
 * [monsterwm](https://github.com/c00kiemon5ter/monsterwm) No status bar (I appreciate the UNIX philosophy adherence, though). No XINERAMA support. Not a fan of the code formatting, but not a big deal unless you're in my position/writing patches.
+* I wrote a [bar](github.com/gitluin/sbar) that goes along with it!
 
 Installation
 ------------
-Need Xlib, then sudo make install clean
+Need Xlib, then sudo make install clean. For multiple monitors, you need Xinerama.
 
 Help Me!
 ------------
