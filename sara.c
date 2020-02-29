@@ -411,7 +411,7 @@ void enternotify(XEvent* e){
 		return;
 
 	/* if focus is pulled by manage, and ptr enters that client, allow new events */
-	if (c == c->mon->current){
+	if (c == curmon->current){
 		if (justmanage)
 			justmanage = justswitch = 0;
 		return;
@@ -468,14 +468,16 @@ void maprequest(XEvent* e){
 
 void motionnotify(XEvent* e){
 	XMotionEvent* ev = &e->xmotion;
-	int isoutside = ISOUTSIDE(ev->x_root, ev->y_root, curmon->x, curmon->y - curmon->bar->h, curmon->w, curmon->h + curmon->bar->h);
 
 	if (ev->window != root)
 		return;
-	for EACHMON(mhead){
-		if (im != curmon && isoutside){
-			changemon(im, YesFocus);
-			return;
+
+	if (ISOUTSIDE(ev->x_root, ev->y_root, curmon->x, curmon->y - curmon->bar->h, curmon->w, curmon->h + curmon->bar->h)){
+		for EACHMON(mhead){
+			if (im != curmon){
+				changemon(im, YesFocus);
+				return;
+			}
 		}
 	}
 }
@@ -962,6 +964,7 @@ void tomon(const Arg arg){
 void unmanage(client* c){
 	monitor* m = c->mon;
 	detach(c);
+	XUngrabButton(dis, AnyButton, AnyModifier, c->win);
 	if (c) free(c);
 	m->curlayout->arrange(m);
 	updatefocus();
@@ -995,7 +998,7 @@ void zoom(){
  */
 
 void changemon(monitor* m, int wantfocus){
-	if (!m) return;
+	if (curmon && curmon->current) grabbuttons(curmon->current, 0);
 	curmon = m;
 	if (wantfocus) updatefocus();
 }
