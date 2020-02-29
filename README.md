@@ -58,12 +58,8 @@ A few examples I was able to find:
 * [monsterwm](https://github.com/c00kiemon5ter/monsterwm) No status bar (I appreciate the UNIX philosophy adherence, though). No XINERAMA support. Not a fan of the code formatting, but not a big deal unless you're in my position/writing patches.
 * I wrote a [bar](https://github.com/gitluin/sbar.git) that goes along with it!
 
-Installation
-------------
-Need Xlib, then sudo make install clean. For multiple monitors, you need Xinerama.
-
-Help Me!
-------------
+Help Me (Keybindings, Installation, Etc.)!
+-------------------------------------------
 For more information, see the [wiki](https://github.com/gitluin/sara/wiki)!
 
 Bugs
