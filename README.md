@@ -13,6 +13,7 @@ sara is a very simple and lightweight tiling window manager. Originally started 
 
 Recent Statii
 ------
+ * v1.0.1	- Fixed a bug with changecurrent on unmanage triggering. It caused clients to spawn unattached and wouldn't fix itself until a view call.
  * v1.0		- Oh my god I did it.
  * v0.9.{2-9.5}	- Multiple monitor support, viewall, reduced redundant variables, solved many enternotify edge cases, moveclient works by visibility, updategeom a la dwm 6.1, implemented rules, transient popup support, proper client killing, proper float stacking, code cleanup, mouse move and resize, lots of time wasted on easy (but sometimes obscure) bugs.
  * v0.8.{1-7.7} - No drw and no alpha behavior for the bar. Can send clients to just a desktop, can view multiple desktops at once, enternotify works (maybe), gaps, window borders, bar boxes removed. Code cleanup. Memory freeing fixed. buttonpress works!

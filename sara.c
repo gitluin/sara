@@ -190,7 +190,7 @@ static void propertynotify(XEvent* e);
 static void adjustcoords(client* c);
 static void applyrules(client* c);
 static void attachaside(client* c);
-static void changecurrent(client* c, unsigned int deskmask);
+static void changecurrent(client* c, monitor* m, unsigned int deskmask);
 static void configure(client* c);
 static void detach(client* c);
 static void killclient();
@@ -201,7 +201,7 @@ static void moveclient(const Arg arg);
 static void moveclientup(client* c, int wantzoom);
 static void movefocus(const Arg arg);
 static void raisefloats();
-static void refocus(client* n, client* p);
+static void refocus(client* n, client* p, monitor* m);
 static void resizeclient(client* c, int x, int y, int w, int h);
 static void sendmon(client* c, monitor* m);
 static void todesktop(const Arg arg);
@@ -269,6 +269,7 @@ static void youviolatedmymother();
  */
 
 /* X Interfacing */
+static Cursor cursor;
 static Display* dis;
 static Window root;
 static int screen;
@@ -321,7 +322,7 @@ void buttonpress(XEvent* e){
 		changemon(m, NoFocus);
 
 	if ( (c = findclient(ev->window)) ){
-		changecurrent(c, c->mon->curdesk);
+		changecurrent(c, c->mon, c->mon->curdesk);
 		updatefocus();
 		XAllowEvents(dis, ReplayPointer, CurrentTime);
 		click = ClkWin;
@@ -432,7 +433,7 @@ void enternotify(XEvent* e){
 	if ( (m = c->mon) && m != curmon )
 		changemon(m, NoFocus);
 
-	changecurrent(c, c->mon->curdesk);
+	changecurrent(c, c->mon, c->mon->curdesk);
 	updatefocus();
 }
 
@@ -545,11 +546,6 @@ void applyrules(client* c){
 void attachaside(client* c){
 	client* l;
 
-	/* if attached to a monitor already (applyrules) */
-	if (findclient(c->win)) return;
-
-	c->next = NULL;
-
 	if (!c->mon->head){
 		c->mon->head = c;
 
@@ -567,21 +563,21 @@ void attachaside(client* c){
 
 	if (c->mon->current && c->mon->current->isfloat) justmanageunder = 1;
 
-	changecurrent(c, c->mon->curdesk);
+	changecurrent(c, c->mon, c->mon->curdesk);
 }
 
-void changecurrent(client* c, unsigned int deskmask){
-	if (!c) return;
+void changecurrent(client* c, monitor* m, unsigned int deskmask){
+	if (c){
+		c->iscur ^= deskmask;
+		grabbuttons(c, 1);
+	}
 	
-	c->iscur ^= deskmask;
-	grabbuttons(c, 1);
-	
-	for EACHCLIENT(c->mon->head) if (ic != c && (ic->iscur & deskmask)){
+	for EACHCLIENT(m->head) if (ic != c && (ic->iscur & deskmask)){
 			ic->iscur ^= deskmask;
 			grabbuttons(ic, 0);
 		}
 
-	c->mon->current = c;
+	m->current = c;
 }
 
 void configure(client* c){
@@ -604,9 +600,11 @@ void detach(client* c){
 	/* Move the window out of the way first to hide it while it hangs around :) */
 	XMoveWindow(dis, c->win, 2*sw, 0);
 
-	/* before disconnecting c */
-	if (c->desks & c->mon->curdesk) refocus(c->next, c);
-	else changecurrent(findprevclient(c, OnlyVis, YesFloat), c->mon->curdesk);
+	/* before disconnecting c
+	 * written this way so function keys don't move your focus
+	 */
+	if (c->desks & c->mon->curdesk) refocus(c->next, c, c->mon);
+	else changecurrent(findprevclient(c, OnlyVis, YesFloat), c->mon, c->mon->curdesk);
 
 	/* For both, if NULL, then we're still okay */
 	if ( (p = findprevclient(c, AnyVis, YesFloat)) )
@@ -743,7 +741,7 @@ void movefocus(const Arg arg){
 	}
 
 	justswitch = 1;
-	changecurrent(c, curmon->curdesk);
+	changecurrent(c, curmon, curmon->curdesk);
 	updatefocus();
 }
 
@@ -758,7 +756,7 @@ void manipulate(const Arg arg){
 	if ( !(c = curmon->current) || c->isfull )
 		return;
 	if (XGrabPointer(dis, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync,
-		None, XCreateFontCursor(dis, 68), CurrentTime) != GrabSuccess)
+		None, cursor, CurrentTime) != GrabSuccess)
 		return;
 	if (!getptrcoords(&x, &y))
 		return;
@@ -840,10 +838,10 @@ void raisefloats(){
 }
 
 /* focus moves down if possible, else up */
-void refocus(client* n, client* p){
+void refocus(client* n, client* p, monitor* m){
 	client* vis;
 	vis = (vis = findvisclient(n, YesFloat)) ? vis : findprevclient(p, OnlyVis, YesFloat);
-	changecurrent(vis, curmon->curdesk);
+	changecurrent(vis, m, m->curdesk);
 }
 
 void resizeclient(client* c, int x, int y, int w, int h){
@@ -865,6 +863,7 @@ void sendmon(client* c, monitor* m){
 	c->mon = m;
 	c->desks = m->seldesks;
 
+	c->next = NULL;
 	attachaside(c);
 	if (c->isfloat) adjustcoords(c);
 
@@ -881,12 +880,12 @@ void todesktop(const Arg arg){
 
 	curmon->current->desks = arg.ui;
 	curmon->current->iscur = 0;
-	changecurrent(curmon->current, arg.ui);
+	changecurrent(curmon->current, curmon, arg.ui);
 
 	XUnmapWindow(dis, curmon->current->win);
 	XSync(dis, False);
 
-	refocus(curmon->current->next, curmon->current);
+	refocus(curmon->current->next, curmon->current, curmon);
 	curmon->curlayout->arrange(curmon);
 	updatefocus();
 }
@@ -898,12 +897,12 @@ void toggledesktop(const Arg arg){
 		return;
 	if ( (newdesks = curmon->current->desks ^ arg.ui) ){
 		curmon->current->desks = newdesks;
-		changecurrent(curmon->current, arg.ui);
+		changecurrent(curmon->current, curmon, arg.ui);
 
 		if ( !(ISVISIBLE(curmon->current)) ){
 			XUnmapWindow(dis, curmon->current->win);
 			XSync(dis, False);
-			refocus(curmon->current->next, curmon->current);
+			refocus(curmon->current->next, curmon->current, curmon);
 		}
 
 		curmon->curlayout->arrange(curmon);
@@ -963,6 +962,7 @@ void tomon(const Arg arg){
 
 void unmanage(client* c){
 	monitor* m = c->mon;
+
 	detach(c);
 	XUngrabButton(dis, AnyButton, AnyModifier, c->win);
 	if (c) free(c);
@@ -1170,6 +1170,20 @@ client* findcurrent(){
 	return NULL;
 }
 
+client* findprevclientbak(client* c, int onlyvis){
+	client* ret;
+
+	for EACHCLIENT(c->mon->head){
+		if (ic == c) break;
+		if (onlyvis)
+			if (ISVISIBLE(ic)) ret = ic;
+		if (ic->next == c)
+			return onlyvis ? ret : ic;
+	}
+
+	return NULL;
+}
+
 client* findprevclient(client* c, int onlyvis, int wantfloat){
 	client* ret;
 
@@ -1317,7 +1331,7 @@ bar* initbar(monitor* m){
 			DefaultDepth(dis, screen), InputOutput, DefaultVisual(dis,screen), 
 			CWOverrideRedirect|CWBackPixel|CWBorderPixel|CWColormap|CWEventMask, &wa);
 
-	XDefineCursor(dis, sbar->win, XCreateFontCursor(dis, 68));
+	XDefineCursor(dis, sbar->win, cursor);
 	XMapRaised(dis, sbar->win);
 
 	return sbar;
@@ -1435,7 +1449,7 @@ void view(const Arg arg){
 
 	/* changecurrent(findcurrent(), curmon->curdesk) toggles off findcurrent() if not NULL */
 	if ( !(curmon->current = findcurrent()) && (c = findvisclient(curmon->head, YesFloat)) )
-		changecurrent(c, curmon->curdesk);
+		changecurrent(c, curmon, curmon->curdesk);
 
 	justswitch = 1;
 	curmon->curlayout->arrange(curmon);
@@ -1483,6 +1497,7 @@ void cleanup(){
 
 	for (i=0;i < TABLENGTH(colors);i++) free(scheme[i]);
 	free(scheme);
+	XFree(&cursor);
 	cleandrw();
 
 	XSync(dis, False);
@@ -1570,6 +1585,8 @@ void setup(){
 	sw = XDisplayWidth(dis, screen);
 	sh = XDisplayHeight(dis, screen);
 
+	cursor = XCreateFontCursor(dis, 68);
+
 	scheme = ecalloc(TABLENGTH(colors), sizeof(XftColor*));
 	for (i=0;i < TABLENGTH(colors);i++) scheme[i] = createscheme(colors[i], 2);
 
@@ -1582,7 +1599,7 @@ void setup(){
 	updategeom();
 	loaddesktop(0);
 
-	wa.cursor = XCreateFontCursor(dis, 68);
+	wa.cursor = cursor;
 	wa.event_mask = SubstructureRedirectMask|SubstructureNotifyMask
 		|ButtonPressMask|PointerMotionMask|EnterWindowMask
 		|StructureNotifyMask|PropertyChangeMask;
