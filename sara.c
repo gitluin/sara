@@ -1170,20 +1170,6 @@ client* findcurrent(){
 	return NULL;
 }
 
-client* findprevclientbak(client* c, int onlyvis){
-	client* ret;
-
-	for EACHCLIENT(c->mon->head){
-		if (ic == c) break;
-		if (onlyvis)
-			if (ISVISIBLE(ic)) ret = ic;
-		if (ic->next == c)
-			return onlyvis ? ret : ic;
-	}
-
-	return NULL;
-}
-
 client* findprevclient(client* c, int onlyvis, int wantfloat){
 	client* ret;
 
