@@ -31,16 +31,17 @@ Features
 * Fullscreen mode (see limitations)
 
 ### Behavior
-* dwm-like: tags
-* patch-like:
-	* attachaside
-	* emptyview
-	* hide vacant tags
-	* movestack
-	* pertag-like: layouts, master_size
-	* singular borders
+* dwm-like:
+	* tags
+	* Multiple monitor through Xinerama
+	* patch-like:
+		* attachaside
+		* emptyview
+		* hide vacant tags
+		* movestack
+		* pertag-like: layouts, master_size
+		* singular borders
 * worst
-* Multiple monitor support!
 
 ### Design Limitations
 * No support for urgency coloring in the bar, because nothing I do is urgent.

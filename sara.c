@@ -40,10 +40,8 @@ enum { ColFg, ColBg };
 enum { SymLeft, SymRight };
 enum { AnyVis, OnlyVis };
 enum { NoZoom, YesZoom };
-enum { NoDetach, YesDetach };
 enum { NoFocus, YesFocus };
-enum { NoStay, YesStay };
-enum { ClkHldr, ClkWin };
+enum { ClkPlcHldr, ClkWin };
 enum { WantMove, WantResize };
 enum { NoFloat, YesFloat };
 
