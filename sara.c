@@ -320,8 +320,10 @@ void buttonpress(XEvent* e){
 		changemon(m, NoFocus);
 
 	if ( (c = findclient(ev->window)) ){
-		changecurrent(c, c->mon, c->mon->curdesk);
-		updatefocus();
+		if (c != c->mon->current){
+			changecurrent(c, c->mon, c->mon->curdesk);
+			updatefocus();
+		}
 		XAllowEvents(dis, ReplayPointer, CurrentTime);
 		click = ClkWin;
 	}
