@@ -1229,7 +1229,7 @@ client* findcurrent(){
 }
 
 client* findprevclient(client* c, int onlyvis, int wantfloat){
-	client* ret;
+	client* ret = NULL;
 
 	for EACHCLIENT(c->mon->head){
 		if (ic == c) break;

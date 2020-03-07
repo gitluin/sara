@@ -61,6 +61,9 @@ A few examples I was able to find:
 * [dminiwm](https://github.com/moetunes/dminiwm) No status bar. No XINERAMA support. Also, some of the code: compare add\_window() to the combination of manage(), attachaside(), etc.
 * [berry](https://github.com/JLErvin/berry) CLI-config vs. config.h. Extremely standards-compliant. Codebase is much larger as a consequence (wm.c is 1912 SLOC).
 * [monsterwm](https://github.com/c00kiemon5ter/monsterwm) No status bar (I appreciate the UNIX philosophy adherence, though). No XINERAMA support. Not a fan of the code formatting, but not a big deal unless you're in my position/writing patches.
+
+Also:
+
 * I wrote a [bar](https://github.com/gitluin/sbar.git) that goes along with it!
 
 Help Me (Keybindings, Installation, Etc.)!
@@ -77,5 +80,6 @@ To Do
  * More UNIX philosophy? own bar (write out layout to file, to socket, etc.)?
  * My own art.
  * A wiki.
+ * Extensive Valgrind analysis to try and reduce resource usage.
 
 If you have some particular request, don't send me an e-mail, I won't do it! Bug reports are welcome, though!
