@@ -13,6 +13,7 @@ sara is a very simple and lightweight tiling window manager. Originally started 
 
 Recent Statii
 ------
+ * v2.0		- Whole lotta UNIX philosophy up in here! Keybinds are controlled by sxhkd now! A little bit of bspwm in your dwm and sara sandwich! Pointer events (click into window, move and resize window) still handled by sara. The bar is next for UNIXification (read: surgical removal and separation into its own repo).
  * v1.0.1	- Fixed a bug with changecurrent on unmanage triggering. It caused clients to spawn unattached and wouldn't fix itself until a view call.
  * v1.0		- Oh my god I did it.
  * v0.9.{2-9.5}	- Multiple monitor support, viewall, reduced redundant variables, solved many enternotify edge cases, moveclient works by visibility, updategeom a la dwm 6.1, implemented rules, transient popup support, proper client killing, proper float stacking, code cleanup, mouse move and resize, lots of time wasted on easy (but sometimes obscure) bugs.
@@ -30,17 +31,20 @@ Features
 * Monocle mode
 * Fullscreen mode (see limitations)
 
-### Behavior
-* dwm-like: tags
-* patch-like:
-	* attachaside
-	* emptyview
-	* hide vacant tags
-	* movestack
-	* pertag-like: layouts, master_size
-	* singular borders
+### Behavior/Traits
+* dwm-like:
+	* tags
+	* Multihead support through Xinerama
+	* patch-like:
+		* attachaside
+		* emptyview
+		* hide vacant tags
+		* movestack
+		* pertag-like: layouts, master_size
+		* singular borders
+* bspwm-like:
+	* keyboard handling via external program (like sxhkd)
 * worst
-* Multiple monitor support!
 
 ### Design Limitations
 * No support for urgency coloring in the bar, because nothing I do is urgent.
@@ -65,10 +69,12 @@ For more information, see the [wiki](https://github.com/gitluin/sara/wiki)!
 
 Bugs
 ----
- * N O N E T H A T I K N O W O F !
+ * enternotify might still be goofy. Must do lots of testing.
 
 To Do
 ----
+ * Is RandR > Xinerama?
+ * More UNIX philosophy? own bar (write out layout to file, to socket, etc.)?
  * My own art.
  * A wiki.
 

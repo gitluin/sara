@@ -5,21 +5,30 @@ CFLAGS= -std=c99 -Wall -Wno-deprecated-declarations -g -DXINERAMA # -Os
 INCFLAGS= -I/usr/include/freetype2
 LIBS= -lm -lX11 -lXft -lfontconfig -lXinerama
 
-SRC= sara.c
-OBJ= ${SRC:.c=.o}
+SSRC= sarav2.c
+SOBJ= ${SSRC:.c=.o}
 
-all: sara
+all: sarav2 sockittome
 
 .c.o:
 	${CC} -c ${CFLAGS} ${INCFLAGS} $<
 
-${OBJ}: config.h
+${SOBJ}: config.h
 
-sara: ${OBJ}
-	${CC} -o $@ ${OBJ} ${LIBS}
+sarav2: ${SOBJ}
+	${CC} -o $@ ${SOBJ} ${LIBS}
+
+sockittome:
+	gcc -c sockittome.c
+	gcc -o sockittome sockittome.o
 
 install: all
-	install -Dm 755 sara $(BINDIR)/sara
+	install -Dm 755 sarav2 $(BINDIR)/sarav2
+	install -Dm 755 sockittome $(BINDIR)/sockittome
+
+uninstall:
+	rm -f $(BINDIR)/sarav2
+	rm -f $(BINDIR)/sockittome
 
 clean:
-	rm -f sara *.o
+	rm -f sarav2 sockittome *.o
