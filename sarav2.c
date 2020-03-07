@@ -1780,7 +1780,8 @@ void youviolatedmymother(const Arg arg){
 }
 
 int main(){
-	if ( !(dis = XOpenDisplay(NULL)) ) die("Cannot open display!");
+	if ( !(dis = XOpenDisplay(NULL)) )
+		die("Cannot open display!");
 	XSetErrorHandler(xerror);
 	setup();
 
