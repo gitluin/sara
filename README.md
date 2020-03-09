@@ -78,6 +78,7 @@ To Do
 ----
  * Is RandR > Xinerama?
  * More UNIX philosophy? own bar (write out layout to file, to socket, etc.)?
+   * for bar: specify bar at top or bottom of the screen
  * My own art.
  * A wiki.
  * Extensive Valgrind analysis to try and reduce resource usage.
