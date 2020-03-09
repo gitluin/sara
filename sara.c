@@ -180,6 +180,7 @@ static void configurerequest(XEvent* e);
 static void destroynotify(XEvent* e);
 static void enternotify(XEvent* e);
 static void expose(XEvent* e);
+static void focusin(XEvent* e);
 static void keypress(XEvent* e);
 static void maprequest(XEvent* e);
 static void motionnotify(XEvent* e);
@@ -296,6 +297,7 @@ static void (*events[LASTEvent])(XEvent* e) = {
 	[DestroyNotify] = destroynotify,
 	[EnterNotify] = enternotify,
 	[Expose] = expose,
+	[FocusIn] = focusin,
 	[KeyPress] = keypress,
 	[MapRequest] = maprequest,
 	[MotionNotify] = motionnotify,
@@ -442,6 +444,14 @@ void expose(XEvent* e){
 
 	if (ev->count == 0 && findmon(ev->window))
 		drawbars();
+}
+
+/* there are some broken focus acquiring clients needing extra handling */
+void focusin(XEvent* e){
+	XFocusChangeEvent* ev = &e->xfocus;
+
+	if (curmon->current && ev->window != curmon->current->win)
+		updatefocus();
 }
 
 void keypress(XEvent* e){
@@ -792,6 +802,7 @@ void manipulate(const Arg arg){
 			} else {
 				nx = ocx + (ev.xmotion.x - x);
 				ny = ocy + (ev.xmotion.y - y);
+				/* if c is within snap pixel of the monitor borders, then snap */
 				if (abs(curmon->x - nx) < snap)
 					nx = curmon->x;
 				else if (abs((curmon->x + curmon->w) - (nx + c->w)) < snap)
@@ -819,9 +830,13 @@ void manipulate(const Arg arg){
 	if (arg.i == WantResize)
 		while (XCheckMaskEvent(dis, EnterWindowMask, &ev));
 
-	if (ISOUTSIDE(c->x, c->y, curmon->x, curmon->y - curmon->bar->h, curmon->w, curmon->h + curmon->bar->h)){
+	if (ISOUTSIDE(c->x, c->y, curmon->x, curmon->y - curmon->bar->h, curmon->w,
+				curmon->h + curmon->bar->h))
+	{
 		for EACHMON(mhead){
-			if (im != curmon && !ISOUTSIDE(c->x, c->y, im->x, im->y - im->bar->h, im->w, im->h + im->bar->h)){
+			if (im != curmon && !ISOUTSIDE(c->x, c->y, im->x, im->y - im->bar->h,
+						im->w, im->h + im->bar->h))
+			{
 				sendmon(c, im);
 				changemon(im, YesFocus);
 				return;
