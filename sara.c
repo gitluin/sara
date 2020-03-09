@@ -446,7 +446,6 @@ void expose(XEvent* e){
 		drawbars();
 }
 
-/* there are some broken focus acquiring clients needing extra handling */
 void focusin(XEvent* e){
 	XFocusChangeEvent* ev = &e->xfocus;
 
