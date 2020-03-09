@@ -25,19 +25,21 @@
  * ---------------------------------------
  */
 
-static const char* fontname	    = "Noto Sans:size=10";
+/* vertical space allotted for your bar of choice */
+static const int barpx			= 16;
+static const char* fontname		= "Noto Sans:size=10";
 /* Normal theme! */
-static const char col_gray1[]       = "#222222";
-static const char col_gray2[]       = "#bbbbbb";
-static const char col_gray3[]       = "#eeeeee";
-static const char col_cyan[]        = "#005577";
+static const char col_gray1[]		= "#222222";
+static const char col_gray2[]		= "#bbbbbb";
+static const char col_gray3[]		= "#eeeeee";
+static const char col_cyan[]		= "#005577";
 
 /* Winter theme! */
-//static const char col_gray1[]       = "#DBDBDB";
-//static const char col_gray2[]       = "#383838";
-//static const char col_gray3[]       = "#000000";
-//static const char col_cyan[]        = "#0090C9";
-static const char* colors[][3]      = {
+//static const char col_gray1[]		= "#DBDBDB";
+//static const char col_gray2[]       	= "#383838";
+//static const char col_gray3[]       	= "#000000";
+//static const char col_cyan[]        	= "#0090C9";
+static const char* colors[][2]		= {
 	/*               fg         bg		*/
 	[SchNorm] = { col_gray2, col_gray1 },
 	[SchSel]  = { col_gray3, col_cyan  },
