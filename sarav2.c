@@ -191,7 +191,6 @@ static void configurerequest(XEvent* e);
 static void destroynotify(XEvent* e);
 static void enternotify(XEvent* e);
 static void expose(XEvent* e);
-static void focusin(XEvent *e);
 static void maprequest(XEvent* e);
 static void motionnotify(XEvent* e);
 static void propertynotify(XEvent* e);
@@ -342,7 +341,6 @@ static void (*events[LASTEvent])(XEvent* e) = {
 	[DestroyNotify] = destroynotify,
 	[EnterNotify] = enternotify,
 	[Expose] = expose,
-	[FocusIn] = focusin,
 	[MapRequest] = maprequest,
 	[MotionNotify] = motionnotify,
 	[PropertyNotify] = propertynotify
@@ -474,13 +472,6 @@ void expose(XEvent* e){
 
 	if (ev->count == 0 && findmon(ev->window))
 		drawbars();
-}
-
-void focusin(XEvent* e){
-	XFocusChangeEvent* ev = &e->xfocus;
-
-	if (curmon->current && ev->window != curmon->current->win)
-		updatefocus();
 }
 
 void maprequest(XEvent* e){
