@@ -13,6 +13,7 @@ sara is a very simple and lightweight tiling window manager. Originally started 
 
 Recent Statii
 ------
+ * v2.0.1	- Holy heck.
  * v2.0		- Whole lotta UNIX philosophy up in here! Keybinds are controlled by sxhkd now! A little bit of bspwm in your dwm and sara sandwich! Pointer events (click into window, move and resize window) still handled by sara. The bar is next for UNIXification (read: surgical removal and separation into its own repo). SEPARATE BRANCH UNTIL I CAN TEST ON MULTIMONITOR AND CONFIRM CHANGES ARE SAFE TO MERGE!
  * v1.0.1	- Fixed a bug with changecurrent on unmanage triggering. It caused clients to spawn unattached and wouldn't fix itself until a view call.
  * v1.0		- Oh my god I did it.
