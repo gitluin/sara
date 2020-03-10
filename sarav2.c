@@ -322,6 +322,7 @@ static monitor* mhead;
 static int ai; /* for parsearg */
 static float af; /* for parsearg */
 static const Arg dumbarg; /* for placating function calls like togglefs */
+static XEvent dumbev; /* for XCheckMasking */
 static int dumbi; /* for placating parsearg */
 static float dumbf; /* for placating parsearg */
 static client* ic; /* for EACHCLIENT iterating */
@@ -331,7 +332,6 @@ static int running;
 static XftColor** scheme;
 static drw* sdrw;
 static char xsetr_text[256];
-static XEvent dumbev; /* for XCheckMasking */
 
 /* Events array */
 static void (*events[LASTEvent])(XEvent* e) = {
@@ -441,8 +441,6 @@ void destroynotify(XEvent* e){
 		unmanage(c);
 }
 
-// TODO: Have some fixing to do, obviously, because this is my problem child
-// Back to can't movefocus down to clients below a floater that has the pointer in it
 void enternotify(XEvent* e){
 	client* c;
 	monitor* m;
@@ -1004,13 +1002,10 @@ void unmanage(client* c){
 }
 
 void updatefocus(){
-	if (curmon->current){
+	if (curmon->current)
 		XSetInputFocus(dis, curmon->current->win, RevertToPointerRoot, CurrentTime);
-		XRaiseWindow(dis, curmon->current->win);
-
-	} else {
+	else
 		XSetInputFocus(dis, root, RevertToPointerRoot, CurrentTime);
-	}
 
 	raisefloats();
 	drawbars();
