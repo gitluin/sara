@@ -207,19 +207,18 @@ static void detach(client* c);
 static void killclient(const Arg arg);
 static void manage(Window parent, XWindowAttributes* wa);
 static void manipulate(const Arg arg);
-static void mapclients();
 static void moveclient(const Arg arg);
 static void moveclientup(client* c, int wantzoom);
 static void movefocus(const Arg arg);
-static void raisefloats();
 static void resizeclient(client* c, int x, int y, int w, int h);
 static void sendmon(client* c, monitor* m);
+static void showhide(monitor* m);
 static void todesktop(const Arg arg);
 static void toggledesktop(const Arg arg);
 static void togglefloat(const Arg arg);
 static void togglefs(const Arg arg);
 static void tomon(const Arg arg);
-static void unmanage(client* c);
+static void unmanage(client* c, int destroyed);
 static void updatefocus();
 static void zoom(const Arg arg);
 /* Monitor Manipulation */
@@ -266,6 +265,7 @@ static void start();
 static int xerror(Display* dis, XErrorEvent* e);
 static int xerrordummy(Display* dis, XErrorEvent* e);
 static int xsendkill(Window w);
+static void xwithdraw(client* c);
 static void youviolatedmymother(const Arg arg);
 
 /* callable functions from outside */
@@ -420,7 +420,14 @@ void configurerequest(XEvent* e){
 			if (ev->value_mask & CWY) c->y = (ev->y < m->bar->h) ? m->bar->h : ev->y;
 			if (ev->value_mask & CWWidth) c->w = ev->width;
 			if (ev->value_mask & CWHeight) c->h = ev->height;
-			if ISVISIBLE(c) XMoveResizeWindow(dis, c->win, c->x, c->y, c->w, c->h);
+			if ((c->x + c->w) > m->x + m->w)
+				c->x = m->x + (m->w / 2 - c->w / 2);
+			if ((c->y + c->h) > m->y + m->h)
+				c->y = m->y + (m->h / 2 - c->h / 2);
+			if ((ev->value_mask & (CWX|CWY)) && !(ev->value_mask & (CWWidth|CWHeight)))
+				configure(c);
+			if (ISVISIBLE(c))
+				XMoveResizeWindow(dis, c->win, c->x, c->y, c->w, c->h);
 
 		} else {
 			configure(c);
@@ -429,7 +436,6 @@ void configurerequest(XEvent* e){
 	} else {
 		wc.x = ev->x; wc.y = ev->y;
 		wc.width = ev->width; wc.height = ev->height;
-		wc.border_width = 0;
 		wc.sibling = ev->above; wc.stack_mode = ev->detail;
 		XConfigureWindow(dis, ev->window, ev->value_mask, &wc);
 	}
@@ -442,7 +448,7 @@ void destroynotify(XEvent* e){
 	XDestroyWindowEvent* ev = &e->xdestroywindow;
 
 	if ( (c = findclient(ev->window)) )
-		unmanage(c);
+		unmanage(c, 1);
 }
 
 void enternotify(XEvent* e){
@@ -516,14 +522,13 @@ void propertynotify(XEvent* e){
 
 void unmapnotify(XEvent* e){
 	XUnmapEvent* ev = &e->xunmap;
-	Window trans = None;
-	client* c, * t;
+	client* c;
 
-	if (XGetTransientForHint(dis, ev->window, &trans) && (t = findclient(trans))){
-		if ( (c = findclient(ev->window)) )
-			unmanage(c);
-
-		XDestroyWindow(dis, ev->window);
+	if ( (c = findclient(ev->window)) ){
+		if (ev->send_event)
+			xwithdraw(c);
+		else
+			unmanage(c, 0);
 	}
 }
 
@@ -632,7 +637,6 @@ void configure(client* c){
 	ce.window = c->win;
 	ce.x = c->x; ce.y = c->y;
 	ce.width = c->w; ce.height = c->h;
-	ce.border_width = 0;
 	ce.above = None;
 	ce.override_redirect = False;
 	XSendEvent(dis, c->win, False, StructureNotifyMask, (XEvent *)&ce);
@@ -712,13 +716,6 @@ void manage(Window parent, XWindowAttributes* wa){
 			c->isfull = !c->isfull;
 			togglefs(dumbarg);
 		}
-	}
-}
-
-void mapclients(monitor* m){
-	for EACHCLIENT(m->head){
-		if ISVISIBLE(ic) XMapWindow(dis, ic->win);
-		else XUnmapWindow(dis, ic->win);
 	}
 }
 
@@ -890,13 +887,6 @@ void manipulate(const Arg arg){
 	}
 }
 
-void raisefloats(){
-	for EACHCLIENT(curmon->head) if (ISVISIBLE(ic) && ic->isfloat){
-			resizeclient(ic, ic->x, ic->y, ic->w, ic->h);
-			XRaiseWindow(dis, ic->win);
-		}
-}
-
 void resizeclient(client* c, int x, int y, int w, int h){
 	XWindowChanges wc;
 
@@ -906,6 +896,20 @@ void resizeclient(client* c, int x, int y, int w, int h){
 	c->h = wc.height = h;
 	XConfigureWindow(dis, c->win, CWX|CWY|CWWidth|CWHeight, &wc);
 	XSync(dis, False);
+}
+
+void showhide(monitor* m){
+	for EACHCLIENT(m->head){
+		if ISVISIBLE(ic){
+			XMoveWindow(dis, ic->win, ic->x, ic->y);
+			if (ic->isfloat && !ic->isfull){
+				resizeclient(ic, ic->x, ic->y, ic->w, ic->h);
+				XRaiseWindow(dis, ic->win);
+			}
+		} else {
+			XMoveWindow(dis, ic->win, -2*ic->w, ic->y);
+		}
+	}
 }
 
 void sendmon(client* c, monitor* m){
@@ -922,10 +926,8 @@ void sendmon(client* c, monitor* m){
 	if (c->isfloat) adjustcoords(c);
 
 	curmon->current = findcurrent(curmon);
-	for EACHMON(mhead){
-		mapclients(im);
+	for EACHMON(mhead)
 		arrange(im);
-	}
 	changemon(c->mon, YesFocus);
 }
 
@@ -1035,12 +1037,20 @@ void tomon(const Arg arg){
 	sendmon(curmon->current, dirtomon(ai));
 }
 
-void unmanage(client* c){
+void unmanage(client *c, int destroyed){
 	monitor* m = c->mon;
 
 	detach(c);
-	XUngrabButton(dis, AnyButton, AnyModifier, c->win);
-	if (c) free(c);
+	if (!destroyed) {
+		XGrabServer(dis); /* avoid race conditions */
+		XSetErrorHandler(xerrordummy);
+		XUngrabButton(dis, AnyButton, AnyModifier, c->win);
+		xwithdraw(c);
+		XSync(dis, False);
+		XSetErrorHandler(xerror);
+		XUngrabServer(dis);
+	}
+	free(c);
 	arrange(m);
 	updatefocus();
 }
@@ -1051,7 +1061,7 @@ void updatefocus(){
 	else
 		XSetInputFocus(dis, root, RevertToPointerRoot, CurrentTime);
 
-	raisefloats();
+	//raisefloats();
 	drawbars();
 	XSync(dis, False);
 }
@@ -1409,6 +1419,7 @@ void updatestatus(){
  */
 
 void arrange(monitor* m){
+	showhide(m);
 	m->curlayout->arrange(m);
 	while (XCheckMaskEvent(dis, EnterWindowMask, &dumbev));
 };
@@ -1433,8 +1444,6 @@ void monocle(monitor* m){
 	for EACHCLIENT(m->head)
 		if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull)
 			resizeclient(ic, m->x, m->y, m->w, m->h);
-
-	raisefloats();
 }
 
 void setlayout(const Arg arg){
@@ -1476,8 +1485,6 @@ void tile(monitor* m){
 			}
 		}
 	}
-
-	raisefloats();
 }
 
 // TODO: toggling off a tag when you have moved the focus to it doesn't recurrent to the remaining visible tags
@@ -1495,7 +1502,6 @@ void toggleview(const Arg arg){
 		return;
 
 	curmon->seldesks ^= tagmask;
-	mapclients(curmon);
 
 	if (!(curmon->curdesk & curmon->seldesks)){
 		for (i=0;i < TABLENGTH(tags);i++){
@@ -1522,8 +1528,6 @@ void view(const Arg arg){
 
 	loaddesktop(ai);
 	curmon->seldesks = curmon->curdesk = 1 << ai;
-
-	mapclients(curmon);
 
 	// TODO: replace with new changecurrent?
 	/* if there is no current, set current to highest visible
@@ -1562,7 +1566,7 @@ void cleanup(){
 	for EACHMON(mhead){
 		changemon(im, NoFocus);
 		while (curmon->current)
-			unmanage(curmon->current);
+			unmanage(curmon->current, 0);
 	}
 
 	XUngrabKey(dis, AnyKey, AnyModifier, root);
@@ -1802,6 +1806,13 @@ int xsendkill(Window w){
 	}
 
 	return exists;
+}
+
+void xwithdraw(client* c){
+	Atom atom = XInternAtom(dis, "WM_STATE", False);
+	long data[] = { WithdrawnState, None };
+
+	XChangeProperty(dis, c->win, atom, atom, 32, PropModeReplace, (unsigned char*) data, 2);
 }
 
 void youviolatedmymother(const Arg arg){

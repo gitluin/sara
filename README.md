@@ -73,10 +73,7 @@ For more information, see the [wiki](https://github.com/gitluin/sara/wiki)!
 
 Bugs
 ----
- * enternotify might still be goofy. Must do lots of testing.
- * when transient windows are done, they are seemingly unmapped, but not destroyed.
-   * this causes major issues with pointer and keyboard focus in, say, krita. it follows you everywhere - tags don't matter.
-   * it only goes away when krita dies. trying to kill it via unmap transient detection doesn't work at the moment.
+ * N O N E T H A T I K N O W O F !
 
 To Do
 ----
