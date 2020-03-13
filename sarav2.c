@@ -192,9 +192,11 @@ static void configurerequest(XEvent* e);
 static void destroynotify(XEvent* e);
 static void enternotify(XEvent* e);
 static void expose(XEvent* e);
+static void focusin(XEvent* e);
 static void maprequest(XEvent* e);
 static void motionnotify(XEvent* e);
 static void propertynotify(XEvent* e);
+static void unmapnotify(XEvent* e);
 /* Client & Linked List Manipulation */
 static void adjustcoords(client* c);
 static void applyrules(client* c);
@@ -341,9 +343,11 @@ static void (*events[LASTEvent])(XEvent* e) = {
 	[DestroyNotify] = destroynotify,
 	[EnterNotify] = enternotify,
 	[Expose] = expose,
+	[FocusIn] = focusin,
 	[MapRequest] = maprequest,
 	[MotionNotify] = motionnotify,
-	[PropertyNotify] = propertynotify
+	[PropertyNotify] = propertynotify,
+	[UnmapNotify] = unmapnotify
 };
 
 
@@ -467,6 +471,13 @@ void expose(XEvent* e){
 		drawbars();
 }
 
+void focusin(XEvent* e){
+	XFocusChangeEvent* ev = &e->xfocus;
+
+	if (curmon->current && ev->window != curmon->current->win)
+		updatefocus();
+}
+
 void maprequest(XEvent* e){
 	XWindowAttributes wa;
 	XMapRequestEvent* ev = &e->xmaprequest;
@@ -501,6 +512,19 @@ void propertynotify(XEvent* e){
 
 	if ((ev->window == root) && (ev->atom == XA_WM_NAME))
 		updatestatus();
+}
+
+void unmapnotify(XEvent* e){
+	XUnmapEvent* ev = &e->xunmap;
+	Window trans = None;
+	client* c, * t;
+
+	if (XGetTransientForHint(dis, ev->window, &trans) && (t = findclient(trans))){
+		if ( (c = findclient(ev->window)) )
+			unmanage(c);
+
+		XDestroyWindow(dis, ev->window);
+	}
 }
 
 
