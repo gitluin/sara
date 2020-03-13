@@ -85,7 +85,7 @@ typedef struct {
 struct key {
 	unsigned int mod;
 	KeySym keysym;
-	void (*function)(const Arg arg);
+	void (*func)(const Arg arg);
 	const Arg arg;
 };
 
@@ -270,7 +270,7 @@ static void youviolatedmymother(const Arg arg);
 
 /* callable functions from outside */
 struct {
-	void (*function);
+	void (*func);
 	const char* str;
 } conversions [] = {
 	{view,                "view"},
@@ -295,7 +295,7 @@ void* str2func(const char* str){
 	int i;
 	for (i=0;i < TABLENGTH(conversions);i++)
 		if (strcmp(str, conversions[i].str) == 0)
-			return conversions[i].function;
+			return conversions[i].func;
 
 	return NULL;
 }
@@ -1706,8 +1706,8 @@ void start(){
 	fd_set desc;
 	int sfd, cfd, nbytes, max_fd, xfd = ConnectionNumber(dis);
 	char msg[MAXBUFF];
-	char* fxnstr, * argstr;
-	void (*fxn)(const Arg);
+	char* funcstr, * argstr;
+	void (*func)(const Arg);
 	struct sockaddr saddress = {AF_UNIX, "/tmp/sarassock"};
 
 	if ( (sfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0 )
@@ -1735,16 +1735,14 @@ void start(){
 				cfd = accept(sfd, NULL, NULL);
 				if (cfd > 0 && (nbytes = recv(cfd, msg, sizeof(msg)-1, 0)) > 0){
 					msg[nbytes] = '\0';
-					fxnstr = strtok(msg, " ");
+					funcstr = strtok(msg, " ");
 					argstr = strtok(NULL, " ");
-
-					fprintf(stderr, "got function %s call!\n", fxnstr);
 					
 					/* all functions only have one argument */
 					if (argstr){
 						const Arg arg = {.s = argstr};
-						if ( (fxn = str2func(fxnstr)) )
-							fxn(arg);
+						if ( (func = str2func(funcstr)) )
+							func(arg);
 					}
 					close(cfd);
 				}
