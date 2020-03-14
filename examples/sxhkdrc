@@ -14,14 +14,8 @@ super + w
 super + f
 	st -e vifm
 
-super + r
-	st -t "rcalc" -g 80x24+625+325 -e R --vanilla -q
-
 super + d
 	dmenu_run -m "-1" -b -l 4 -p "Run" -fn "Misc Termsyn:size=10" -nb "#282a36" -nf "#f8f8f2" -sb "#1E88E5" -sf "#202020"
-
-super + Tab
-	st -t "scratch" -g 240x72 -e /ibin/justtype.sh
 
 # ###############
 # Function key spawns
@@ -75,21 +69,13 @@ super + shift + e
 super + shift + q
 	sarasock 'killclient 0'
 
-# move focus down
-super + j
-	sarasock 'movefocus -1' 
+# move focus down/up
+super + {j,k}
+	sarasock 'movefocus {-,+}1' 
 
-# move focus up
-super + k
-	sarasock 'movefocus +1' 
-
-# move client down
-super + shift + j
-	sarasock 'moveclient -1' 
-
-# move client up
-super + shift + k
-	sarasock 'moveclient +1' 
+# move client down/up
+super + shift + {j,k}
+	sarasock 'moveclient {-,+}1' 
 
 # toggle client to floating
 super + shift + space
@@ -126,34 +112,21 @@ super + shift + control + {1-8}
 super + 0
 	sarasock 'toggleview -1' 
 
-# control master size
-super + h
-	sarasock 'changemsize -0.05' 
+# decrease/increase master area size
+super + {h,l}
+	sarasock 'changemsize {-,+}0.05' 
 
-super + l
-	sarasock 'changemsize +0.05' 
-
-# set tiling layout
-super + control + t
-	sarasock 'setlayout tile' 
-
-# set monocle layout
-super + control + m
-	sarasock 'setlayout monocle' 
+# set layouts
+super + control + {t,m}
+	sarasock 'setlayout {tile,monocle}' 
 
 # ###############
 # Monitor interfacing
 
-# switch focused monitor
-super + comma
-	sarasock 'focusmon -1' 
+# focus left/right monitor
+super + {comma,period}
+	sarasock 'focusmon {-,+}1' 
 
-super + period
-	sarasock 'focusmon +1' 
-
-# send client to monitor
-super + shift + comma
-	sarasock 'tomon -1' 
-
-super + shift + period
-	sarasock 'tomon +1' 
+# send client to left/right monitor
+super + shift + {comma,period}
+	sarasock 'tomon {-,+}1' 
