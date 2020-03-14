@@ -9,7 +9,7 @@ sara
         `-' `-'                                                                    hjw, ascii.co.uk/art 
 What Is, Why Do
 -------
-sara is a very simple and lightweight tiling window manager. Originally started with the goal of making catwm actually work, it's now a slimmed down descendant of dwm. I will try to keep the source code as small and readable as possible.
+sara is a very simple and lightweight tiling window manager. Originally started with the goal of making catwm actually work, it's now a slimmed down descendant of dwm with a bit of bspwm (sockets) for good measure. I will try to keep the source code as small and readable as possible.
 
 Recent Statii
 ------
