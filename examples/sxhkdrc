@@ -17,9 +17,8 @@ super + f
 super + r
 	st -t "rcalc" -g 80x24+625+325 -e R --vanilla -q
 
-# the echo call will draw dwm on the current monitor (haven't tested it on my multimonitor setup, yet :D)
 super + d
-	dmenu_run -m $(echo "${DISPLAY:1:2}") -b -l 4 -p "Run" -fn "Misc Termsyn:size=10" -nb "#282a36" -nf "#f8f8f2" -sb "#1E88E5" -sf "#202020"
+	dmenu_run -m "-1" -b -l 4 -p "Run" -fn "Misc Termsyn:size=10" -nb "#282a36" -nf "#f8f8f2" -sb "#1E88E5" -sf "#202020"
 
 super + Tab
 	st -t "scratch" -g 240x72 -e /ibin/justtype.sh
