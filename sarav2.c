@@ -264,7 +264,6 @@ static void start();
 static int xerror(Display* dis, XErrorEvent* e);
 static int xerrordummy(Display* dis, XErrorEvent* e);
 static int xsendkill(Window w);
-static void xwithdraw(client* c);
 static void youviolatedmymother(const Arg arg);
 
 /* callable functions from outside */
@@ -865,6 +864,7 @@ void manipulate(const Arg arg){
 						im->w, im->h + im->bar->h))
 			{
 				m = im;
+				/* this also calls EACHMON - need m, because im - whoops */
 				sendmon(c, m);
 				changemon(m, YesFocus);
 				return;
@@ -919,12 +919,8 @@ void sendmon(client* c, monitor* m){
 }
 
 void todesktop(const Arg arg){
-	Window w;
-
 	if (!curmon->current)
 		return;
-	else
-		w = curmon->current->win;
 
 	parsearg(arg, WantInt, &ai, &dumbf);
 
@@ -935,21 +931,15 @@ void todesktop(const Arg arg){
 	curmon->current->iscur = 0;
 	changecurrent(curmon->current, curmon, 1 << ai, 1);
 
-	XUnmapWindow(dis, w);
-	XSync(dis, False);
-
 	arrange(curmon);
 	updatefocus();
 }
 
 void toggledesktop(const Arg arg){
 	unsigned int newdesks;
-	Window w;
 
 	if (!curmon->current)
 		return;
-	else
-		w = curmon->current->win;
 
 	parsearg(arg, WantInt, &ai, &dumbf);
 
@@ -959,11 +949,7 @@ void toggledesktop(const Arg arg){
 		 * if it will no longer be visible, adjust current
 		 */
 		changecurrent(curmon->current, curmon, 1 << ai,
-			((curmon->current->desks ^ 1 << ai) & curmon->seldesks) ? 0 : 1);
-		if (!(ISVISIBLE(curmon->current))){
-			XUnmapWindow(dis, w);
-			XSync(dis, False);
-		}
+			(curmon->current->desks & curmon->seldesks) ? 0 : 1);
 
 		arrange(curmon);
 		updatefocus();
@@ -1489,10 +1475,9 @@ void toggleview(const Arg arg){
 		}
 	}
 
-	// TODO: don't think this works
-	/* focus moves down if possible, else up */
+	/* refocuses, toggles off curmon->current's currentness */
 	if (!ISVISIBLE(curmon->current))
-		changecurrent(NULL, curmon, curmon->curdesk, 1);
+		changecurrent(curmon->current, curmon, curmon->curdesk, 1);
 
 	arrange(curmon);
 	updatefocus();
@@ -1506,19 +1491,13 @@ void view(const Arg arg){
 	loaddesktop(ai);
 	curmon->seldesks = curmon->curdesk = 1 << ai;
 
-	// TODO: replace with new changecurrent?
-	/* if there is no current, set current to highest visible
-	 * changecurrent(findcurrent(), curmon->curdesk) toggles off findcurrent() if not NULL
-	 */
-//	if ( !(curmon->current = findcurrent(curmon)) && (c = findvisclient(curmon->head, YesFloat)) )
-//		changecurrent(c, curmon, curmon->curdesk, 0);
-	if ( (c = findcurrent(curmon)) ){
-		// TODO: don't override other iscurs
-		c->iscur = 0;
-		changecurrent(c, curmon, curmon->curdesk, 0);
-	} else if ( (c = findvisclient(curmon->head, YesFloat)) ){
-		changecurrent(c, curmon, curmon->curdesk, 0);
-	}
+	if ( (c = findcurrent(curmon)) )
+		/* rezero, so it can be set and everyone else unset */
+		c->iscur ^= curmon->curdesk;
+	else
+		c = findvisclient(curmon->head, YesFloat);
+		
+	changecurrent(c, curmon, curmon->curdesk, 0);
 
 	arrange(curmon);
 	updatefocus();
@@ -1788,13 +1767,6 @@ int xsendkill(Window w){
 	}
 
 	return exists;
-}
-
-void xwithdraw(client* c){
-	Atom atom = XInternAtom(dis, "WM_STATE", False);
-	long data[] = { WithdrawnState, None };
-
-	XChangeProperty(dis, c->win, atom, atom, 32, PropModeReplace, (unsigned char*) data, 2);
 }
 
 void youviolatedmymother(const Arg arg){

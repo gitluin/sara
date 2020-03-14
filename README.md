@@ -73,7 +73,7 @@ For more information, see the [wiki](https://github.com/gitluin/sara/wiki)!
 
 Bugs
 ----
- * Some toggleview and view bugs with refocusing after curmon->current is no longer visible.
+ * N O N E T H A T I K N O W O F !
 
 To Do
 ----
