@@ -196,7 +196,6 @@ static void focusin(XEvent* e);
 static void maprequest(XEvent* e);
 static void motionnotify(XEvent* e);
 static void propertynotify(XEvent* e);
-static void unmapnotify(XEvent* e);
 /* Client & Linked List Manipulation */
 static void adjustcoords(client* c);
 static void applyrules(client* c);
@@ -218,7 +217,7 @@ static void toggledesktop(const Arg arg);
 static void togglefloat(const Arg arg);
 static void togglefs(const Arg arg);
 static void tomon(const Arg arg);
-static void unmanage(client* c, int destroyed);
+static void unmanage(client* c);
 static void updatefocus();
 static void zoom(const Arg arg);
 /* Monitor Manipulation */
@@ -346,8 +345,7 @@ static void (*events[LASTEvent])(XEvent* e) = {
 	[FocusIn] = focusin,
 	[MapRequest] = maprequest,
 	[MotionNotify] = motionnotify,
-	[PropertyNotify] = propertynotify,
-	[UnmapNotify] = unmapnotify
+	[PropertyNotify] = propertynotify
 };
 
 
@@ -448,7 +446,7 @@ void destroynotify(XEvent* e){
 	XDestroyWindowEvent* ev = &e->xdestroywindow;
 
 	if ( (c = findclient(ev->window)) )
-		unmanage(c, 1);
+		unmanage(c);
 }
 
 void enternotify(XEvent* e){
@@ -520,18 +518,6 @@ void propertynotify(XEvent* e){
 		updatestatus();
 }
 
-void unmapnotify(XEvent* e){
-	XUnmapEvent* ev = &e->xunmap;
-	client* c;
-
-	if ( (c = findclient(ev->window)) ){
-		if (ev->send_event)
-			xwithdraw(c);
-		else
-			unmanage(c, 0);
-	}
-}
-
 
 /* ---------------------------------------
  * Client & Linked List Manipulation
@@ -572,8 +558,7 @@ void applyrules(client* c){
 		r = &rules[i];
 		if ((!r->title || (tp.value && strstr(r->title, (const char*) tp.value)))
 		&& (!r->class || strstr(class, r->class))
-		&& (!r->instance || strstr(instance, r->instance)))
-		{
+		&& (!r->instance || strstr(instance, r->instance))){
 			c->isfloat = r->isfloat;
 			c->isfull = r->isfull;
 			c->desks |= r->desks;
@@ -879,8 +864,9 @@ void manipulate(const Arg arg){
 			if (im != curmon && !ISOUTSIDE(c->x, c->y, im->x, im->y - im->bar->h,
 						im->w, im->h + im->bar->h))
 			{
-				sendmon(c, im);
-				changemon(im, YesFocus);
+				m = im;
+				sendmon(c, m);
+				changemon(m, YesFocus);
 				return;
 			}
 		}
@@ -922,6 +908,7 @@ void sendmon(client* c, monitor* m){
 
 	c->next = NULL;
 	attachaside(c);
+	c->iscur = 0;
 	changecurrent(c, c->mon, c->mon->curdesk, 0);
 	if (c->isfloat) adjustcoords(c);
 
@@ -1037,19 +1024,10 @@ void tomon(const Arg arg){
 	sendmon(curmon->current, dirtomon(ai));
 }
 
-void unmanage(client *c, int destroyed){
+void unmanage(client *c){
 	monitor* m = c->mon;
 
 	detach(c);
-	if (!destroyed) {
-		XGrabServer(dis); /* avoid race conditions */
-		XSetErrorHandler(xerrordummy);
-		XUngrabButton(dis, AnyButton, AnyModifier, c->win);
-		xwithdraw(c);
-		XSync(dis, False);
-		XSetErrorHandler(xerror);
-		XUngrabServer(dis);
-	}
 	free(c);
 	arrange(m);
 	updatefocus();
@@ -1061,7 +1039,6 @@ void updatefocus(){
 	else
 		XSetInputFocus(dis, root, RevertToPointerRoot, CurrentTime);
 
-	//raisefloats();
 	drawbars();
 	XSync(dis, False);
 }
@@ -1487,7 +1464,6 @@ void tile(monitor* m){
 	}
 }
 
-// TODO: toggling off a tag when you have moved the focus to it doesn't recurrent to the remaining visible tags
 void toggleview(const Arg arg){
 	int i;
 	unsigned int tagmask;
@@ -1513,9 +1489,10 @@ void toggleview(const Arg arg){
 		}
 	}
 
-	// TODO: This doesn't work
+	// TODO: don't think this works
+	/* focus moves down if possible, else up */
 	if (!ISVISIBLE(curmon->current))
-		curmon->current = findcurrent(curmon);
+		changecurrent(NULL, curmon, curmon->curdesk, 1);
 
 	arrange(curmon);
 	updatefocus();
@@ -1533,8 +1510,15 @@ void view(const Arg arg){
 	/* if there is no current, set current to highest visible
 	 * changecurrent(findcurrent(), curmon->curdesk) toggles off findcurrent() if not NULL
 	 */
-	if ( !(curmon->current = findcurrent(curmon)) && (c = findvisclient(curmon->head, YesFloat)) )
+//	if ( !(curmon->current = findcurrent(curmon)) && (c = findvisclient(curmon->head, YesFloat)) )
+//		changecurrent(c, curmon, curmon->curdesk, 0);
+	if ( (c = findcurrent(curmon)) ){
+		// TODO: don't override other iscurs
+		c->iscur = 0;
 		changecurrent(c, curmon, curmon->curdesk, 0);
+	} else if ( (c = findvisclient(curmon->head, YesFloat)) ){
+		changecurrent(c, curmon, curmon->curdesk, 0);
+	}
 
 	arrange(curmon);
 	updatefocus();
@@ -1566,7 +1550,7 @@ void cleanup(){
 	for EACHMON(mhead){
 		changemon(im, NoFocus);
 		while (curmon->current)
-			unmanage(curmon->current, 0);
+			unmanage(curmon->current);
 	}
 
 	XUngrabKey(dis, AnyKey, AnyModifier, root);
