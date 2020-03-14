@@ -1,0 +1,79 @@
+--- saraa.c	2020-03-14 17:53:46.168936156 -0400
++++ sarab.c	2020-03-14 17:47:39.658951144 -0400
+@@ -25,6 +25,9 @@
+ #include <X11/Xlib.h>
+ #include <X11/Xproto.h>
+ #include <X11/Xft/Xft.h>
++#ifdef XINERAMA
++#include <X11/extensions/Xinerama.h>
++#endif
+ 
+ #define BUTTONMASK              	(ButtonPressMask|ButtonReleaseMask)
+ #define MOUSEMASK               	(BUTTONMASK|PointerMotionMask)
+@@ -1160,13 +1163,64 @@
+ 	changemon(m, YesFocus);
+ }
+ 
++#ifdef XINERAMA
++static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo* info){
++	while (n--)
++		if (unique[n].x_org == info->x_org && unique[n].y_org == info->y_org)
++			return 0;
++	return 1;
++}
++#endif
++
+ /* a la dwm 6.1 */
+ void
+ updategeom(){
+ 	int x, y;
+ 
+-	if (mhead) cleanupmon(mhead);
+-	mhead = createmon(0, 0, 0, sw, sh);
++#ifdef XINERAMA
++	if (XineramaIsActive(dis)){
++		int i, j, ns;
++		client* c;
++		monitor* m, * oldmhead = mhead;
++
++		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
++		XineramaScreenInfo* unique;
++
++      		/* only consider unique geometries as separate screens */
++		unique = ecalloc(ns, sizeof(XineramaScreenInfo));
++		for (i = 0, j = 0; i < ns; i++)
++			if (isuniquegeom(unique, j, &info[i]))
++				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
++		XFree(info);
++		
++		mhead = m = createmon(0, unique[0].x_org, unique[0].y_org,
++				unique[0].width, unique[0].height);
++		for (i=1;i < j;i++){
++			m->next = createmon(i, unique[i].x_org, unique[i].y_org,
++					unique[i].width, unique[i].height);
++			m = m->next;
++		}
++
++		free(unique);
++
++		/* reattach any old clients to the new mhead */
++		while ( (m = oldmhead) ){
++			while ( (c = m->head) ){
++				m->head = c->next;
++				detach(c);
++				c->mon = mhead;
++				attachaside(c);
++			}
++			oldmhead = m->next;
++			cleanupmon(m);
++		}
++
++	} else
++#endif
++	{
++		if (mhead) cleanupmon(mhead);
++		mhead = createmon(0, 0, 0, sw, sh);
++	}
+ 
+ 	/* focus monitor that has the pointer inside it */
+ 	for EACHMON(mhead)

@@ -13,6 +13,8 @@ sara is a very simple and lightweight tiling window manager. Originally started 
 
 Recent Statii
 ------
+ * v2.0.1	- Holy heck.
+ * v2.0		- Whole lotta UNIX philosophy up in here! Keybinds are controlled by sxhkd now! A little bit of bspwm in your dwm and sara sandwich! Pointer events (click into window, move and resize window) still handled by sara. The bar is next for UNIXification (read: surgical removal and separation into its own repo). SEPARATE BRANCH UNTIL I CAN TEST ON MULTIMONITOR AND CONFIRM CHANGES ARE SAFE TO MERGE!
  * v1.0.1	- Fixed a bug with changecurrent on unmanage triggering. It caused clients to spawn unattached and wouldn't fix itself until a view call.
  * v1.0		- Oh my god I did it.
  * v0.9.{2-9.5}	- Multiple monitor support, viewall, reduced redundant variables, solved many enternotify edge cases, moveclient works by visibility, updategeom a la dwm 6.1, implemented rules, transient popup support, proper client killing, proper float stacking, code cleanup, mouse move and resize, lots of time wasted on easy (but sometimes obscure) bugs.
@@ -30,10 +32,10 @@ Features
 * Monocle mode
 * Fullscreen mode (see limitations)
 
-### Behavior
+### Behavior/Traits
 * dwm-like:
 	* tags
-	* Multiple monitor through Xinerama
+	* Multihead support through Xinerama
 	* patch-like:
 		* attachaside
 		* emptyview
@@ -41,6 +43,8 @@ Features
 		* movestack
 		* pertag-like: layouts, master_size
 		* singular borders
+* bspwm-like:
+	* keyboard handling via external program (like sxhkd)
 * worst
 
 ### Design Limitations
@@ -58,6 +62,9 @@ A few examples I was able to find:
 * [dminiwm](https://github.com/moetunes/dminiwm) No status bar. No XINERAMA support. Also, some of the code: compare add\_window() to the combination of manage(), attachaside(), etc.
 * [berry](https://github.com/JLErvin/berry) CLI-config vs. config.h. Extremely standards-compliant. Codebase is much larger as a consequence (wm.c is 1912 SLOC).
 * [monsterwm](https://github.com/c00kiemon5ter/monsterwm) No status bar (I appreciate the UNIX philosophy adherence, though). No XINERAMA support. Not a fan of the code formatting, but not a big deal unless you're in my position/writing patches.
+
+Also:
+
 * I wrote a [bar](https://github.com/gitluin/sbar.git) that goes along with it!
 
 Help Me (Keybindings, Installation, Etc.)!
@@ -70,7 +77,13 @@ Bugs
 
 To Do
 ----
+ * Is RandR > Xinerama?
+ * More UNIX philosophy? own bar (write out layout to file, to socket, etc.)?
+   * bar:
+     * specify size of bar space.
+     * specify bar at top or bottom of the screen.
  * My own art.
  * A wiki.
+ * Extensive Valgrind analysis to try and reduce resource usage.
 
 If you have some particular request, don't send me an e-mail, I won't do it! Bug reports are welcome, though!

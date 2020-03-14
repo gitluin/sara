@@ -1,0 +1,132 @@
+# ###############
+# general hotkeys
+# ###############
+
+# ###############
+# spawn programs
+
+super + t
+	st
+
+super + w
+	firefox
+
+super + f
+	st -e vifm
+
+super + d
+	dmenu_run -m "-1" -b -l 4 -p "Run" -fn "Misc Termsyn:size=10" -nb "#282a36" -nf "#f8f8f2" -sb "#1E88E5" -sf "#202020"
+
+# ###############
+# Function key spawns
+
+XF86MonBrightnessDown
+	st -t "funkey" -e /bin/sbar/sbar_bright.sh -U 5
+
+XF86MonBrightnessUp
+	st -t "funkey" -e /bin/sbar/sbar_bright.sh -A 5
+
+shift + XF86MonBrightnessDown
+	st -t "funkey" -e /bin/sbar/sbar_bright.sh -U 1
+
+shift + XF86MonBrightnessUp
+	st -t "funkey" -e /bin/sbar/sbar_bright.sh -A 1
+
+XF86AudioLowerVolume
+	st -t "funkey" -e /bin/sbar/sbar_audio.sh - 5
+
+XF86AudioRaiseVolume
+	st -t "funkey" -e /bin/sbar/sbar_audio.sh + 5
+
+shift + XF86AudioLowerVolume
+	st -t "funkey" -e /bin/sbar/sbar_audio.sh - 1
+
+shift + XF86AudioRaiseVolume
+	st -t "funkey" -e /bin/sbar/sbar_audio.sh + 1
+
+XF86AudioMute
+	st -t "funkey" -e /bin/sbar/sbar_audio.sh mute
+
+@Print
+	st -t "funkey" -e scrot -q 100
+
+
+# ###############
+# sara hotkeys
+# ###############
+
+# ###############
+# sara interfacing
+
+# quit sara (kill X)
+super + shift + e
+	sarasock 'youviolatedmymother 0'
+
+# ###############
+# Client interfacing
+
+# kill client
+super + shift + q
+	sarasock 'killclient 0'
+
+# move focus down/up
+super + {j,k}
+	sarasock 'movefocus {-,+}1' 
+
+# move client down/up
+super + shift + {j,k}
+	sarasock 'moveclient {-,+}1' 
+
+# toggle client to floating
+super + shift + space
+	sarasock 'togglefloat 0' 
+
+# toggle client to fullscreen
+super + shift + Return
+	sarasock 'togglefs 0' 
+
+# promote client to master
+super + Return
+	sarasock 'zoom 0' 
+
+# ###############
+# Desktop interfacing
+
+# view desktop
+super + {1-8}
+	sarasock 'view {0-7}'
+
+# add client to desktop
+super + shift + {1-8}
+	sarasock 'toggledesktop {0-7}'
+
+# add desktop to current view
+super + control + {1-8}
+	sarasock 'toggleview {0-7}'
+
+# send client to just desktop
+super + shift + control + {1-8}
+	sarasock 'todesktop {0-7}'
+
+# view all desktops
+super + 0
+	sarasock 'toggleview -1' 
+
+# decrease/increase master area size
+super + {h,l}
+	sarasock 'changemsize {-,+}0.05' 
+
+# set layouts
+super + control + {t,m}
+	sarasock 'setlayout {tile,monocle}' 
+
+# ###############
+# Monitor interfacing
+
+# focus left/right monitor
+super + {comma,period}
+	sarasock 'focusmon {-,+}1' 
+
+# send client to left/right monitor
+super + shift + {comma,period}
+	sarasock 'tomon {-,+}1' 
