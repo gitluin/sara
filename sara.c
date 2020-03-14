@@ -5,6 +5,7 @@
  * Copyright (c) 2010, Rinaldini Julien, julien.rinaldini@heig-vd.ch              
  * Copyright (c) 2020, This Fackin Guy, gitluin on github (no email for you!)     
  *                                                                                
+ * Please refer to the complete LICENSE file that should accompany this software.
  * Please refer to the MIT license for details on usage: https://mit-license.org/
  */ 
 

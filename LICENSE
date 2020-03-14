@@ -1,7 +1,11 @@
+Cuty And Tiny Window Manager (catwm)
+______________________________________________________________________________ 
+
+Copyright (c) 2010, Rinaldini Julien, julien.rinaldini@heig-vd.ch              
+
 sara Window Manager
 ______________________________________________________________________________ 
                                                                                
-Copyright (c) 2010, Rinaldini Julien, julien.rinaldini@heig-vd.ch              
 Copyright (c) 2019-2020, This Fackin Guy, gitluin on github (no email for you!)     
 
 Dynamic Window Manager (dwm)
@@ -45,7 +49,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.  
 
-BSPWM
+Binary Space Partioning Window Manager (bspwm)
 ______________________________________________________________________________ 
 
 Copyright (c) 2012, Bastien Dejean
