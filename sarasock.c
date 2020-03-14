@@ -5,7 +5,8 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-int slen(const char* str){
+int
+slen(const char* str){
 	int i = 0;
 
 	while (*str){ str++; i++; }
@@ -13,12 +14,14 @@ int slen(const char* str){
 	return i;
 }
 
-void die(const char* e, ...){
-	fprintf(stdout, "sarasocker: %s\n", e);
+void
+die(const char* e, ...){
+	fprintf(stdout, "sarasock: %s\n", e);
 	exit(1);
 }
 
-int main(int argc, char* argv[]){
+int
+main(int argc, char* argv[]){
 	int sfd, n;
 	struct sockaddr saddress = {AF_UNIX, "/tmp/sarassock"};
 
