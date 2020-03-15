@@ -1315,7 +1315,7 @@ drawbar(monitor* m){
 	for EACHCLIENT(m->head) occ |= ic->desks;
 
 	/* draw tags */
-	for (j=0;j<TABLENGTH(tags);j++){
+	for (j=0;j < TABLENGTH(tags);j++){
 		/* do not draw vacant tags, but do draw selected tags */
 		is_sel = m->seldesks & 1 << j;
 		if ( !(occ & 1 << j) && !is_sel )
