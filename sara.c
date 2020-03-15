@@ -1259,7 +1259,7 @@ findcurrent(monitor* m){
 
 client*
 findprevclient(client* c, int onlyvis, int wantfloat){
-	client* ret;
+	client* ret = NULL;
 
 	for EACHCLIENT(c->mon->head){
 		if (ic == c) break;
@@ -1477,7 +1477,7 @@ setlayout(const Arg arg){
 
 void
 tile(monitor* m){
-	client* nf;
+	client* nf = NULL;
 	int n = 0, x = m->x, y = m->y;
 
 	/* Find the first non-floating, visible window and tally non-floating, visible windows */
