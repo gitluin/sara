@@ -38,6 +38,8 @@
 #define MAX(A,B)               		((A) > (B) ? (A) : (B))
 #define POSTOINT(X)			((int)(ceil(log2(X)) == floor(log2(X)) ? ceil(log2(X)) : 0))
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
+#define INPUTSOCK			"/tmp/sarasock"
+#define OUTPUTSOCK			"/tmp/saraoutsock"
 #define MAXBUFF				22*sizeof(char) /* longest is youviolatedmymother at 19, +2 for space and "0", +1 for '\0' */
 
 enum { SchNorm,    SchSel };
@@ -131,6 +133,28 @@ struct monitor {
  * Util Functions
  * ---------------------------------------
  */
+
+/* convert 11111111 to "11111111"
+ * for this example, len = 8
+ * dest must be a calloc'd char* that you free() afterwards
+ */
+void
+uitos(unsigned int ui, int len, char* dest){
+	int i, j, res;
+	int bytearray[len];
+	char bytestr[len+1];
+
+	/* reverse the array, as tags are printed left to right, not right to left */
+	for (i=0;i < len;i++)
+		bytearray[i] = ui >> i & 1;
+
+	for (i=0, j=0;
+	(i < len+1) && (res = snprintf(bytestr + j, sizeof(bytestr) - j, "%d", bytearray[i])) > 0;
+	i++)
+		j += res;
+
+	snprintf(dest, sizeof(bytestr), "%s", bytestr);
+}
 
 void
 die(const char* e, ...){
@@ -1495,12 +1519,12 @@ start(){
 	void (*func)(const Arg);
 	int sfd, cfd, nbytes, max_fd;
 	int xfd = ConnectionNumber(dis);
-	struct sockaddr saddress = {AF_UNIX, "/tmp/sarassock"};
+	struct sockaddr saddress = {AF_UNIX, INPUTSOCK};
 
 	if ( (sfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0 )
 		die("couldn't create socket!");
 
-	unlink("/tmp/sarassock");
+	unlink(INPUTSOCK);
 
 	if (bind(sfd, &saddress, sizeof(saddress)) < 0)
 		die("couldn't bind socket!");
@@ -1545,7 +1569,64 @@ start(){
 	}
 
 	close(sfd);
-	unlink("/tmp/sarassock");
+	unlink(INPUTSOCK);
+}
+
+void
+outputstats(){
+	int i;
+	int sfd, n;
+	char* isdeskocc, * isdesksel, * outstr;
+	unsigned int occ;
+	unsigned int sel;
+	struct sockaddr saddress = {AF_UNIX, OUTPUTSOCK};
+
+	if ( (sfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0){
+		fprintf(stderr, "failed to create socket!\n");
+		return;
+	}
+	if (connect(sfd, &saddress, sizeof(saddress)) < 0){
+		fprintf(stderr, "failed to connect to socket!\n");
+		return;
+	}
+
+	for EACHMON(mhead){
+		/* full TABLENGTH to include ;, + 1 for '\0' */
+		outstr = ecalloc(2*TABLENGTH(tags) + slen(im->curlayout->symbol) + 1, sizeof(char))
+		isdeskocc = ecalloc(TABLENGTH(tags), sizeof(char));
+		isdesksel = ecalloc(TABLENGTH(tags), sizeof(char));
+		sel = im->seldesks;
+
+		for EACHCLIENT(im->head)
+			occ |= ic->desks;
+
+		uitos(occ, TABLENGTH(tags)-1, isdeskocc);
+		uitos(sel, TABLENGTH(tags)-1, isdesksel);
+
+		/* outstr:
+		 * "00000000;	00000000;	[]="
+		 * isdeskocc;	isdesksel;	curlayout->symbol
+		 */
+
+		// TODO: concatenate into outstr
+
+		if (send(sfd, outstr, slen(outstr)+1, 0) < 0){
+			fprintf(stderr, "failed to send to socket!\n");
+			free(isdeskocc);
+			free(isdesksel);
+			free(outstr);
+			break;
+		}
+
+		free(isdeskocc);
+		free(isdesksel);
+		free(outstr);
+	}
+	// send "DONE"
+	if (send(sfd, outstr, slen(outstr)+1, 0) < 0)
+		fprintf(stderr, "failed to send to socket!\n");
+
+	close(sfd);
 }
 
 int
