@@ -2,7 +2,6 @@
  * sara Window Manager
  * ______________________________________________________________________________ 
  *                                                                                
- * Copyright (c) 2010, Rinaldini Julien, julien.rinaldini@heig-vd.ch              
  * Copyright (c) 2020, This Fackin Guy, gitluin on github (no email for you!)     
  *                                                                                
  * Please refer to the complete LICENSE file that should accompany this software.
@@ -42,16 +41,16 @@
 #define TEXTW(M,X)			(gettextwidth(M, X, slen(X)) + lrpad)
 #define MAXBUFF				22*sizeof(char) /* longest is youviolatedmymother at 19, +2 for space and "0", +1 for '\0' */
 
-enum { SchNorm, SchSel };
-enum { ColFg, ColBg };
-enum { SymLeft, SymRight };
-enum { AnyVis, OnlyVis };
-enum { NoZoom, YesZoom };
-enum { NoFocus, YesFocus };
+enum { SchNorm,    SchSel };
+enum { ColFg,      ColBg };
+enum { SymLeft,    SymRight };
+enum { AnyVis,     OnlyVis };
+enum { NoZoom,     YesZoom };
+enum { NoFocus,    YesFocus };
 enum { ClkPlcHldr, ClkWin };
-enum { WantMove, WantResize };
-enum { NoFloat, YesFloat };
-enum { WantInt, WantFloat };
+enum { WantMove,   WantResize };
+enum { NoFloat,    YesFloat };
+enum { WantInt,    WantFloat };
 
 
 /* ---------------------------------------
@@ -88,7 +87,9 @@ typedef struct {
 } layout;
 
 typedef struct {
-	const char* class, * instance, * title;
+	const char* class;
+	const char* instance;
+	const char* title;
 	int desks;
 	int isfloat, isfull;
 	int monitor;
