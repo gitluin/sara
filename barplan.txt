@@ -1,0 +1,9 @@
+1. Output information to socket:
+	a. seldesks
+	c. occdesks
+	d. layout symbol
+2. Separate program:
+	a. Read from socket
+	b. Read from rootname (could make sbar scripts write to their own socket, too)
+	c. Pass strings to bar program (lemonbar)
+	d. Wait for new messages
