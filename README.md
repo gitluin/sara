@@ -71,7 +71,7 @@ For more information, see the [wiki](https://github.com/gitluin/sara/wiki)!
 
 Bugs
 ----
- * Windows don't raise/draw focus properly in monocle. The get focus, but highlighting is the same. Adding in XRaiseWindow calls leads to many enternotifys.
+ * N O N E T H A T I K N O W O F !
 
 To Do
 ----

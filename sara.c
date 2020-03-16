@@ -205,6 +205,7 @@ static void moveclient(const Arg arg);
 static void moveclientup(client* c, int wantzoom);
 static void movefocus(const Arg arg);
 static void resizeclient(client* c, int x, int y, int w, int h);
+static void restack(monitor* m);
 static void sendmon(client* c, monitor* m);
 static void showhide(monitor* m);
 static void todesktop(const Arg arg);
@@ -365,7 +366,7 @@ buttonpress(XEvent* e){
 			updatefocus();
 		}
 
-		while (XCheckMaskEvent(dis, EnterWindowMask, &dumbev));
+		restack(c->mon);
 		XAllowEvents(dis, ReplayPointer, CurrentTime);
 		click = ClkWin;
 	}
@@ -791,7 +792,7 @@ movefocus(const Arg arg){
 
 	if (c && c != curmon->current){
 		changecurrent(c, curmon, curmon->curdesk, 0);
-		while (XCheckMaskEvent(dis, EnterWindowMask, &dumbev));
+		restack(curmon);
 		updatefocus();
 	}
 }
@@ -807,6 +808,8 @@ manipulate(const Arg arg){
 
 	if ( !(c = curmon->current) || c->isfull )
 		return;
+
+	restack(curmon);
 
 	if (XGrabPointer(dis, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync,
 		None, cursor, CurrentTime) != GrabSuccess)
@@ -909,6 +912,30 @@ resizeclient(client* c, int x, int y, int w, int h){
 }
 
 void
+restack(monitor* m){
+	XWindowChanges wc = {
+		.stack_mode = Below,
+		.sibling = m->bar->win
+	};
+
+	if (!m->current)
+		return;
+
+	XConfigureWindow(dis, m->current->win, CWSibling|CWStackMode, &wc);
+	wc.sibling = m->current->win;
+
+	for EACHCLIENT(m->head){
+		if (ic != m->current && !ic->isfloat && ISVISIBLE(ic)){
+			XConfigureWindow(dis, ic->win, CWSibling|CWStackMode, &wc);
+			wc.sibling = ic->win;
+		}
+	}
+
+	XSync(dis, False);
+	while (XCheckMaskEvent(dis, EnterWindowMask, &dumbev));
+}
+
+void
 showhide(monitor* m){
 	for EACHCLIENT(m->head){
 		if ISVISIBLE(ic){
@@ -986,25 +1013,10 @@ toggledesktop(const Arg arg){
 
 void
 togglefloat(const Arg arg){
-	XWindowChanges wc;
-
 	if (!curmon->current || curmon->current->isfull)
 		return;
 
-	if ( (curmon->current->isfloat = !curmon->current->isfloat) ){
-		wc.sibling = curmon->current->win;
-		wc.stack_mode = Below;
-
-		for EACHCLIENT(curmon->head)
-			if (ic != curmon->current)
-				XConfigureWindow(dis, ic->win, CWSibling|CWStackMode, &wc);
-
-	} else {
-		wc.sibling = curmon->bar->win;
-		wc.stack_mode = Below;
-		XConfigureWindow(dis, curmon->current->win, CWSibling|CWStackMode, &wc);
-	}
-
+	curmon->current->isfloat = !curmon->current->isfloat;
 	arrange(curmon);
 }
 
@@ -1437,7 +1449,7 @@ void
 arrange(monitor* m){
 	showhide(m);
 	m->curlayout->arrange(m);
-	while (XCheckMaskEvent(dis, EnterWindowMask, &dumbev));
+	restack(m);
 };
 
 void
