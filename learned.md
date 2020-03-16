@@ -24,5 +24,5 @@ Things I've Learned
 # XOrg Things
 
 * Mostly how the Xlib Window system works (I found a nice picture somewhere but have lost it, and have not gone looking yet).
-* That Xlib has a lot of [documentation](https://www.x.org/releases/current/doc/libX11/libX11/libX11.pdf) and extra [documentation](https://tronche.com/gui/x/).
+* That Xlib has a lot of [documentation](https://www.x.org/releases/current/doc/libX11/libX11/libX11.pdf), extra [documentation](https://tronche.com/gui/x/), and a [wikibook](https://en.wikibooks.org/wiki/X_Window_Programming).
 * That Xft has no Xfucking documentation.
