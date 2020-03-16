@@ -398,7 +398,7 @@ configurenotify(XEvent* e){
 
 			arrange(im);
 		}
-		updatefocus();
+		updatestatus();
 	}
 }
 
@@ -1191,12 +1191,12 @@ static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo
 void
 updategeom(){
 	int x, y;
+	client* c;
+	monitor* m, * oldmhead = mhead;
 
 #ifdef XINERAMA
 	if (XineramaIsActive(dis)){
 		int i, j, ns;
-		client* c;
-		monitor* m, * oldmhead = mhead;
 
 		XineramaScreenInfo* info = XineramaQueryScreens(dis, &ns);
 		XineramaScreenInfo* unique;
@@ -1218,23 +1218,24 @@ updategeom(){
 
 		free(unique);
 
-		/* reattach any old clients to the new mhead */
-		while ( (m = oldmhead) ){
-			while ( (c = m->head) ){
-				m->head = c->next;
-				detach(c);
-				c->mon = mhead;
-				attachaside(c);
-			}
-			oldmhead = m->next;
-			cleanupmon(m);
-		}
-
 	} else
 #endif
 	{
-		if (mhead) cleanupmon(mhead);
 		mhead = createmon(0, 0, 0, sw, sh);
+	}
+
+	/* if updating, reattach any old clients to the new mhead */
+	while ( (m = oldmhead) ){
+		while ( (c = m->head) ){
+			m->head = c->next;
+			detach(c);
+			c->mon = mhead;
+			c->next = NULL;
+			attachaside(c);
+		}
+		mhead->seldesks |= m->seldesks;
+		oldmhead = m->next;
+		cleanupmon(m);
 	}
 
 	/* focus monitor that has the pointer inside it */
@@ -1243,6 +1244,9 @@ updategeom(){
 			changemon(im, YesFocus);
 			break;
 		}
+
+	if (!curmon)
+		changemon(mhead, YesFocus);
 }
 
 
