@@ -737,6 +737,7 @@ moveclient(const Arg arg){
 
 	arrange(curmon);
 	updatefocus();
+
 }
 
 void
@@ -789,8 +790,8 @@ movefocus(const Arg arg){
 	}
 
 	if (c && c != curmon->current){
-		while (XCheckMaskEvent(dis, EnterWindowMask, &dumbev));
 		changecurrent(c, curmon, curmon->curdesk, 0);
+		while (XCheckMaskEvent(dis, EnterWindowMask, &dumbev));
 		updatefocus();
 	}
 }
