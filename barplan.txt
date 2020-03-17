@@ -1,4 +1,4 @@
-1. Output information to socket:
+1. Output information to socket: DONE
 	a. seldesks
 	c. occdesks
 	d. layout symbol

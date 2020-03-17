@@ -38,8 +38,8 @@
 #define MAX(A,B)               		((A) > (B) ? (A) : (B))
 #define POSTOINT(X)			((int)(ceil(log2(X)) == floor(log2(X)) ? ceil(log2(X)) : 0))
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
-#define INPUTSOCK			"/tmp/sarasock"
-#define OUTPUTSOCK			"/tmp/saraoutsock"
+#define INPUTSOCK			"/tmp/saraisock"
+#define OUTPUTSOCK			"/tmp/saraosock"
 #define MAXBUFF				22*sizeof(char) /* longest is youviolatedmymother at 19, +2 for space and "0", +1 for '\0' */
 
 enum { SchNorm,    SchSel };
@@ -149,11 +149,11 @@ uitos(unsigned int ui, int len, char* dest){
 		bytearray[i] = ui >> i & 1;
 
 	for (i=0, j=0;
-	(i < len+1) && (res = snprintf(bytestr + j, sizeof(bytestr) - j, "%d", bytearray[i])) > 0;
+	(i < len+1) && (res = snprintf(bytestr + j, (len + 1) - j, "%d", bytearray[i])) > 0;
 	i++)
 		j += res;
 
-	snprintf(dest, sizeof(bytestr), "%s", bytestr);
+	snprintf(dest, len + 1, "%s", bytestr);
 }
 
 void
@@ -247,6 +247,7 @@ static void view(const Arg arg);
 static void cleanup();
 static int getptrcoords(int* x, int* y);
 static void grabbuttons(client* c, int focused);
+static void outputstats();
 static void parsearg(const Arg arg, int wanttype, int* ai, float* af);
 static void setup();
 static void sigchld(int unused);
@@ -684,6 +685,7 @@ manage(Window parent, XWindowAttributes* wa){
 			togglefs(dumbarg);
 		}
 	}
+	outputstats();
 }
 
 void
@@ -862,6 +864,7 @@ manipulate(const Arg arg){
 				return;
 			}
 		}
+		outputstats();
 	}
 }
 
@@ -950,6 +953,7 @@ todesktop(const Arg arg){
 
 	arrange(curmon);
 	updatefocus();
+	outputstats();
 }
 
 void
@@ -971,6 +975,7 @@ toggledesktop(const Arg arg){
 
 		arrange(curmon);
 		updatefocus();
+		outputstats();
 	}
 }
 
@@ -1010,6 +1015,7 @@ tomon(const Arg arg){
 	parsearg(arg, WantInt, &ai, &dumbf);
 
 	sendmon(curmon->current, dirtomon(ai));
+	outputstats();
 }
 
 void
@@ -1020,6 +1026,7 @@ unmanage(client *c){
 	free(c);
 	arrange(m);
 	updatefocus();
+	outputstats();
 }
 
 void
@@ -1198,6 +1205,7 @@ updategeom(){
 
 	if (!curmon)
 		changemon(mhead, YesFocus);
+	outputstats();
 }
 
 
@@ -1305,6 +1313,7 @@ setlayout(const Arg arg){
 			curmon->curlayout = (layout*) &layouts[i];
 
 	arrange(curmon);
+	outputstats();
 }
 
 void
@@ -1371,6 +1380,7 @@ toggleview(const Arg arg){
 
 	arrange(curmon);
 	updatefocus();
+	outputstats();
 }
 
 void
@@ -1392,6 +1402,7 @@ view(const Arg arg){
 
 	arrange(curmon);
 	updatefocus();
+	outputstats();
 }
 
 
@@ -1458,6 +1469,54 @@ grabbuttons(client* c, int focused){
 }
 
 void
+outputstats(){
+	int sfd, outlen;
+	char* isdeskocc, * isdesksel, * outstr;
+	unsigned int occ = 0, sel = 0;
+	struct sockaddr saddress = {AF_UNIX, OUTPUTSOCK};
+
+	for EACHMON(mhead){
+		if ( (sfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0 ){
+			fprintf(stderr, "failed to create socket!\n");
+			return;
+		}
+		
+		if (connect(sfd, &saddress, sizeof(saddress)) < 0){
+			fprintf(stderr, "failed to connect to socket!\n");
+			return;
+		}
+
+		/* im->num + : + isdeskocc + : + isdesksel + : + []= + '\0' */
+		outlen = 2 + 2*TABLENGTH(tags) + slen(im->curlayout->symbol) + 1;
+		outstr = ecalloc(outlen, sizeof(char));
+		isdeskocc = ecalloc(TABLENGTH(tags), sizeof(char));
+		isdesksel = ecalloc(TABLENGTH(tags), sizeof(char));
+		sel = im->seldesks;
+
+		for EACHCLIENT(im->head)
+			occ |= ic->desks;
+
+		uitos(occ, TABLENGTH(tags)-1, isdeskocc);
+		uitos(sel, TABLENGTH(tags)-1, isdesksel);
+
+		/* output:
+		 * "0:00000000:00000000:[]="
+		 * im->num:isdeskocc:isdesksel:curlayout->symbol
+		 */
+		snprintf(outstr, outlen, "%d:%s:%s:%s", im->num, isdeskocc, isdesksel, im->curlayout->symbol);
+
+		if (send(sfd, outstr, slen(outstr), 0) < 0)
+			fprintf(stderr, "failed to send to socket!\n");
+
+		free(isdeskocc);
+		free(isdesksel);
+		free(outstr);
+
+		close(sfd);
+	}
+}
+
+void
 parsearg(const Arg arg, int wanttype, int* ai, float* af){
 	switch (wanttype){
 	case WantInt:
@@ -1492,6 +1551,7 @@ setup(){
 
 	updategeom();
 	loaddesktop(0);
+	outputstats();
 
 	wa.cursor = cursor;
 	wa.event_mask = SubstructureRedirectMask|SubstructureNotifyMask
@@ -1570,54 +1630,6 @@ start(){
 
 	close(sfd);
 	unlink(INPUTSOCK);
-}
-
-void
-outputstats(){
-	int i;
-	int sfd, n;
-	char* isdeskocc, * isdesksel;
-	unsigned int occ, sel;
-	struct sockaddr saddress = {AF_UNIX, OUTPUTSOCK};
-
-	for EACHMON(mhead){
-		if ( (sfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0 ){
-			fprintf(stderr, "failed to create socket!\n");
-			return;
-		}
-		
-		if (connect(sfd, &saddress, sizeof(saddress)) < 0){
-			fprintf(stderr, "failed to connect to socket!\n");
-			return;
-		}
-
-		outstr = ecalloc(2*TABLENTH(tags) + slen(im->curlayout->symbol) + 1, sizeof(char));
-		isdeskocc = ecalloc(TABLENGTH(tags), sizeof(char));
-		isdesksel = ecalloc(TABLENGTH(tags), sizeof(char));
-		sel = im->seldesks;
-
-		for EACHCLIENT(im->head)
-			occ |= ic->desks;
-
-		uitos(occ, TABLENGTH(tags)-1, isdeskocc);
-		uitos(sel, TABLENGTH(tags)-1, isdesksel);
-
-		/* output:
-		 * "00000000:00000000:[]="
-		 * isdeskocc:isdesksel:curlayout->symbol
-		 */
-		snprintf(outstr, sizeof(outstr), "%s:%s:%s", isdeskocc, isdesksel, curlayout->symbol);
-
-		// TODO: im->num;
-		if (send(sfd, outstr, slen(outstr), 0) < 0)
-			fprintf(stderr, "failed to send to socket!\n");
-
-		free(isdeskocc);
-		free(isdesksel);
-		free(outstr);
-
-		close(sfd);
-	}
 }
 
 int
