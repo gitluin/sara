@@ -1,10 +1,9 @@
-1. Output information to socket: SORT OF DONE
+1. Output information: DONE
 	a. seldesks
 	b. occdesks
 	c. layout symbol
-	d. Open socket for writing first??
 2. Separate program:
-	a. Read from socket
-	b. Read from rootname (could make sbar scripts write to their own socket, too)
-	c. Pass strings to bar program (lemonbar)
+	a. Read from saranobar DONE
+	b. Read from .sbar/.name
+	c. Pass strings to lemonbar
 	d. Wait for new messages
