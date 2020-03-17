@@ -1576,23 +1576,22 @@ void
 outputstats(){
 	int i;
 	int sfd, n;
-	char* isdeskocc, * isdesksel, * outstr;
-	unsigned int occ;
-	unsigned int sel;
+	char* isdeskocc, * isdesksel;
+	unsigned int occ, sel;
 	struct sockaddr saddress = {AF_UNIX, OUTPUTSOCK};
 
-	if ( (sfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0){
-		fprintf(stderr, "failed to create socket!\n");
-		return;
-	}
-	if (connect(sfd, &saddress, sizeof(saddress)) < 0){
-		fprintf(stderr, "failed to connect to socket!\n");
-		return;
-	}
-
 	for EACHMON(mhead){
-		/* full TABLENGTH to include ;, + 1 for '\0' */
-		outstr = ecalloc(2*TABLENGTH(tags) + slen(im->curlayout->symbol) + 1, sizeof(char))
+		if ( (sfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0 ){
+			fprintf(stderr, "failed to create socket!\n");
+			return;
+		}
+		
+		if (connect(sfd, &saddress, sizeof(saddress)) < 0){
+			fprintf(stderr, "failed to connect to socket!\n");
+			return;
+		}
+
+		outstr = ecalloc(2*TABLENTH(tags) + slen(im->curlayout->symbol) + 1, sizeof(char));
 		isdeskocc = ecalloc(TABLENGTH(tags), sizeof(char));
 		isdesksel = ecalloc(TABLENGTH(tags), sizeof(char));
 		sel = im->seldesks;
@@ -1603,30 +1602,22 @@ outputstats(){
 		uitos(occ, TABLENGTH(tags)-1, isdeskocc);
 		uitos(sel, TABLENGTH(tags)-1, isdesksel);
 
-		/* outstr:
-		 * "00000000;	00000000;	[]="
-		 * isdeskocc;	isdesksel;	curlayout->symbol
+		/* output:
+		 * "00000000:00000000:[]="
+		 * isdeskocc:isdesksel:curlayout->symbol
 		 */
+		snprintf(outstr, sizeof(outstr), "%s:%s:%s", isdeskocc, isdesksel, curlayout->symbol);
 
-		// TODO: concatenate into outstr
-
-		if (send(sfd, outstr, slen(outstr)+1, 0) < 0){
+		// TODO: im->num;
+		if (send(sfd, outstr, slen(outstr), 0) < 0)
 			fprintf(stderr, "failed to send to socket!\n");
-			free(isdeskocc);
-			free(isdesksel);
-			free(outstr);
-			break;
-		}
 
 		free(isdeskocc);
 		free(isdesksel);
 		free(outstr);
-	}
-	// send "DONE"
-	if (send(sfd, outstr, slen(outstr)+1, 0) < 0)
-		fprintf(stderr, "failed to send to socket!\n");
 
-	close(sfd);
+		close(sfd);
+	}
 }
 
 int
