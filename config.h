@@ -16,6 +16,7 @@
  * ---------------------------------------
  */
 
+#define NUMTAGS		9
 #define MOUSEMOD	Mod4Mask
 #define MASTER_SIZE     0.55
 
@@ -27,7 +28,6 @@
 
 /* vertical space allotted for your bar of choice */
 static const int barpx			= 16;
-static const char* tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
 
 
 /* ---------------------------------------

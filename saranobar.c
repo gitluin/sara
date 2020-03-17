@@ -528,7 +528,7 @@ applyrules(client* c){
 	class = ch.res_class ? ch.res_class : "broken";
 	instance = ch.res_name  ? ch.res_name  : "broken";
 
-	for (i=0;i<TABLENGTH(rules);i++){
+	for (i=0;i < TABLENGTH(rules);i++){
 		r = &rules[i];
 		if ((!r->title || (tp.value && strstr(r->title, (const char*) tp.value)))
 		&& (!r->class || strstr(class, r->class))
@@ -1081,8 +1081,8 @@ createmon(int num, int x, int y, int w, int h){
 	m->curlayout = (layout*) &layouts[0];
 	m->msize = m->w * MASTER_SIZE;
 
-	m->desks = ecalloc(TABLENGTH(tags), sizeof(desktop));
-	for (i=0;i < TABLENGTH(tags);i++){
+	m->desks = ecalloc(NUMTAGS, sizeof(desktop));
+	for (i=0;i < NUMTAGS;i++){
 		m->desks[i].curlayout = m->curlayout;
 		m->desks[i].msize = m->msize;
 	}
@@ -1161,7 +1161,7 @@ updategeom(){
 
       		/* only consider unique geometries as separate screens */
 		unique = ecalloc(ns, sizeof(XineramaScreenInfo));
-		for (i = 0, j = 0; i < ns; i++)
+		for (i=0, j=0;i < ns;i++)
 			if (isuniquegeom(unique, j, &info[i]))
 				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
 		XFree(info);
@@ -1365,7 +1365,7 @@ toggleview(const Arg arg){
 	curmon->seldesks ^= tagmask;
 
 	if (!(curmon->curdesk & curmon->seldesks)){
-		for (i=0;i < TABLENGTH(tags);i++){
+		for (i=0;i < NUMTAGS;i++){
 			if (curmon->seldesks & 1 << i){
 				loaddesktop(i);
 				curmon->curdesk = 1 << i;
@@ -1474,16 +1474,16 @@ outputstats(){
 	unsigned int occ = 0, sel = 0;
 
 	for EACHMON(mhead){
-		isdeskocc = ecalloc(TABLENGTH(tags), sizeof(char));
-		isdesksel = ecalloc(TABLENGTH(tags), sizeof(char));
+		isdeskocc = ecalloc(NUMTAGS, sizeof(char));
+		isdesksel = ecalloc(NUMTAGS, sizeof(char));
 		sel = im->seldesks;
 
 		for EACHCLIENT(im->head)
 			occ |= ic->desks;
 
 		/* uis get reordered in the dest string so they are left-to-right */
-		uitos(occ, TABLENGTH(tags)-1, isdeskocc);
-		uitos(sel, TABLENGTH(tags)-1, isdesksel);
+		uitos(occ, NUMTAGS-1, isdeskocc);
+		uitos(sel, NUMTAGS-1, isdesksel);
 
 		/* output:
 		 * "0:00000000:00000000:[]="
