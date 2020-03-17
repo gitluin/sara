@@ -134,7 +134,7 @@ struct monitor {
  * ---------------------------------------
  */
 
-/* convert 11111111 to "11111111"
+/* convert 11011110 to "01111011"
  * for this example, len = 8
  * dest must be a calloc'd char* that you free() afterwards
  */
@@ -142,14 +142,14 @@ void
 uitos(unsigned int ui, int len, char* dest){
 	int i, j, res;
 	int bytearray[len];
-	char bytestr[len+1];
+	char bytestr[len + 1];
 
 	/* reverse the array, as tags are printed left to right, not right to left */
 	for (i=0;i < len;i++)
 		bytearray[i] = ui >> i & 1;
 
 	for (i=0, j=0;
-	(i < len+1) && (res = snprintf(bytestr + j, (len + 1) - j, "%d", bytearray[i])) > 0;
+	(i < (len + 1)) && (res = snprintf(bytestr + j, (len + 1) - j, "%d", bytearray[i])) > 0;
 	i++)
 		j += res;
 
@@ -166,7 +166,7 @@ void*
 ecalloc(size_t nmemb, size_t size){
 	void* p;
 
-	if ( !(p = calloc(nmemb,size)) )
+	if ( !(p = calloc(nmemb, size)) )
 		die("ecalloc failed");
 
 	return p;
@@ -1470,25 +1470,10 @@ grabbuttons(client* c, int focused){
 
 void
 outputstats(){
-	int sfd, outlen;
-	char* isdeskocc, * isdesksel, * outstr;
+	char* isdeskocc, * isdesksel;
 	unsigned int occ = 0, sel = 0;
-	struct sockaddr saddress = {AF_UNIX, OUTPUTSOCK};
 
 	for EACHMON(mhead){
-		if ( (sfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0 ){
-			fprintf(stderr, "failed to create socket!\n");
-			return;
-		}
-		
-		if (connect(sfd, &saddress, sizeof(saddress)) < 0){
-			fprintf(stderr, "failed to connect to socket!\n");
-			return;
-		}
-
-		/* im->num + : + isdeskocc + : + isdesksel + : + []= + '\0' */
-		outlen = 2 + 2*TABLENGTH(tags) + slen(im->curlayout->symbol) + 1;
-		outstr = ecalloc(outlen, sizeof(char));
 		isdeskocc = ecalloc(TABLENGTH(tags), sizeof(char));
 		isdesksel = ecalloc(TABLENGTH(tags), sizeof(char));
 		sel = im->seldesks;
@@ -1496,6 +1481,7 @@ outputstats(){
 		for EACHCLIENT(im->head)
 			occ |= ic->desks;
 
+		/* uis get reordered in the dest string so they are left-to-right */
 		uitos(occ, TABLENGTH(tags)-1, isdeskocc);
 		uitos(sel, TABLENGTH(tags)-1, isdesksel);
 
@@ -1503,17 +1489,12 @@ outputstats(){
 		 * "0:00000000:00000000:[]="
 		 * im->num:isdeskocc:isdesksel:curlayout->symbol
 		 */
-		snprintf(outstr, outlen, "%d:%s:%s:%s", im->num, isdeskocc, isdesksel, im->curlayout->symbol);
-
-		if (send(sfd, outstr, slen(outstr), 0) < 0)
-			fprintf(stderr, "failed to send to socket!\n");
+		printf("%d:%s:%s:%s%c", im->num, isdeskocc, isdesksel, im->curlayout->symbol, im->next ? ' ' : '\n');
 
 		free(isdeskocc);
 		free(isdesksel);
-		free(outstr);
-
-		close(sfd);
 	}
+	fflush(stdout);
 }
 
 void

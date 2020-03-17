@@ -16,7 +16,7 @@
 #include <unistd.h>
 
 /* this NEEDS to match with sara.c */
-#define INPUTSOCK			"/tmp/saraisock"
+#define INPUTSOCK			"/tmp/sarassock"
 
 int
 slen(const char* str){
