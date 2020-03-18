@@ -38,8 +38,7 @@
 #define MAX(A,B)               		((A) > (B) ? (A) : (B))
 #define POSTOINT(X)			((int)(ceil(log2(X)) == floor(log2(X)) ? ceil(log2(X)) : 0))
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
-#define INPUTSOCK			"/tmp/saraisock"
-#define OUTPUTSOCK			"/tmp/saraosock"
+#define INPUTSOCK			"/tmp/sara.sock"
 #define MAXBUFF				22*sizeof(char) /* longest is youviolatedmymother at 19, +2 for space and "0", +1 for '\0' */
 
 enum { SchNorm,    SchSel };
@@ -113,6 +112,7 @@ struct desktop {
 	layout* curlayout;
 };
 
+// TODO: my, mh, wy, wh because of barpx and bottombar
 struct monitor {
 	/* monitor */
 	int x, y, h, w;
@@ -1375,7 +1375,7 @@ toggleview(const Arg arg){
 	}
 
 	/* refocuses, toggles off curmon->current's currentness */
-	if (!ISVISIBLE(curmon->current))
+	if (curmon->current && !ISVISIBLE(curmon->current))
 		changecurrent(curmon->current, curmon, curmon->curdesk, 1);
 
 	arrange(curmon);
@@ -1416,15 +1416,18 @@ view(const Arg arg){
  */
 void
 cleanup(){
+	int i = 0;
 	monitor* m, * tm = mhead;
-	const Arg arg = {.ui = ~0};
+	const Arg arg = {.s = "-1"};
 
-	for EACHMON(mhead){
-		changemon(im, NoFocus);
+//	for EACHMON(mhead){
+	for (m=mhead;m;m=m->next){
+		changemon(m, NoFocus);
 		/* make everything visible */
 		toggleview(arg);
 		while (curmon->current)
 			unmanage(curmon->current);
+		i++;
 	}
 
 	XUngrabKey(dis, AnyKey, AnyModifier, root);
@@ -1434,7 +1437,7 @@ cleanup(){
 		cleanupmon(m);
 	}
 
-	XFree(&cursor);
+	XFreeCursor(dis, cursor);
 
 	XSync(dis, False);
 	XSetInputFocus(dis, PointerRoot, RevertToPointerRoot, CurrentTime);
@@ -1471,9 +1474,10 @@ grabbuttons(client* c, int focused){
 void
 outputstats(){
 	char* isdeskocc, * isdesksel;
-	unsigned int occ = 0, sel = 0;
+	unsigned int occ, sel;
 
 	for EACHMON(mhead){
+		occ = sel = 0;
 		isdeskocc = ecalloc(NUMTAGS, sizeof(char));
 		isdesksel = ecalloc(NUMTAGS, sizeof(char));
 		sel = im->seldesks;

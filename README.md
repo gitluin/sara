@@ -77,7 +77,6 @@ To Do
 ----
  * More UNIX philosophy? own bar (write out layout to file, to socket, etc.)?
    * bar:
-     * specify size of bar space.
      * specify bar at top or bottom of the screen.
  * My own art.
  * A wiki.

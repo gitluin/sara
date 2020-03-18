@@ -1,8 +1,7 @@
 PREFIX?= /usr
 BINDIR?= $(PREFIX)/bin
 
-#CFLAGS= -std=c99 -Wall -Wno-deprecated-declarations -g -DXINERAMA # -Os
-CFLAGS= -std=c99 -Wall -Wno-deprecated-declarations -D_POSIX_C_SOURCE=200809L -DXINERAMA -Os
+CFLAGS= -std=c99 -Wall -Wno-deprecated-declarations -g -DXINERAMA #-D_POSIX_C_SOURCE=200809L -DXINERAMA -g -Os
 INCFLAGS= -I/usr/include/freetype2
 LIBS= -lm -lX11 -lXft -lXinerama
 
