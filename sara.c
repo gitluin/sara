@@ -699,7 +699,6 @@ moveclient(const Arg arg){
 
 	arrange(curmon);
 	updatefocus();
-
 }
 
 void

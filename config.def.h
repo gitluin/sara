@@ -49,10 +49,9 @@ static const rule rules[] = {
 	 */
 
 	/* class      instance    title       tags mask     isfloat   isfull	monitor */
-	{ "st",       NULL,       "rcalc",    0,            1,        0,	-1 },
-	{ "st",       NULL,       "cal",      0,            1,        0,	-1 },
+	/* script for taking quick notes */
 	{ "st",       NULL,	  "scratch",  0,            1,	      1,	-1 },
-	// Any jerry-rigged shortcuts go to the 9th space
+	/* Any function key scripts go to the 9th space */
 	{ "st",       NULL,       "funkey",   1 << 8,       1,        0,	-1 },
 };
 
@@ -66,8 +65,8 @@ static const layout layouts[] = {
 /* dwm copypasta */
 static button buttons[] = {
 	/* click                event mask      button          function        argument */
-	{ ClkWin,         	MOUSEMOD,       Button1,        manipulate,     {WantMove} },
-	{ ClkWin,         	MOUSEMOD,       Button3,        manipulate,     {WantResize} },
+	{ ClkWin,         	MOUSEMOD,       Button1,        manipulate,     {.i = WantMove} },
+	{ ClkWin,         	MOUSEMOD,       Button3,        manipulate,     {.i = WantResize} },
 };
 
 #endif
