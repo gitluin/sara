@@ -1308,7 +1308,7 @@ setlayout(const Arg arg){
 void
 tile(monitor* m){
 	client* nf = NULL;
-	int n = 0, x = m->mx, y = m->my;
+	int n = 0, x = m->mx, y = m->wy;
 
 	/* Find the first non-floating, visible window and tally non-floating, visible windows */
 	for EACHCLIENT(m->head) if (!ic->isfloat && ISVISIBLE(ic)){

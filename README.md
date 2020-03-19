@@ -43,28 +43,21 @@ Features
 		* pertag-like: layouts, master_size
 		* singular borders
 * bspwm-like:
-	* keyboard handling via external program (like sxhkd)
+	* keyboard handling via external program (like `sxhkd`)
+* monsterwm-like:
+	* output desktop information for external parsing (like with shell script + `lemonbar`)
 * worst
 
 ### Design Limitations
-* No support for urgency coloring in the bar, because nothing I do is urgent.
+* No support for urgency, because nothing I do is urgent.
 * No [ICCCM](https://web.archive.org/web/20190617214524/https://raw.githubusercontent.com/kfish/xsel/1a1c5edf0dc129055f7764c666da2dd468df6016/rant.txt) (found thanks to [dylan](https://github.com/dylanaraps/sowm)). This is mostly felt in the lack of the applysizehints behavior that dwm has (ex. cmatrix won't redraw using larger window bounds if you give it more space via togglefs, changemsize, etc.)
 * No EWMH support, because fullscreening manually isn't so bad (see config.h).
-* One bar. I don't like to look to a particular monitor for the time, just the same spot on any monitor.
-* No unicode support. If you provide unicode characters to the bar, behavior is undefined. I get junk for symbols. You might crash. Behave yourself.
 * No support for doing things through CapsLock or NumLock.
 
 ### Why Use Sara Over Other Small WM, X?
 
-A few examples I was able to find:
-
-* [dminiwm](https://github.com/moetunes/dminiwm) No status bar. No XINERAMA support. Also, some of the code: compare add\_window() to the combination of manage(), attachaside(), etc.
-* [berry](https://github.com/JLErvin/berry) CLI-config vs. config.h. Extremely standards-compliant. Codebase is much larger as a consequence (wm.c is 1912 SLOC).
-* [monsterwm](https://github.com/c00kiemon5ter/monsterwm) No status bar (I appreciate the UNIX philosophy adherence, though). No XINERAMA support. Not a fan of the code formatting, but not a big deal unless you're in my position/writing patches.
-
-Also:
-
-* I wrote a [set of bar scripts](https://github.com/gitluin/sbar.git) that go along with it! This includes a script for getting a [lemonbar with Xft support](https://github.com/krypt-n/bar) setup running!
+* You're me and felt the need to write a tiling/dynamic window manager, even though there are plenty of them and will probably be 5 more by the time you finish this sentence. But I think the strengths are the unique combination of `dwm`'s tag system, `bspwm`'s socket approach to handling keyboard input, and a somewhat `monsterwm`-inspired information outputting setup that allows you to go real bar-crazy with things like `lemonbar`.
+* Relatedly, I wrote a [set of bar scripts](https://github.com/gitluin/sbar.git) that go along with it! This includes a script for getting a [lemonbar with Xft support](https://github.com/krypt-n/bar) setup running!
 
 Help Me (Keybindings, Installation, Etc.)!
 -------------------------------------------
