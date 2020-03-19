@@ -38,6 +38,7 @@
 #define MAX(A,B)               		((A) > (B) ? (A) : (B))
 #define POSTOINT(X)			((int)(ceil(log2(X)) == floor(log2(X)) ? ceil(log2(X)) : 0))
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
+/* this NEEDS to match with sarasock.c */
 #define INPUTSOCK			"/tmp/sara.sock"
 #define MAXBUFF				22*sizeof(char) /* longest is youviolatedmymother at 19, +2 for space and "0", +1 for '\0' */
 
@@ -112,10 +113,9 @@ struct desktop {
 	layout* curlayout;
 };
 
-// TODO: my, mh, wy, wh because of barpx and bottombar
 struct monitor {
 	/* monitor */
-	int x, y, h, w;
+	int mx, my, mh, mw, wy, wh;
 	int num;
 	monitor* next;
 	/* desks */
@@ -378,8 +378,7 @@ configurenotify(XEvent* e){
 		for EACHMON(mhead){
 			for EACHCLIENT(im->head)
 				if (ic->isfull)
-					resizeclient(ic, im->x, im->y - barpx, im->w,
-							im->h + barpx);
+					resizeclient(ic, im->mx, im->my, im->mw, im->mh);
 
 			arrange(im);
 		}
@@ -396,14 +395,14 @@ configurerequest(XEvent* e){
 	if ( (c = findclient(ev->window)) ){
 		if (c->isfloat){
 			m = c->mon;
-			if (ev->value_mask & CWX) c->x = m->x + ev->x;
+			if (ev->value_mask & CWX) c->x = m->mx + ev->x;
 			if (ev->value_mask & CWY) c->y = (ev->y < barpx) ? barpx : ev->y;
 			if (ev->value_mask & CWWidth) c->w = ev->width;
 			if (ev->value_mask & CWHeight) c->h = ev->height;
-			if ((c->x + c->w) > m->x + m->w)
-				c->x = m->x + (m->w / 2 - c->w / 2);
-			if ((c->y + c->h) > m->y + m->h)
-				c->y = m->y + (m->h / 2 - c->h / 2);
+			if ((c->x + c->w) > m->mx + m->mw)
+				c->x = m->mx + (m->mw / 2 - c->w / 2);
+			if ((c->y + c->h) > m->wy + m->wh)
+				c->y = m->wy + (m->wh / 2 - c->h / 2);
 			if ((ev->value_mask & (CWX|CWY)) && !(ev->value_mask & (CWWidth|CWHeight)))
 				configure(c);
 			if (ISVISIBLE(c))
@@ -478,9 +477,7 @@ motionnotify(XEvent* e){
 	if (ev->window != root)
 		return;
 
-	if (ISOUTSIDE(ev->x_root, ev->y_root, curmon->x, curmon->y - barpx, curmon->w,
-				curmon->h + barpx))
-	{
+	if (ISOUTSIDE(ev->x_root, ev->y_root, curmon->mx, curmon->my, curmon->mw, curmon->mh)){
 		for EACHMON(mhead){
 			if (im != curmon){
 				changemon(im, YesFocus);
@@ -498,16 +495,12 @@ motionnotify(XEvent* e){
 
 void
 adjustcoords(client* c){
-	if (ISOUTSIDE(c->x, c->y, c->mon->x, c->mon->y - barpx, c->mon->w,
-				c->mon->h + barpx))
-	{
+	if (ISOUTSIDE(c->x, c->y, c->mon->mx, c->mon->my, c->mon->mw, c->mon->mh)){
 		/* find which one it is inside */
 		for EACHMON(mhead)
-			if (!ISOUTSIDE(c->x, c->y, im->x, im->y - barpx, im->w,
-						im->h + barpx))
-			{
-				c->x += (im->x < c->mon->x) ? c->mon->x : -im->x;
-				c->y += (im->y < c->mon->y) ? c->mon->y : -im->y;
+			if (!ISOUTSIDE(c->x, c->y, im->mx, im->my, im->mw, im->mh)){
+				c->x += (im->mx < c->mon->mx) ? c->mon->mx : -im->mx;
+				c->y += (im->my < c->mon->my) ? c->mon->my : -im->my;
 				break;
 			}
 	}
@@ -668,7 +661,7 @@ manage(Window parent, XWindowAttributes* wa){
 
 	attachaside(c);
 	adjustcoords(c);
-	c->y = (c->y < c->mon->y) ? c->mon->y : c->y;
+	c->y = (c->y < c->mon->wy) ? c->mon->wy : c->y;
 
 	/* move out of the way until told otherwise */
 	XMoveResizeWindow(dis, c->win, c->x + 2*sw, c->y, c->w, c->h);
@@ -810,8 +803,8 @@ manipulate(const Arg arg){
 				nw = MAX(ev.xmotion.x - ocx + 1, 1);
 				nh = MAX(ev.xmotion.y - ocy + 1, 1);
 				/* if c extends beyond the boundaries of its monitor, make it a float */
-				if (m->x + nw >= curmon->x && m->x + nw <= curmon->x + curmon->w
-				&& m->y + nh >= curmon->y && m->y + nh <= curmon->y + curmon->h)
+				if (m->mx + nw >= curmon->mx && m->mx + nw <= curmon->mx + curmon->mw
+				&& m->wy + nh >= curmon->wy && m->wy + nh <= curmon->wy + curmon->wh)
 					trytoggle = 1;
 				nx = c->x; ny = c->y;
 
@@ -819,14 +812,14 @@ manipulate(const Arg arg){
 				nx = ocx + (ev.xmotion.x - x);
 				ny = ocy + (ev.xmotion.y - y);
 				/* if c is within snap pixel of the monitor borders, then snap */
-				if (abs(curmon->x - nx) < snap)
-					nx = curmon->x;
-				else if (abs((curmon->x + curmon->w) - (nx + c->w)) < snap)
-					nx = curmon->x + curmon->w - c->w;
-				if (abs(curmon->y - ny) < snap)
-					ny = curmon->y;
-				else if (abs((curmon->y + curmon->h) - (ny + c->h)) < snap)
-					ny = curmon->y + curmon->h - c->h;
+				if (abs(curmon->mx - nx) < snap)
+					nx = curmon->mx;
+				else if (abs((curmon->mx + curmon->mw) - (nx + c->w)) < snap)
+					nx = curmon->mx + curmon->mw - c->w;
+				if (abs(curmon->wy - ny) < snap)
+					ny = curmon->wy;
+				else if (abs((curmon->wy + curmon->wh) - (ny + c->h)) < snap)
+					ny = curmon->wy + curmon->wh - c->h;
 				trytoggle = 1;
 				nw = c->w; nh = c->h;
 			}
@@ -850,13 +843,9 @@ manipulate(const Arg arg){
 	if (arg.i == WantResize)
 		while (XCheckMaskEvent(dis, EnterWindowMask, &ev));
 
-	if (ISOUTSIDE(c->x, c->y, curmon->x, curmon->y - barpx, curmon->w,
-				curmon->h + barpx))
-	{
+	if (ISOUTSIDE(c->x, c->y, curmon->mx, curmon->my, curmon->mw, curmon->mh)){
 		for EACHMON(mhead){
-			if (im != curmon && !ISOUTSIDE(c->x, c->y, im->x, im->y - barpx,
-						im->w, im->h + barpx))
-			{
+			if (im != curmon && !ISOUTSIDE(c->x, c->y, im->mx, im->my, im->mw, im->mh)){
 				m = im;
 				/* this also calls EACHMON - need m, because im - whoops */
 				sendmon(c, m);
@@ -997,8 +986,8 @@ togglefs(const Arg arg){
 		curmon->current->oldfloat = curmon->current->isfloat;
 		curmon->current->isfloat = 0;
 
-		XMoveResizeWindow(dis, curmon->current->win, curmon->x, curmon->y - barpx,
-				curmon->w, curmon->h + barpx);
+		XMoveResizeWindow(dis, curmon->current->win, curmon->mx, curmon->my,
+				curmon->mw, curmon->mh);
 		XRaiseWindow(dis, curmon->current->win);
 
 	} else {
@@ -1071,15 +1060,15 @@ createmon(int num, int x, int y, int w, int h){
 	monitor* m = ecalloc(1, sizeof(monitor));
 
 	m->num = num;
-	m->x = x; m->y = y;
-	m->w = w; m->h = h;
+	m->mx = x; m->my = y;
+	m->mw = w; m->mh = h;
 
-	m->y += barpx;
-	m->h -= barpx;
+	m->wy = m->my + (bottombar ? 0 : barpx );
+	m->wh = m->mh - barpx;
 
 	/* Default to first layout */
 	m->curlayout = (layout*) &layouts[0];
-	m->msize = m->w * MASTER_SIZE;
+	m->msize = m->mw * MASTER_SIZE;
 
 	m->desks = ecalloc(NUMTAGS, sizeof(desktop));
 	for (i=0;i < NUMTAGS;i++){
@@ -1198,7 +1187,7 @@ updategeom(){
 
 	/* focus monitor that has the pointer inside it */
 	for EACHMON(mhead)
-		if (getptrcoords(&x, &y) && !ISOUTSIDE(x, y, im->x, im->y - barpx, im->w, im->h)){
+		if (getptrcoords(&x, &y) && !ISOUTSIDE(x, y, im->mx, im->my, im->mw, im->mh)){
 			changemon(im, YesFocus);
 			break;
 		}
@@ -1283,8 +1272,8 @@ arrange(monitor* m){
 void
 changemsize(const Arg arg){
 	parsearg(arg, WantFloat, &dumbi, &af);
-	curmon->msize += ( ((curmon->msize < 0.95 * curmon->w) && (af > 0))
-			|| ((curmon->msize > 0.05 * curmon->w) && (af < 0))  ) ? af * curmon->w : 0;
+	curmon->msize += ( ((curmon->msize < 0.95 * curmon->mw) && (af > 0))
+			|| ((curmon->msize > 0.05 * curmon->mw) && (af < 0))  ) ? af * curmon->mw : 0;
 
 	arrange(curmon);
 }
@@ -1302,7 +1291,7 @@ void
 monocle(monitor* m){
 	for EACHCLIENT(m->head)
 		if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull)
-			resizeclient(ic, m->x, m->y, m->w, m->h);
+			resizeclient(ic, m->mx, m->wy, m->mw, m->wh);
 }
 
 void
@@ -1319,7 +1308,7 @@ setlayout(const Arg arg){
 void
 tile(monitor* m){
 	client* nf = NULL;
-	int n = 0, x = m->x, y = m->y;
+	int n = 0, x = m->mx, y = m->my;
 
 	/* Find the first non-floating, visible window and tally non-floating, visible windows */
 	for EACHCLIENT(m->head) if (!ic->isfloat && ISVISIBLE(ic)){
@@ -1328,21 +1317,21 @@ tile(monitor* m){
 		}
 
 	if (nf && n == 1){
-		if (!nf->isfull) resizeclient(nf, x, y, m->w, m->h);
+		if (!nf->isfull) resizeclient(nf, x, y, m->mw, m->wh);
 
 	} else if (nf){
 		/* so having a master doesn't affect stack splitting */
 		n--;
 
 		/* Master window */
-		if (!nf->isfull) resizeclient(nf, x, y, m->msize, m->h);
+		if (!nf->isfull) resizeclient(nf, x, y, m->msize, m->wh);
 
 		/* Stack */
 		for EACHCLIENT(nf->next){
 			if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull){
-				resizeclient(ic, x + m->msize, y, m->w - m->msize, m->h / n);
+				resizeclient(ic, x + m->msize, y, m->mw - m->msize, m->wh / n);
 
-				y += m->h / n;
+				y += m->wh / n;
 			}
 		}
 	}
@@ -1420,7 +1409,7 @@ cleanup(){
 	monitor* m, * tm = mhead;
 	const Arg arg = {.s = "-1"};
 
-//	for EACHMON(mhead){
+	/* for unknown reason, using EACHMON segfaults this */
 	for (m=mhead;m;m=m->next){
 		changemon(m, NoFocus);
 		/* make everything visible */

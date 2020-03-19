@@ -27,7 +27,7 @@
  */
 
 /* vertical space allotted for your bar of choice */
-static const int barpx			= 20;
+static const int barpx			= 18;
 /* is bar at top or bottom of screen? */
 static const int bottombar		= 0;
 

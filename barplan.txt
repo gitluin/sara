@@ -1,9 +1,0 @@
-1. Output information: DONE
-	a. seldesks
-	b. occdesks
-	c. layout symbol
-2. Separate program:
-	a. Read from saranobar DONE
-	b. Read from .sbar/.name
-	c. Pass strings to lemonbar
-	d. Wait for new messages

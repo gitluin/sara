@@ -5,17 +5,17 @@ CFLAGS= -std=c99 -Wall -Wno-deprecated-declarations -g -DXINERAMA #-D_POSIX_C_SO
 INCFLAGS= -I/usr/include/freetype2
 LIBS= -lm -lX11 -lXft -lXinerama
 
-SRC= saranobar.c
+SRC= sara.c
 OBJ= ${SRC:.c=.o}
 
-all: saranobar sarasock
+all: sara sarasock
 
 .c.o:
 	${CC} -c ${CFLAGS} ${INCFLAGS} $<
 
 ${OBJ}: config.h
 
-saranobar: ${OBJ}
+sara: ${OBJ}
 	${CC} -o $@ ${OBJ} ${LIBS}
 
 sarasock:
@@ -23,12 +23,12 @@ sarasock:
 	gcc -o sarasock sarasock.o
 
 install: all
-	install -Dm 755 saranobar $(BINDIR)/saranobar
+	install -Dm 755 sara $(BINDIR)/sara
 	install -Dm 755 sarasock $(BINDIR)/sarasock
 
 uninstall:
-	rm -f $(BINDIR)/saranobar
+	rm -f $(BINDIR)/sara
 	rm -f $(BINDIR)/sarasock
 
 clean:
-	rm -f saranobar sarasock *.o
+	rm -f sara sarasock *.o

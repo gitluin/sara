@@ -13,6 +13,7 @@ sara is a simple and lightweight tiling window manager. Originally started with 
 
 Recent Statii
 ------
+ * v3.0		- Some silly bugs have been squashed, but the major news is that the bar has been excised and you are now free to use whatever you wish, so long as you can make it work with the output of sara! See the example bar setup I have in [this repo](https://github.com/gitluin/sbar.git) if you want to copy-paste and tweak for your system, or start from a template. This setup will produce a bar that is identical to the one in previous versions of sara.
  * v2.0		- Whole lotta UNIX philosophy up in here! Keybinds are controlled by sxhkd now! A little bit of bspwm in your dwm and sara sandwich! Pointer events (click into window, move and resize window) still handled by sara.
  * v1.0.{0-1} 	- Finished it enough to share with the class. Fixed a changecurrent bug.
  * v0.9.{2-9.5}	- Multiple monitor support, viewall, reduced redundant variables, solved many enternotify edge cases, moveclient works by visibility, updategeom a la dwm 6.1, implemented rules, transient popup support, proper client killing, proper float stacking, code cleanup, mouse move and resize, lots of time wasted on easy (but sometimes obscure) bugs.
@@ -63,7 +64,7 @@ A few examples I was able to find:
 
 Also:
 
-* I wrote a [bar](https://github.com/gitluin/sbar.git) that goes along with it!
+* I wrote a [set of bar scripts](https://github.com/gitluin/sbar.git) that go along with it! This includes a script for getting a [lemonbar with Xft support](https://github.com/krypt-n/bar) setup running!
 
 Help Me (Keybindings, Installation, Etc.)!
 -------------------------------------------
@@ -75,11 +76,8 @@ Bugs
 
 To Do
 ----
- * More UNIX philosophy? own bar (write out layout to file, to socket, etc.)?
-   * bar:
-     * specify bar at top or bottom of the screen.
  * My own art.
- * A wiki.
+ * Quality documentation for getting started and customizing.
  * Extensive Valgrind analysis to try and reduce resource usage.
 
 If you have some particular request, don't send me an e-mail, I won't do it! Bug reports are welcome, though!
