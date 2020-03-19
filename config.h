@@ -16,6 +16,7 @@
  * ---------------------------------------
  */
 
+#define NUMTAGS		9
 #define MOUSEMOD	Mod4Mask
 #define MASTER_SIZE     0.55
 
@@ -26,22 +27,9 @@
  */
 
 /* vertical space allotted for your bar of choice */
-static const int barpx			= 16;
-static const char* fontname		= "Noto Sans:size=10";
-
-static const char col_gray1[]		= "#222222";
-static const char col_gray2[]		= "#bbbbbb";
-static const char col_gray3[]		= "#eeeeee";
-static const char col_cyan[]        	= "#005577";
-static const char* colors[][2]		= {
-	/*               fg         bg		*/
-	[SchNorm] = { col_gray2, col_gray1 },
-	[SchSel]  = { col_gray3, col_cyan  },
-};
-
-static const char* tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
-/* indicators for selected tags */
-static const char* syms[] = { "<", ">" };
+static const int barpx			= 18;
+/* is bar at top or bottom of screen? */
+static const int bottombar		= 0;
 
 
 /* ---------------------------------------

@@ -15,6 +15,9 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+/* this NEEDS to match with sara.c */
+#define INPUTSOCK			"/tmp/sara.sock"
+
 int
 slen(const char* str){
 	int i = 0;
@@ -33,7 +36,7 @@ die(const char* e, ...){
 int
 main(int argc, char* argv[]){
 	int sfd, n;
-	struct sockaddr saddress = {AF_UNIX, "/tmp/sarassock"};
+	struct sockaddr saddress = {AF_UNIX, INPUTSOCK};
 
 	if (argc != 2)
 		die("please provide one argument!");
