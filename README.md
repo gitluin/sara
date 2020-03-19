@@ -40,7 +40,6 @@ Features
 * No support for urgency, because nothing I do is urgent.
 * No [ICCCM](https://web.archive.org/web/20190617214524/https://raw.githubusercontent.com/kfish/xsel/1a1c5edf0dc129055f7764c666da2dd468df6016/rant.txt) (found thanks to [dylan](https://github.com/dylanaraps/sowm)). This is mostly felt in the lack of the applysizehints behavior that dwm has (ex. cmatrix won't redraw using larger window bounds if you give it more space via togglefs, changemsize, etc.)
 * No EWMH support, because fullscreening manually isn't so bad (see config.h).
-* No support for doing things through CapsLock or NumLock.
 
 ### Why Use Sara Over Other Small WM, X?
 
