@@ -18,31 +18,31 @@ super + d
 # Function key spawns - left in as examples
 
 XF86MonBrightnessDown
-	st -t "funkey" -e /bin/sbar/sbar_bright.sh -U 5
+	st -t "funkey" -e /ibin/sbar_bright.sh -U 5
 
 XF86MonBrightnessUp
-	st -t "funkey" -e /bin/sbar/sbar_bright.sh -A 5
+	st -t "funkey" -e /ibin/sbar_bright.sh -A 5
 
 shift + XF86MonBrightnessDown
-	st -t "funkey" -e /bin/sbar/sbar_bright.sh -U 1
+	st -t "funkey" -e /ibin/sbar_bright.sh -U 1
 
 shift + XF86MonBrightnessUp
-	st -t "funkey" -e /bin/sbar/sbar_bright.sh -A 1
+	st -t "funkey" -e /ibin/sbar_bright.sh -A 1
 
 XF86AudioLowerVolume
-	st -t "funkey" -e /bin/sbar/sbar_audio.sh - 5
+	st -t "funkey" -e /ibin/sbar_audio.sh - 5
 
 XF86AudioRaiseVolume
-	st -t "funkey" -e /bin/sbar/sbar_audio.sh + 5
+	st -t "funkey" -e /ibin/sbar_audio.sh + 5
 
 shift + XF86AudioLowerVolume
-	st -t "funkey" -e /bin/sbar/sbar_audio.sh - 1
+	st -t "funkey" -e /ibin/sbar_audio.sh - 1
 
 shift + XF86AudioRaiseVolume
-	st -t "funkey" -e /bin/sbar/sbar_audio.sh + 1
+	st -t "funkey" -e /ibin/sbar_audio.sh + 1
 
 XF86AudioMute
-	st -t "funkey" -e /bin/sbar/sbar_audio.sh mute
+	st -t "funkey" -e /ibin/sbar_audio.sh mute
 
 @Print
 	st -t "funkey" -e scrot -q 100
