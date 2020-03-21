@@ -606,7 +606,9 @@ detach(client* c){
 	/* Move the window out of the way first to hide it while it hangs around :) */
 	XMoveWindow(dis, c->win, 2*sw, 0);
 
-	changecurrent(c, c->mon, c->mon->curdesk, (c->desks & c->mon->seldesks) ? 1 : 0);
+	/* refocus only as necessary */
+	if (c == c->mon->current)
+		changecurrent(c, c->mon, c->mon->curdesk, 1);
 
 	/* For both, if NULL, then we're still okay */
 	if ( (p = findprevclient(c, AnyVis, YesFloat)) )
@@ -668,8 +670,8 @@ manage(Window parent, XWindowAttributes* wa){
 	XMapWindow(dis, c->win);
 
 	arrange(c->mon);
-	if (c->desks & c->mon->seldesks){
-		changecurrent(c, c->mon, c->mon->curdesk, 0);
+	if (c->desks & curmon->seldesks){
+		changecurrent(c, c->mon, curmon->curdesk, 0);
 		updatefocus();
 
 		/* applyrules */
@@ -738,7 +740,7 @@ movefocus(const Arg arg){
 
 	/* up stack */
 	if (ai > 0){
-		for (j=curmon->head;j != curmon->current;j=j->next)
+		for (j=curmon->head;j && j != curmon->current;j=j->next)
 			if ISVISIBLE(j) c = j;
 
 		/* if curmon->current was highest, go to the bottom */
