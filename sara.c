@@ -219,7 +219,7 @@ static void togglefloat(const Arg arg);
 static void togglefs(const Arg arg);
 static void tomon(const Arg arg);
 static void unmanage(client* c);
-static void updatefocus();
+static void updatefocus(monitor* m);
 static void zoom(const Arg arg);
 /* Monitor Manipulation */
 static void changemon(monitor* m, int wantfocus);
@@ -352,7 +352,7 @@ buttonpress(XEvent* e){
 	if ( (c = findclient(ev->window)) ){
 		if (c != c->mon->current){
 			changecurrent(c, c->mon, c->mon->curdesk, 0);
-			updatefocus();
+			updatefocus(c->mon);
 		}
 
 		restack(c->mon);
@@ -447,7 +447,7 @@ enternotify(XEvent* e){
 		changemon(m, NoFocus);
 
 	changecurrent(c, curmon, curmon->curdesk, 0);
-	updatefocus();
+	updatefocus(curmon);
 }
 
 void
@@ -455,7 +455,7 @@ focusin(XEvent* e){
 	XFocusChangeEvent* ev = &e->xfocus;
 
 	if (curmon->current && ev->window != curmon->current->win)
-		updatefocus();
+		updatefocus(curmon);
 }
 
 void
@@ -673,9 +673,9 @@ manage(Window parent, XWindowAttributes* wa){
 	XMapWindow(dis, c->win);
 
 	arrange(c->mon);
-	if (c->mon == curmon && (c->desks & curmon->seldesks)){
-		changecurrent(c, curmon, curmon->curdesk, 0);
-		updatefocus();
+	if (c->desks & c->mon->seldesks){
+		changecurrent(c, c->mon, c->mon->curdesk, 0);
+		updatefocus(c->mon);
 
 		/* applyrules */
 		if (c->isfull){
@@ -703,7 +703,7 @@ moveclient(const Arg arg){
 		moveclientup(c, NoZoom);
 
 	arrange(curmon);
-	updatefocus();
+	updatefocus(curmon);
 }
 
 void
@@ -758,7 +758,7 @@ movefocus(const Arg arg){
 	if (c && c != curmon->current){
 		changecurrent(c, curmon, curmon->curdesk, 0);
 		restack(curmon);
-		updatefocus();
+		updatefocus(curmon);
 	}
 }
 
@@ -945,7 +945,7 @@ todesktop(const Arg arg){
 	changecurrent(curmon->current, curmon, 1 << ai, 1);
 
 	arrange(curmon);
-	updatefocus();
+	updatefocus(curmon);
 	outputstats();
 }
 
@@ -967,7 +967,7 @@ toggledesktop(const Arg arg){
 			(curmon->current->desks & curmon->seldesks) ? 0 : 1);
 
 		arrange(curmon);
-		updatefocus();
+		updatefocus(curmon);
 		outputstats();
 	}
 }
@@ -1018,13 +1018,16 @@ unmanage(client *c){
 	detach(c);
 	free(c);
 	arrange(m);
-	updatefocus();
+	updatefocus(m);
 	outputstats();
 }
 
 void
-updatefocus(){
-	if (curmon->current)
+updatefocus(monitor* m){
+	if (!m)
+		return;
+
+	if (m->current)
 		XSetInputFocus(dis, curmon->current->win, RevertToPointerRoot, CurrentTime);
 	else
 		XSetInputFocus(dis, root, RevertToPointerRoot, CurrentTime);
@@ -1036,7 +1039,7 @@ void
 zoom(const Arg arg){
 	moveclientup(curmon->current, YesZoom);
 	arrange(curmon);
-	updatefocus();
+	updatefocus(curmon);
 }
 
 
@@ -1049,7 +1052,7 @@ void
 changemon(monitor* m, int wantfocus){
 	if (curmon && curmon->current) grabbuttons(curmon->current, 0);
 	curmon = m;
-	if (wantfocus) updatefocus();
+	if (wantfocus) updatefocus(curmon);
 }
 
 void
@@ -1375,7 +1378,7 @@ toggleview(const Arg arg){
 		changecurrent(curmon->current, curmon, curmon->curdesk, 1);
 
 	arrange(curmon);
-	updatefocus();
+	updatefocus(curmon);
 	outputstats();
 }
 
@@ -1400,7 +1403,7 @@ view(const Arg arg){
 	changecurrent(c, curmon, curmon->curdesk, 0);
 
 	arrange(curmon);
-	updatefocus();
+	updatefocus(curmon);
 	outputstats();
 }
 
