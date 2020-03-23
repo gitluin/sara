@@ -641,6 +641,9 @@ manage(Window parent, XWindowAttributes* wa){
 	if ( !(c = ecalloc(1, sizeof(client))) )
 		die("Error while callocing new client!");
 
+	if (curmon->current && curmon->current->isfull)
+		togglefs(dumbarg);
+
 	c->win = parent;
 	c->isfloat = c->oldfloat = c->isfull = c->iscur = 0;
 	c->x = wa->x; c->y = wa->y;
@@ -670,8 +673,8 @@ manage(Window parent, XWindowAttributes* wa){
 	XMapWindow(dis, c->win);
 
 	arrange(c->mon);
-	if (c->desks & curmon->seldesks){
-		changecurrent(c, c->mon, curmon->curdesk, 0);
+	if (c->mon == curmon && (c->desks & curmon->seldesks)){
+		changecurrent(c, curmon, curmon->curdesk, 0);
 		updatefocus();
 
 		/* applyrules */
@@ -1352,6 +1355,9 @@ toggleview(const Arg arg){
 	if ((curmon->seldesks ^ tagmask) == 0)
 		return;
 
+	if (curmon->current && curmon->current->isfull)
+		togglefs(dumbarg);
+
 	curmon->seldesks ^= tagmask;
 
 	if (!(curmon->curdesk & curmon->seldesks)){
@@ -1378,6 +1384,9 @@ view(const Arg arg){
 	client* c;
 
 	parsearg(arg, WantInt, &ai, &dumbf);
+
+	if (curmon->current && curmon->current->isfull)
+		togglefs(dumbarg);
 
 	loaddesktop(ai);
 	curmon->seldesks = curmon->curdesk = 1 << ai;
