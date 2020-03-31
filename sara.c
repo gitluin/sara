@@ -395,10 +395,14 @@ configurerequest(XEvent* e){
 	if ( (c = findclient(ev->window)) ){
 		if (c->isfloat){
 			m = c->mon;
-			if (ev->value_mask & CWX) c->x = m->mx + ev->x;
-			if (ev->value_mask & CWY) c->y = (ev->y < barpx) ? barpx : ev->y;
-			if (ev->value_mask & CWWidth) c->w = ev->width;
-			if (ev->value_mask & CWHeight) c->h = ev->height;
+			if (ev->value_mask & CWX)
+				c->x = m->mx + ev->x;
+			if (ev->value_mask & CWY)
+				c->y = (ev->y < barpx) ? barpx : ev->y;
+			if (ev->value_mask & CWWidth)
+				c->w = ev->width;
+			if (ev->value_mask & CWHeight)
+				c->h = ev->height;
 			if ((c->x + c->w) > m->mx + m->mw)
 				c->x = m->mx + (m->mw / 2 - c->w / 2);
 			if ((c->y + c->h) > m->wy + m->wh)
@@ -413,9 +417,12 @@ configurerequest(XEvent* e){
 		}
 
 	} else {
-		wc.x = ev->x; wc.y = ev->y;
-		wc.width = ev->width; wc.height = ev->height;
-		wc.sibling = ev->above; wc.stack_mode = ev->detail;
+		wc.x = ev->x;
+		wc.y = ev->y;
+		wc.width = ev->width;
+		wc.height = ev->height;
+		wc.sibling = ev->above;
+		wc.stack_mode = ev->detail;
 		XConfigureWindow(dis, ev->window, ev->value_mask, &wc);
 	}
 
@@ -529,12 +536,17 @@ applyrules(client* c){
 			c->isfloat = r->isfloat;
 			c->isfull = r->isfull;
 			c->desks |= r->desks;
-			for EACHMON(mhead) if (im->num == r->monitor) break;
-			if (im) c->mon = im;
+			for EACHMON(mhead)
+				if (im->num == r->monitor)
+					break;
+			if (im)
+				c->mon = im;
 		}
 	}
-	if (ch.res_class) XFree(ch.res_class);
-	if (ch.res_name) XFree(ch.res_name);
+	if (ch.res_class)
+		XFree(ch.res_class);
+	if (ch.res_name)
+		XFree(ch.res_name);
 
 	c->desks = c->desks ? c->desks : c->mon->seldesks;
 }
@@ -646,8 +658,10 @@ manage(Window parent, XWindowAttributes* wa){
 
 	c->win = parent;
 	c->isfloat = c->oldfloat = c->isfull = c->iscur = 0;
-	c->x = wa->x; c->y = wa->y;
-	c->w = wa->width; c->h = wa->height;
+	c->x = wa->x;
+	c->y = wa->y;
+	c->w = wa->width;
+	c->h = wa->height;
 
 	if (XGetTransientForHint(dis, parent, &trans) && (t = findclient(trans))){
 		c->desks = t->desks;
@@ -728,8 +742,10 @@ moveclientup(client* c, int wantzoom){
 	/* if p == target, then we're still okay */
 	p->next = c->next;
 	c->next = target;
-	if (ptarget) ptarget->next = c;
-	else curmon->head = c;
+	if (ptarget)
+		ptarget->next = c;
+	else
+		curmon->head = c;
 }
 
 void
@@ -744,10 +760,14 @@ movefocus(const Arg arg){
 	/* up stack */
 	if (ai > 0){
 		for (j=curmon->head;j && j != curmon->current;j=j->next)
-			if ISVISIBLE(j) c = j;
+			if ISVISIBLE(j)
+				c = j;
 
 		/* if curmon->current was highest, go to the bottom */
-		if (!c) for (;j;j=j->next) if ISVISIBLE(j) c = j;
+		if (!c)
+			for (;j;j=j->next)
+				if ISVISIBLE(j)
+					c = j;
 
 	/* down stack */
 	} else {
@@ -789,7 +809,8 @@ manipulate(const Arg arg){
 		XWarpPointer(dis, None, c->win, 0, 0, 0, 0, c->w + 1, c->h + 1);
 	}
 
-	ocx = c->x; ocy = c->y;
+	ocx = c->x;
+	ocy = c->y;
 	do {
 		XMaskEvent(dis, MOUSEMASK|ExposureMask|SubstructureRedirectMask, &ev);
 		switch(ev.type){
@@ -810,7 +831,8 @@ manipulate(const Arg arg){
 				if (m->mx + nw >= curmon->mx && m->mx + nw <= curmon->mx + curmon->mw
 				&& m->wy + nh >= curmon->wy && m->wy + nh <= curmon->wy + curmon->wh)
 					trytoggle = 1;
-				nx = c->x; ny = c->y;
+				nx = c->x;
+				ny = c->y;
 
 			} else {
 				nx = ocx + (ev.xmotion.x - x);
@@ -825,7 +847,8 @@ manipulate(const Arg arg){
 				else if (abs((curmon->wy + curmon->wh) - (ny + c->h)) < snap)
 					ny = curmon->wy + curmon->wh - c->h;
 				trytoggle = 1;
-				nw = c->w; nh = c->h;
+				nw = c->w;
+				nh = c->h;
 			}
 			if (trytoggle)
 				if (!c->isfloat && ((abs(nw - c->w) > snap || abs(nh - c->h) > snap)
@@ -903,6 +926,7 @@ showhide(monitor* m){
 				resizeclient(ic, ic->x, ic->y, ic->w, ic->h);
 				XRaiseWindow(dis, ic->win);
 			}
+
 		} else {
 			XMoveWindow(dis, ic->win, -2*ic->w, ic->y);
 		}
@@ -1050,9 +1074,11 @@ zoom(const Arg arg){
 
 void
 changemon(monitor* m, int wantfocus){
-	if (curmon && curmon->current) grabbuttons(curmon->current, 0);
+	if (curmon && curmon->current)
+		grabbuttons(curmon->current, 0);
 	curmon = m;
-	if (wantfocus) updatefocus(curmon);
+	if (wantfocus)
+		updatefocus(curmon);
 }
 
 void
@@ -1067,8 +1093,10 @@ createmon(int num, int x, int y, int w, int h){
 	monitor* m = ecalloc(1, sizeof(monitor));
 
 	m->num = num;
-	m->mx = x; m->my = y;
-	m->mw = w; m->mh = h;
+	m->mx = x;
+	m->my = y;
+	m->mw = w;
+	m->mh = h;
 
 	m->wy = m->my + (bottombar ? 0 : barpx );
 	m->wh = m->mh - barpx;
@@ -1096,7 +1124,8 @@ dirtomon(int dir){
 	monitor* m;
 
 	if (dir > 0){
-		if ( !(m = curmon->next) ) m = mhead;
+		if ( !(m = curmon->next) )
+			m = mhead;
 
 	} else if (curmon == mhead){
 		for (m=mhead;m->next;m=m->next);
@@ -1234,12 +1263,18 @@ findprevclient(client* c, int onlyvis, int wantfloat){
 	client* ret = NULL;
 
 	for EACHCLIENT(c->mon->head){
-		if (ic == c) break;
+		if (ic == c)
+			break;
+
 		if (onlyvis){
-			if (ISVISIBLE(ic)) ret = ic;
+			if (ISVISIBLE(ic))
+				ret = ic;
+
 		} else if (!wantfloat){
-			if (ISVISIBLE(ic) && !ic->isfloat) ret = ic;
+			if (ISVISIBLE(ic) && !ic->isfloat)
+				ret = ic;
 		}
+
 		if (ic->next == c)
 			return (onlyvis || !wantfloat) ? ret : ic;
 	}
@@ -1254,6 +1289,7 @@ findvisclient(client* c, int wantfloat){
 			if (!wantfloat){
 				if (!ic->isfloat)
 					return ic;
+
 			} else {
 				return ic;
 			}
@@ -1324,14 +1360,16 @@ tile(monitor* m){
 		}
 
 	if (nf && n == 1){
-		if (!nf->isfull) resizeclient(nf, x, y, m->mw, m->wh);
+		if (!nf->isfull)
+			resizeclient(nf, x, y, m->mw, m->wh);
 
 	} else if (nf){
 		/* so having a master doesn't affect stack splitting */
 		n--;
 
 		/* Master window */
-		if (!nf->isfull) resizeclient(nf, x, y, m->msize, m->wh);
+		if (!nf->isfull)
+			resizeclient(nf, x, y, m->msize, m->wh);
 
 		/* Stack */
 		for EACHCLIENT(nf->next){
@@ -1503,6 +1541,7 @@ outputstats(){
 	fflush(stdout);
 }
 
+// TODO: convert to array like events
 void
 parsearg(const Arg arg, int wanttype, int* ai, float* af){
 	switch (wanttype){
@@ -1556,6 +1595,7 @@ sigchld(int unused){
 	while (0 < waitpid(-1, NULL, WNOHANG));
 }
 
+// TODO: Organize this mess
 /* many thanks to bspwm, geeksforgeeks, Beej for sockets */
 void
 start(){
