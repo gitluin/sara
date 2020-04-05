@@ -37,7 +37,7 @@
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
 /* this NEEDS to match with sarasock.c */
 #define INPUTSOCK			"/tmp/sara.sock"
-#define MAXBUFF				20*sizeof(char) /* longest is "changemsize -0.05" at 17, +2 for space and "0", +1 for '\0' */
+#define MAXBUFF				18*sizeof(char) /* longest is "changemsize -0.05" at 17, +1 for '\0' */
 
 enum { AnyVis,     OnlyVis };
 enum { NoZoom,     YesZoom };
