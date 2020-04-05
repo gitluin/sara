@@ -62,11 +62,10 @@ static const layout layouts[] = {
 	{ "[M]",	monocle,	"monocle"  },
 };
 
-/* dwm copypasta */
 static button buttons[] = {
-	/* click                event mask      button          function        argument */
-	{ ClkWin,         	MOUSEMOD,       Button1,        manipulate,     {.i = WantMove} },
-	{ ClkWin,         	MOUSEMOD,       Button3,        manipulate,     {.i = WantResize} },
+	/* event mask     button          function        argument */
+	{ MOUSEMOD,       Button1,        manipulate,     {.i = WantMove} },
+	{ MOUSEMOD,       Button3,        manipulate,     {.i = WantResize} },
 };
 
 #endif

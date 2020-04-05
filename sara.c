@@ -11,7 +11,6 @@
 /* sockets */
 #include <sys/socket.h>
 #include <sys/select.h>
-#include <sys/un.h>
 #include <unistd.h>
 /* general */
 #include <stdio.h>
@@ -31,8 +30,8 @@
 
 #define BUTTONMASK              	(ButtonPressMask|ButtonReleaseMask)
 #define MOUSEMASK               	(BUTTONMASK|PointerMotionMask)
-#define EACHCLIENT(_I)			(ic=_I;ic;ic=ic->next) /* ic is a global */
-#define EACHMON(_M)			(im=_M;im;im=im->next) /* im is a global */
+#define EACHCLIENT(I)			(ic=I;ic;ic=ic->next) /* ic is a global */
+#define EACHMON(M)			(im=M;im;im=im->next) /* im is a global */
 #define ISOUTSIDE(PX,PY,X,Y,W,H)	((PX > X + W || PX < X || PY > Y + H || PY < Y))
 #define ISVISIBLE(C)			((C->desks & C->mon->seldesks))
 #define MAX(A,B)               		((A) > (B) ? (A) : (B))
@@ -40,18 +39,14 @@
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
 /* this NEEDS to match with sarasock.c */
 #define INPUTSOCK			"/tmp/sara.sock"
-#define MAXBUFF				22*sizeof(char) /* longest is youviolatedmymother at 19, +2 for space and "0", +1 for '\0' */
+#define MAXBUFF				20*sizeof(char) /* longest is "changemsize -0.05" at 17, +2 for space and "0", +1 for '\0' */
 
-enum { SchNorm,    SchSel };
-enum { ColFg,      ColBg };
-enum { SymLeft,    SymRight };
 enum { AnyVis,     OnlyVis };
 enum { NoZoom,     YesZoom };
 enum { NoFocus,    YesFocus };
-enum { ClkPlcHldr, ClkWin };
 enum { WantMove,   WantResize };
 enum { NoFloat,    YesFloat };
-enum { WantInt,    WantFloat };
+enum { WantInt,    WantFloat,	NumTypes};
 
 
 /* ---------------------------------------
@@ -71,8 +66,12 @@ typedef union {
 	const char* s;
 } Arg;
 
+typedef union {
+	int i;
+	float f;
+} ParseArg;
+
 typedef struct {
-	unsigned int click;
 	unsigned int mask;
 	unsigned int btn;
 	void (*func)(const Arg arg);
@@ -82,7 +81,7 @@ typedef struct {
 typedef struct {
 	const char* symbol;
 	void (*arrange)(monitor*);
-	const char* name; /* for parsearg */
+	const char* name; /* for external layout setting */
 } layout;
 
 typedef struct {
@@ -162,6 +161,16 @@ die(const char* e, ...){
 	exit(1);
 }
 
+void
+eatoi(const char* s, ParseArg* p){
+	p->i = atoi(s);
+}
+
+void
+eatof(const char* s, ParseArg* p){
+	p->f = atof(s);
+}
+
 void*
 ecalloc(size_t nmemb, size_t size){
 	void* p;
@@ -224,6 +233,7 @@ static void zoom(const Arg arg);
 /* Monitor Manipulation */
 static void changemon(monitor* m, int wantfocus);
 static void cleanupmon(monitor* m);
+static monitor* coordstomon(int x, int y);
 static monitor* createmon(int num, int x, int y, int w, int h);
 static monitor* dirtomon(int dir);
 static monitor* findmon(Window w);
@@ -233,14 +243,15 @@ static void updategeom();
 static client* findclient(Window w);
 static client* findcurrent(monitor* m);
 static client* findprevclient(client* c, int wantvis, int wantfloat);
+static client* findtail(client* c);
 static client* findvisclient(client* c, int wantfloat);
 /* Desktop Interfacing */
-static void arrange(monitor* m);
+static void arrange(monitor* mon);
 static void changemsize(const Arg arg);
 static void loaddesktop(int i);
-static void monocle(monitor* m);
+static void monocle(monitor* mon);
 static void setlayout(const Arg arg);
-static void tile(monitor* m);
+static void tile(monitor* mon);
 static void toggleview(const Arg arg);
 static void view(const Arg arg);
 /* Backend */
@@ -248,35 +259,34 @@ static void cleanup();
 static int getptrcoords(int* x, int* y);
 static void grabbuttons(client* c, int focused);
 static void outputstats();
-static void parsearg(const Arg arg, int wanttype, int* ai, float* af);
 static void setup();
 static void sigchld(int unused);
 static void start();
 static int xerror(Display* dis, XErrorEvent* e);
 static int xerrordummy(Display* dis, XErrorEvent* e);
 static int xsendkill(Window w);
-static void youviolatedmymother(const Arg arg);
+static void quit(const Arg arg);
 
 /* callable functions from outside */
 struct {
 	void (*func);
 	const char* str;
 } conversions [] = {
-	{view,                "view"},
-	{toggledesktop,       "toggledesktop"},
-	{toggleview,          "toggleview"},
-	{todesktop,           "todesktop"},
-	{changemsize,         "changemsize"},
-	{setlayout,           "setlayout"},
-	{focusmon,            "focusmon"},
-	{tomon,               "tomon"},
-	{zoom,                "zoom"},
-	{togglefs,            "togglefs"},
-	{togglefloat,         "togglefloat"},
-	{moveclient,          "moveclient"},
-	{movefocus,           "movefocus"},
-	{killclient,          "killclient"},
-	{youviolatedmymother, "youviolatedmymother"},
+	{view,          "view"},
+	{toggledesktop, "toggledesktop"},
+	{toggleview,    "toggleview"},
+	{todesktop,     "todesktop"},
+	{changemsize,   "changemsize"},
+	{setlayout,     "setlayout"},
+	{focusmon,      "focusmon"},
+	{tomon,         "tomon"},
+	{zoom,          "zoom"},
+	{togglefs,      "togglefs"},
+	{togglefloat,   "togglefloat"},
+	{moveclient,    "moveclient"},
+	{movefocus,     "movefocus"},
+	{killclient,    "killclient"},
+	{quit,          "quit"},
 };
 
 /* thanks to stackoverflow's wallyk for analagous str2enum */
@@ -311,12 +321,9 @@ static int sw;
 static monitor* curmon;
 static monitor* mhead;
 /* Backend */
-static int ai; /* for parsearg */
-static float af; /* for parsearg */
+static ParseArg parg; /* for parser */
 static const Arg dumbarg; /* for placating function calls like togglefs */
 static XEvent dumbev; /* for XCheckMasking */
-static int dumbi; /* for placating parsearg */
-static float dumbf; /* for placating parsearg */
 static client* ic; /* for EACHCLIENT iterating */
 static monitor* im; /* for EACHMON iterating */
 static int running;
@@ -332,6 +339,11 @@ static void (*events[LASTEvent])(XEvent* e) = {
 	[MotionNotify] = motionnotify
 };
 
+static void (*parser[NumTypes])(const char* s, ParseArg* p) = {
+	[WantInt] = eatoi,
+	[WantFloat] = eatof
+};
+
 
 /* ---------------------------------------
  * X Event Processing
@@ -343,28 +355,24 @@ buttonpress(XEvent* e){
 	int i;
 	client* c;
 	monitor* m;
-	unsigned int click = 0;
 	XButtonPressedEvent* ev = &e->xbutton;
 
-	if ( (m = findmon(ev->window)) && m != curmon)
+	if ( (m = findmon(ev->window)) && m != curmon )
 		changemon(m, NoFocus);
 
 	if ( (c = findclient(ev->window)) ){
-		if (c != c->mon->current){
+		if (c != c->mon->current)
 			changecurrent(c, c->mon, c->mon->curdesk, 0);
-			updatefocus(c->mon);
-		}
 
 		restack(c->mon);
 		XAllowEvents(dis, ReplayPointer, CurrentTime);
-		click = ClkWin;
-	}
 
-	for (i=0;i < TABLENGTH(buttons);i++)
-		if (click == buttons[i].click && buttons[i].func
-		&& buttons[i].btn == ev->button
-		&& buttons[i].mask == ev->state)
-			buttons[i].func(buttons[i].arg);
+		/* "all" our button functions are performed on a client */
+		for (i=0;i < TABLENGTH(buttons);i++)
+			if (buttons[i].func && buttons[i].btn == ev->button
+			&& buttons[i].mask == ev->state)
+				buttons[i].func(buttons[i].arg);
+	}
 }
 
 void
@@ -453,8 +461,7 @@ enternotify(XEvent* e){
 	if ( (m = c->mon) && m != curmon )
 		changemon(m, NoFocus);
 
-	changecurrent(c, curmon, curmon->curdesk, 0);
-	updatefocus(curmon);
+	changecurrent(c, c->mon, c->mon->curdesk, 0);
 }
 
 void
@@ -479,19 +486,14 @@ maprequest(XEvent* e){
 
 void
 motionnotify(XEvent* e){
+	monitor* m;
 	XMotionEvent* ev = &e->xmotion;
 
 	if (ev->window != root)
 		return;
 
-	if (ISOUTSIDE(ev->x_root, ev->y_root, curmon->mx, curmon->my, curmon->mw, curmon->mh)){
-		for EACHMON(mhead){
-			if (im != curmon){
-				changemon(im, YesFocus);
-				return;
-			}
-		}
-	}
+	if ( (m = coordstomon(ev->x_root, ev->y_root)) && m != curmon)
+		changemon(im, YesFocus);
 }
 
 
@@ -502,14 +504,11 @@ motionnotify(XEvent* e){
 
 void
 adjustcoords(client* c){
-	if (ISOUTSIDE(c->x, c->y, c->mon->mx, c->mon->my, c->mon->mw, c->mon->mh)){
-		/* find which one it is inside */
-		for EACHMON(mhead)
-			if (!ISOUTSIDE(c->x, c->y, im->mx, im->my, im->mw, im->mh)){
-				c->x += (im->mx < c->mon->mx) ? c->mon->mx : -im->mx;
-				c->y += (im->my < c->mon->my) ? c->mon->my : -im->my;
-				break;
-			}
+	monitor* m;
+
+	if ( (m = coordstomon(c->x, c->y)) && m != c->mon ){
+		c->x += (m->mx < c->mon->mx) ? c->mon->mx : -m->mx;
+		c->y += (m->my < c->mon->my) ? c->mon->my : -m->my;
 	}
 }
 
@@ -565,8 +564,8 @@ attachaside(client* c){
 			c->mon->current->next = c;
 
 		} else {
-			for (l=c->mon->head;l->next;l=l->next);
-			l->next = c;
+			if ( (l = findtail(c->mon->head)) )
+				l->next = c;
 		}
 	}
 }
@@ -592,6 +591,9 @@ changecurrent(client* c, monitor* m, unsigned int deskmask, int refocused){
 			vis : findprevclient(c, OnlyVis, YesFloat);
 		changecurrent(vis, m, m->curdesk, 0);
 	}
+
+	if (c)
+		updatefocus(m);
 }
 
 void
@@ -671,7 +673,8 @@ manage(Window parent, XWindowAttributes* wa){
 		c->mon = curmon;
 		applyrules(c);
 	}
-	if (!c->isfloat) c->isfloat = c->oldfloat = (trans != None);
+	if (!c->isfloat)
+		c->isfloat = c->oldfloat = (trans != None);
 
 	configure(c);
 	XSelectInput(dis, c->win, EnterWindowMask|FocusChangeMask|PropertyChangeMask
@@ -689,7 +692,6 @@ manage(Window parent, XWindowAttributes* wa){
 	arrange(c->mon);
 	if (c->desks & c->mon->seldesks){
 		changecurrent(c, c->mon, c->mon->curdesk, 0);
-		updatefocus(c->mon);
 
 		/* applyrules */
 		if (c->isfull){
@@ -706,18 +708,17 @@ moveclient(const Arg arg){
 
 	if (!curmon->current || curmon->current->isfull)
 		return;
-
-	parsearg(arg, WantInt, &ai, &dumbf);
+	
+	parser[WantInt](arg.s, &parg);
 
 	/* Up stack */
-	if (ai > 0)
+	if (parg.i > 0)
 		moveclientup(curmon->current, NoZoom);
 	/* Down stack - equivalent to moving next tiled client up */
-	else if ( ai < 0 && (c = findvisclient(curmon->current->next, NoFloat)) )
+	else if ( parg.i < 0 && (c = findvisclient(curmon->current->next, NoFloat)) )
 		moveclientup(c, NoZoom);
 
 	arrange(curmon);
-	updatefocus(curmon);
 }
 
 void
@@ -727,14 +728,11 @@ moveclientup(client* c, int wantzoom){
 	if (!c)
 		return;
 
-	/* Go up only if not highest visible */
-	if (wantzoom){
-		if ( !(target = findvisclient(curmon->head, NoFloat)) || target == c )
-			return;
-	} else {
-		if ( !(target = findprevclient(c, 0, NoFloat)) )
-			return;
-	}
+	/* 			Go up only if not highest visible */
+	target = wantzoom ? findvisclient(curmon->head, NoFloat) : findprevclient(c, 0, NoFloat);
+
+	if (!target || target == c)
+		return;
 
 	p = findprevclient(c, AnyVis, YesFloat);
 	ptarget = findprevclient(target, AnyVis, YesFloat);
@@ -755,30 +753,27 @@ movefocus(const Arg arg){
 	if (!curmon->current || curmon->current->isfull)
 		return;
 
-	parsearg(arg, WantInt, &ai, &dumbf);
+	parser[WantInt](arg.s, &parg);
 
 	/* up stack */
-	if (ai > 0){
+	if (parg.i > 0){
 		for (j=curmon->head;j && j != curmon->current;j=j->next)
 			if ISVISIBLE(j)
 				c = j;
 
 		/* if curmon->current was highest, go to the bottom */
 		if (!c)
-			for (;j;j=j->next)
-				if ISVISIBLE(j)
-					c = j;
+			c = findtail(j);
 
-	/* down stack */
+	/* down stack, wrap around */
 	} else {
 		if ( !(c = findvisclient(curmon->current->next, YesFloat)) )
-			for (c=curmon->head;c && !ISVISIBLE(c);c=c->next);
+			c = findvisclient(curmon->head, YesFloat);
 	}
 
 	if (c && c != curmon->current){
 		changecurrent(c, curmon, curmon->curdesk, 0);
 		restack(curmon);
-		updatefocus(curmon);
 	}
 }
 
@@ -786,10 +781,10 @@ void
 manipulate(const Arg arg){
 	int x, y, ocx, ocy, nx, ny, nw, nh;
 	client* c;
-	monitor* m;
 	XEvent ev;
-	int trytoggle = 0, manipulate = 1;
+	int doresize = (arg.i == WantResize), trytoggle = 0;
 	Time lasttime = 0;
+	monitor* m = NULL;
 
 	if ( !(c = curmon->current) || c->isfull )
 		return;
@@ -803,7 +798,7 @@ manipulate(const Arg arg){
 	if (!getptrcoords(&x, &y))
 		return;
 
-	if (arg.i == WantResize){
+	if (doresize){
 		if ( !(m = c->mon) )
 			return;
 		XWarpPointer(dis, None, c->win, 0, 0, 0, 0, c->w + 1, c->h + 1);
@@ -824,31 +819,29 @@ manipulate(const Arg arg){
 				continue;
 			lasttime = ev.xmotion.time;
 
-			if (arg.i == WantResize){
-				nw = MAX(ev.xmotion.x - ocx + 1, 1);
-				nh = MAX(ev.xmotion.y - ocy + 1, 1);
-				/* if c extends beyond the boundaries of its monitor, make it a float */
-				if (m->mx + nw >= curmon->mx && m->mx + nw <= curmon->mx + curmon->mw
-				&& m->wy + nh >= curmon->wy && m->wy + nh <= curmon->wy + curmon->wh)
-					trytoggle = 1;
-				nx = c->x;
-				ny = c->y;
+			/* Only adjust if moving */
+			nx = doresize ? c->x : ocx + (ev.xmotion.x - x);
+			ny = doresize ? c->y : ocy + (ev.xmotion.y - y);
+			/* Only adjust if resizing */
+			nw = doresize ? MAX(ev.xmotion.x - ocx + 1, 1) : c->w;
+			nh = doresize ? MAX(ev.xmotion.y - ocy + 1, 1) : c->h;
+
+			/* if c extends beyond the boundaries of its monitor, make it a float */
+			if (doresize && (m->mx + nw >= curmon->mx
+						&& m->mx + nw <= curmon->mx + curmon->mw
+						&& m->wy + nh >= curmon->wy
+						&& m->wy + nh <= curmon->wy + curmon->wh)){
+				trytoggle = 1;
 
 			} else {
-				nx = ocx + (ev.xmotion.x - x);
-				ny = ocy + (ev.xmotion.y - y);
-				/* if c is within snap pixel of the monitor borders, then snap */
-				if (abs(curmon->mx - nx) < snap)
-					nx = curmon->mx;
-				else if (abs((curmon->mx + curmon->mw) - (nx + c->w)) < snap)
-					nx = curmon->mx + curmon->mw - c->w;
-				if (abs(curmon->wy - ny) < snap)
-					ny = curmon->wy;
-				else if (abs((curmon->wy + curmon->wh) - (ny + c->h)) < snap)
-					ny = curmon->wy + curmon->wh - c->h;
+				/* if c is within snap pixels of the monitor borders, then snap */
+				nx = (abs(curmon->mx - nx) < snap) ? curmon->mx : nx;
+				nx = (abs((curmon->mx + curmon->mw) - (nx + c->w)) < snap)
+					? curmon->mx + curmon->mw - c->w : nx;
+				ny = (abs(curmon->wy - ny) < snap) ? curmon->wy : ny;
+				ny = (abs((curmon->wy + curmon->wh) - (ny + c->h)) < snap)
+					? curmon->wy + curmon->wh - c->h : ny;
 				trytoggle = 1;
-				nw = c->w;
-				nh = c->h;
 			}
 			if (trytoggle)
 				if (!c->isfloat && ((abs(nw - c->w) > snap || abs(nh - c->h) > snap)
@@ -858,29 +851,21 @@ manipulate(const Arg arg){
 				resizeclient(c, nx, ny, nw, nh);
 			XFlush(dis);
 			break;
-		case ButtonRelease:
-			manipulate = 0;
-			break;
 		}
-	} while (manipulate);
-	if (arg.i == WantResize)
+	} while (ev.type != ButtonRelease);
+
+	if (doresize)
 		XWarpPointer(dis, None, c->win, 0, 0, 0, 0, c->w + 1, c->h + 1);
 	XUngrabPointer(dis, CurrentTime);
 
-	if (arg.i == WantResize)
+	if (doresize)
 		while (XCheckMaskEvent(dis, EnterWindowMask, &ev));
 
-	if (ISOUTSIDE(c->x, c->y, curmon->mx, curmon->my, curmon->mw, curmon->mh)){
-		for EACHMON(mhead){
-			if (im != curmon && !ISOUTSIDE(c->x, c->y, im->mx, im->my, im->mw, im->mh)){
-				m = im;
-				/* this also calls EACHMON - need m, because im - whoops */
-				sendmon(c, m);
-				changemon(m, YesFocus);
-				return;
-			}
-		}
+	if ( (m = coordstomon(c->x, c->y)) && m != curmon){
+		sendmon(c, m);
+		changemon(m, YesFocus);
 		outputstats();
+		return;
 	}
 }
 
@@ -946,7 +931,8 @@ sendmon(client* c, monitor* m){
 	attachaside(c);
 	c->iscur = 0;
 	changecurrent(c, c->mon, c->mon->curdesk, 0);
-	if (c->isfloat) adjustcoords(c);
+	if (c->isfloat)
+		adjustcoords(c);
 
 	curmon->current = findcurrent(curmon);
 	for EACHMON(mhead)
@@ -959,17 +945,16 @@ todesktop(const Arg arg){
 	if (!curmon->current)
 		return;
 
-	parsearg(arg, WantInt, &ai, &dumbf);
+	parser[WantInt](arg.s, &parg);
 
-	if (curmon->curdesk & 1 << ai)
+	if (curmon->curdesk & 1 << parg.i)
 		return;
 
-	curmon->current->desks = 1 << ai;
+	curmon->current->desks = 1 << parg.i;
 	curmon->current->iscur = 0;
-	changecurrent(curmon->current, curmon, 1 << ai, 1);
+	changecurrent(curmon->current, curmon, 1 << parg.i, 1);
 
 	arrange(curmon);
-	updatefocus(curmon);
 	outputstats();
 }
 
@@ -980,18 +965,17 @@ toggledesktop(const Arg arg){
 	if (!curmon->current)
 		return;
 
-	parsearg(arg, WantInt, &ai, &dumbf);
+	parser[WantInt](arg.s, &parg);
 
-	if ( (newdesks = curmon->current->desks ^ (1 << ai)) ){
+	if ( (newdesks = curmon->current->desks ^ (1 << parg.i)) ){
 		curmon->current->desks = newdesks;
 		/* set current to be current on new desktop
 		 * if it will no longer be visible, adjust current
 		 */
-		changecurrent(curmon->current, curmon, 1 << ai,
+		changecurrent(curmon->current, curmon, 1 << parg.i,
 			(curmon->current->desks & curmon->seldesks) ? 0 : 1);
 
 		arrange(curmon);
-		updatefocus(curmon);
 		outputstats();
 	}
 }
@@ -1029,20 +1013,19 @@ tomon(const Arg arg){
 	if (!curmon->current || !mhead->next)
 		return;
 	
-	parsearg(arg, WantInt, &ai, &dumbf);
+	parser[WantInt](arg.s, &parg);
 
-	sendmon(curmon->current, dirtomon(ai));
+	sendmon(curmon->current, dirtomon(parg.i));
 	outputstats();
 }
 
 void
-unmanage(client *c){
+unmanage(client* c){
 	monitor* m = c->mon;
 
 	detach(c);
 	free(c);
 	arrange(m);
-	updatefocus(m);
 	outputstats();
 }
 
@@ -1052,7 +1035,7 @@ updatefocus(monitor* m){
 		return;
 
 	if (m->current)
-		XSetInputFocus(dis, curmon->current->win, RevertToPointerRoot, CurrentTime);
+		XSetInputFocus(dis, m->current->win, RevertToPointerRoot, CurrentTime);
 	else
 		XSetInputFocus(dis, root, RevertToPointerRoot, CurrentTime);
 
@@ -1063,7 +1046,6 @@ void
 zoom(const Arg arg){
 	moveclientup(curmon->current, YesZoom);
 	arrange(curmon);
-	updatefocus(curmon);
 }
 
 
@@ -1085,6 +1067,15 @@ void
 cleanupmon(monitor* m){
 	free(m->desks);
 	free(m);
+}
+
+monitor*
+coordstomon(int x, int y){
+	for EACHMON(mhead)
+		if (!ISOUTSIDE(x, y, im->mx, im->my, im->mw, im->mh))
+			return im;
+
+	return NULL;
 }
 
 monitor*
@@ -1154,9 +1145,9 @@ focusmon(const Arg arg){
 	if (!mhead->next)
 		return;
 
-	parsearg(arg, WantInt, &ai, &dumbf);
+	parser[WantInt](arg.s, &parg);
 
-	if ((m = dirtomon(ai)) == curmon)
+	if ((m = dirtomon(parg.i)) == curmon)
 		return;
 	changemon(m, YesFocus);
 }
@@ -1222,11 +1213,9 @@ updategeom(){
 	}
 
 	/* focus monitor that has the pointer inside it */
-	for EACHMON(mhead)
-		if (getptrcoords(&x, &y) && !ISOUTSIDE(x, y, im->mx, im->my, im->mw, im->mh)){
-			changemon(im, YesFocus);
-			break;
-		}
+	getptrcoords(&x, &y);
+	if ( (m = coordstomon(x, y)) )
+		changemon(m, YesFocus);
 
 	if (!curmon)
 		changemon(mhead, YesFocus);
@@ -1283,6 +1272,15 @@ findprevclient(client* c, int onlyvis, int wantfloat){
 }
 
 client*
+findtail(client* c){
+	for EACHCLIENT(c)
+		if (!ic->next)
+			return ic;
+
+	return NULL;
+}
+
+client*
 findvisclient(client* c, int wantfloat){
 	for EACHCLIENT(c){
 		if ISVISIBLE(ic){
@@ -1314,9 +1312,9 @@ arrange(monitor* m){
 
 void
 changemsize(const Arg arg){
-	parsearg(arg, WantFloat, &dumbi, &af);
-	curmon->msize += ( ((curmon->msize < 0.95 * curmon->mw) && (af > 0))
-			|| ((curmon->msize > 0.05 * curmon->mw) && (af < 0))  ) ? af * curmon->mw : 0;
+	parser[WantFloat](arg.s, &parg);
+	curmon->msize += ( ((curmon->msize < 0.95 * curmon->mw) && (parg.f > 0))
+			|| ((curmon->msize > 0.05 * curmon->mw) && (parg.f < 0))  ) ? parg.f * curmon->mw : 0;
 
 	arrange(curmon);
 }
@@ -1354,10 +1352,12 @@ tile(monitor* m){
 	int n = 0, x = m->mx, y = m->wy;
 
 	/* Find the first non-floating, visible window and tally non-floating, visible windows */
-	for EACHCLIENT(m->head) if (!ic->isfloat && ISVISIBLE(ic)){
+	for EACHCLIENT(m->head){
+		if (!ic->isfloat && ISVISIBLE(ic)){
 			nf = (!nf) ? ic : nf;
 			n++;
 		}
+	}
 
 	if (nf && n == 1){
 		if (!nf->isfull)
@@ -1387,10 +1387,12 @@ toggleview(const Arg arg){
 	int i;
 	unsigned int tagmask;
 
-	parsearg(arg, WantInt, &ai, &dumbf);
+	parser[WantInt](arg.s, &parg);
 
-	if (ai < 0) tagmask = ~(curmon->seldesks);
-	else tagmask = 1 << ai;
+	if (parg.i < 0)
+		tagmask = ~(curmon->seldesks);
+	else
+		tagmask = 1 << parg.i;
 
 	/* if this would leave nothing visible */
 	if ((curmon->seldesks ^ tagmask) == 0)
@@ -1416,7 +1418,6 @@ toggleview(const Arg arg){
 		changecurrent(curmon->current, curmon, curmon->curdesk, 1);
 
 	arrange(curmon);
-	updatefocus(curmon);
 	outputstats();
 }
 
@@ -1424,13 +1425,13 @@ void
 view(const Arg arg){
 	client* c;
 
-	parsearg(arg, WantInt, &ai, &dumbf);
+	parser[WantInt](arg.s, &parg);
 
 	if (curmon->current && curmon->current->isfull)
 		togglefs(dumbarg);
 
-	loaddesktop(ai);
-	curmon->seldesks = curmon->curdesk = 1 << ai;
+	loaddesktop(parg.i);
+	curmon->seldesks = curmon->curdesk = 1 << parg.i;
 
 	if ( (c = findcurrent(curmon)) )
 		/* rezero, so it can be set and everyone else unset */
@@ -1441,7 +1442,6 @@ view(const Arg arg){
 	changecurrent(c, curmon, curmon->curdesk, 0);
 
 	arrange(curmon);
-	updatefocus(curmon);
 	outputstats();
 }
 
@@ -1460,7 +1460,7 @@ cleanup(){
 	monitor* m, * tm = mhead;
 	const Arg arg = {.s = "-1"};
 
-	/* for unknown reason, using EACHMON segfaults this */
+	/* for an unknown reason, using EACHMON segfaults this */
 	for (m=mhead;m;m=m->next){
 		changemon(m, NoFocus);
 		/* make everything visible */
@@ -1502,13 +1502,13 @@ grabbuttons(client* c, int focused){
 		XGrabButton(dis, AnyButton, AnyModifier, c->win, False,
 			BUTTONMASK, GrabModeSync, GrabModeSync, None, None);
 
+	/* "all" our clicks are ClkWin */
 	for (i=0;i < TABLENGTH(buttons);i++)
-		if (buttons[i].click == ClkWin)
-			for (j=0;j < TABLENGTH(modifiers);j++)
-				XGrabButton(dis, buttons[i].btn,
-						buttons[i].mask | modifiers[j],
-						c->win, False, BUTTONMASK,
-						GrabModeAsync, GrabModeSync, None, None);
+		for (j=0;j < TABLENGTH(modifiers);j++)
+			XGrabButton(dis, buttons[i].btn,
+					buttons[i].mask | modifiers[j],
+					c->win, False, BUTTONMASK,
+					GrabModeAsync, GrabModeSync, None, None);
 }
 
 void
@@ -1539,21 +1539,6 @@ outputstats(){
 		free(isdesksel);
 	}
 	fflush(stdout);
-}
-
-// TODO: convert to array like events
-void
-parsearg(const Arg arg, int wanttype, int* ai, float* af){
-	switch (wanttype){
-	case WantInt:
-		*ai = atoi(arg.s);
-		break;
-	case WantFloat:
-		*af = atof(arg.s);
-		break;
-	default:
-		break;
-	}
 }
 
 void
@@ -1595,18 +1580,17 @@ sigchld(int unused){
 	while (0 < waitpid(-1, NULL, WNOHANG));
 }
 
-// TODO: Organize this mess
 /* many thanks to bspwm, geeksforgeeks, Beej for sockets */
 void
 start(){
-	XEvent ev;
-	fd_set desc;
-	char msg[MAXBUFF];
-	char* funcstr, * argstr;
+	int cfd, max_fd, sfd, xfd = ConnectionNumber(dis);
+	int nbytes;
 	void (*func)(const Arg);
-	int sfd, cfd, nbytes, max_fd;
-	int xfd = ConnectionNumber(dis);
+	char* funcstr, * argstr;
+	char msg[MAXBUFF];
 	struct sockaddr saddress = {AF_UNIX, INPUTSOCK};
+	fd_set desc;
+	XEvent ev;
 
 	if ( (sfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0 )
 		die("couldn't create socket!");
@@ -1709,7 +1693,7 @@ xsendkill(Window w){
 }
 
 void
-youviolatedmymother(const Arg arg){
+quit(const Arg arg){
 	running = 0;
 }
 
