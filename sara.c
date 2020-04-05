@@ -246,12 +246,12 @@ static client* findprevclient(client* c, int wantvis, int wantfloat);
 static client* findtail(client* c);
 static client* findvisclient(client* c, int wantfloat);
 /* Desktop Interfacing */
-static void arrange(monitor* mon);
+static void arrange(monitor* m);
 static void changemsize(const Arg arg);
 static void loaddesktop(int i);
-static void monocle(monitor* mon);
+static void monocle(monitor* m);
 static void setlayout(const Arg arg);
-static void tile(monitor* mon);
+static void tile(monitor* m);
 static void toggleview(const Arg arg);
 static void view(const Arg arg);
 /* Backend */
@@ -865,7 +865,6 @@ manipulate(const Arg arg){
 		sendmon(c, m);
 		changemon(m, YesFocus);
 		outputstats();
-		return;
 	}
 }
 
