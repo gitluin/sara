@@ -14,7 +14,6 @@
 #include <unistd.h>
 /* general */
 #include <stdio.h>
-#include <math.h>
 #include <stdlib.h>
 /* signal */
 #include <signal.h>
@@ -35,7 +34,6 @@
 #define ISOUTSIDE(PX,PY,X,Y,W,H)	((PX > X + W || PX < X || PY > Y + H || PY < Y))
 #define ISVISIBLE(C)			((C->desks & C->mon->seldesks))
 #define MAX(A,B)               		((A) > (B) ? (A) : (B))
-#define POSTOINT(X)			((int)(ceil(log2(X)) == floor(log2(X)) ? ceil(log2(X)) : 0))
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
 /* this NEEDS to match with sarasock.c */
 #define INPUTSOCK			"/tmp/sara.sock"
@@ -118,9 +116,9 @@ struct monitor {
 	int num;
 	monitor* next;
 	/* desks */
-	float msize;
+	int curdesk;
 	unsigned int seldesks;
-	unsigned int curdesk;
+	float msize;
 	client* current;
 	client* head;
 	desktop* desks;
@@ -209,7 +207,7 @@ static void motionnotify(XEvent* e);
 static void adjustcoords(client* c);
 static void applyrules(client* c);
 static void attachaside(client* c);
-static void changecurrent(client* c, monitor* m, unsigned int deskmask, int refocused);
+static void changecurrent(client* c, monitor* m, int desk, int refocused);
 static void configure(client* c);
 static void detach(client* c);
 static void killclient(const Arg arg);
@@ -272,21 +270,21 @@ struct {
 	void (*func);
 	const char* str;
 } conversions [] = {
-	{view,          "view"},
-	{toggledesktop, "toggledesktop"},
-	{toggleview,    "toggleview"},
-	{todesktop,     "todesktop"},
 	{changemsize,   "changemsize"},
-	{setlayout,     "setlayout"},
 	{focusmon,      "focusmon"},
-	{tomon,         "tomon"},
-	{zoom,          "zoom"},
-	{togglefs,      "togglefs"},
-	{togglefloat,   "togglefloat"},
+	{killclient,    "killclient"},
 	{moveclient,    "moveclient"},
 	{movefocus,     "movefocus"},
-	{killclient,    "killclient"},
 	{quit,          "quit"},
+	{todesktop,     "todesktop"},
+	{toggledesktop, "toggledesktop"},
+	{togglefloat,   "togglefloat"},
+	{togglefs,      "togglefs"},
+	{toggleview,    "toggleview"},
+	{tomon,         "tomon"},
+	{setlayout,     "setlayout"},
+	{view,          "view"},
+	{zoom,          "zoom"},
 };
 
 /* thanks to stackoverflow's wallyk for analagous str2enum */
@@ -322,7 +320,7 @@ static monitor* curmon;
 static monitor* mhead;
 /* Backend */
 static ParseArg parg; /* for parser */
-static const Arg dumbarg; /* for placating function calls like togglefs */
+static const Arg dumbarg; /* passthrough for function calls like togglefs */
 static XEvent dumbev; /* for XCheckMasking */
 static client* ic; /* for EACHCLIENT iterating */
 static monitor* im; /* for EACHMON iterating */
@@ -571,24 +569,24 @@ attachaside(client* c){
 }
 
 void
-changecurrent(client* c, monitor* m, unsigned int deskmask, int refocused){
+changecurrent(client* c, monitor* m, int desk, int refocused){
 	client* vis;
 
 	if (c){
-		c->iscur ^= deskmask;
+		c->iscur ^= 1 << desk;
 		grabbuttons(c, 1);
 	}
 	
-	for EACHCLIENT(m->head) if (ic != c && (ic->iscur & deskmask)){
-			ic->iscur ^= deskmask;
+	for EACHCLIENT(m->head) if (ic != c && (ic->iscur & 1 << desk)){
+			ic->iscur ^= 1 << desk;
 			grabbuttons(ic, 0);
 		}
 
 	m->current = c;
 
 	if (m->current && refocused){
-		vis = (vis = findvisclient(c->next, YesFloat)) ?
-			vis : findprevclient(c, OnlyVis, YesFloat);
+		vis = (vis = findvisclient(c->next, YesFloat))
+			? vis : findprevclient(c, OnlyVis, YesFloat);
 		changecurrent(vis, m, m->curdesk, 0);
 	}
 
@@ -617,8 +615,6 @@ configure(client* c){
 void
 detach(client* c){
 	client* p;
-	/* Move the window out of the way first to hide it while it hangs around :) */
-	XMoveWindow(dis, c->win, 2*sw, 0);
 
 	/* refocus only as necessary */
 	if (c == c->mon->current)
@@ -678,7 +674,7 @@ manage(Window parent, XWindowAttributes* wa){
 
 	configure(c);
 	XSelectInput(dis, c->win, EnterWindowMask|FocusChangeMask|PropertyChangeMask
-		|StructureNotifyMask);
+			|StructureNotifyMask);
 	grabbuttons(c, 0);
 
 	attachaside(c);
@@ -728,7 +724,7 @@ moveclientup(client* c, int wantzoom){
 	if (!c)
 		return;
 
-	/* 			Go up only if not highest visible */
+	/* Go up only if not highest visible */
 	target = wantzoom ? findvisclient(curmon->head, NoFloat) : findprevclient(c, 0, NoFloat);
 
 	if (!target || target == c)
@@ -758,7 +754,7 @@ movefocus(const Arg arg){
 	/* up stack */
 	if (parg.i > 0){
 		for (j=curmon->head;j && j != curmon->current;j=j->next)
-			if ISVISIBLE(j)
+			if (ISVISIBLE(j))
 				c = j;
 
 		/* if curmon->current was highest, go to the bottom */
@@ -834,7 +830,9 @@ manipulate(const Arg arg){
 				trytoggle = 1;
 
 			} else {
-				/* if c is within snap pixels of the monitor borders, then snap */
+				/* if c is within snap pixels of the monitor borders,
+				 * then snap and make it a float
+				 */
 				nx = (abs(curmon->mx - nx) < snap) ? curmon->mx : nx;
 				nx = (abs((curmon->mx + curmon->mw) - (nx + c->w)) < snap)
 					? curmon->mx + curmon->mw - c->w : nx;
@@ -843,10 +841,8 @@ manipulate(const Arg arg){
 					? curmon->wy + curmon->wh - c->h : ny;
 				trytoggle = 1;
 			}
-			if (trytoggle)
-				if (!c->isfloat && ((abs(nw - c->w) > snap || abs(nh - c->h) > snap)
-				|| (abs(nx - c->x) > snap || abs(ny - c->y) > snap)))
-					togglefloat(dumbarg);
+			if (!c->isfloat && trytoggle)
+				togglefloat(dumbarg);
 			if (c->isfloat)
 				resizeclient(c, nx, ny, nw, nh);
 			XFlush(dis);
@@ -904,7 +900,7 @@ restack(monitor* m){
 void
 showhide(monitor* m){
 	for EACHCLIENT(m->head){
-		if ISVISIBLE(ic){
+		if (ISVISIBLE(ic)){
 			XMoveWindow(dis, ic->win, ic->x, ic->y);
 			if (ic->isfloat && !ic->isfull){
 				resizeclient(ic, ic->x, ic->y, ic->w, ic->h);
@@ -946,7 +942,7 @@ todesktop(const Arg arg){
 
 	parser[WantInt](arg.s, &parg);
 
-	if (curmon->curdesk & 1 << parg.i)
+	if (curmon->curdesk == parg.i)
 		return;
 
 	curmon->current->desks = 1 << parg.i;
@@ -1043,6 +1039,9 @@ updatefocus(monitor* m){
 
 void
 zoom(const Arg arg){
+	if (!curmon->current)
+		return;
+
 	moveclientup(curmon->current, YesZoom);
 	arrange(curmon);
 }
@@ -1102,7 +1101,8 @@ createmon(int num, int x, int y, int w, int h){
 	}
 
 	/* Default to first desktop */
-	m->seldesks = m->curdesk = 1 << 0;
+	m->seldesks = 1 << 0;
+	m->curdesk = 0;
 	m->head = NULL;
 	m->current = NULL;
 
@@ -1240,7 +1240,7 @@ findclient(Window w){
 client*
 findcurrent(monitor* m){
 	for EACHCLIENT(m->head)
-		if (ISVISIBLE(ic) && (ic->iscur & m->curdesk))
+		if (ISVISIBLE(ic) && (ic->iscur & 1 << m->curdesk))
 			return ic;
 
 	return NULL;
@@ -1282,14 +1282,11 @@ findtail(client* c){
 client*
 findvisclient(client* c, int wantfloat){
 	for EACHCLIENT(c){
-		if ISVISIBLE(ic){
-			if (!wantfloat){
-				if (!ic->isfloat)
-					return ic;
-
-			} else {
+		if (ISVISIBLE(ic)){
+			if (!wantfloat && !ic->isfloat)
 				return ic;
-			}
+			else if (wantfloat)
+				return ic;
 		}
 	}
 	
@@ -1320,8 +1317,8 @@ changemsize(const Arg arg){
 
 void
 loaddesktop(int i){
-	curmon->desks[POSTOINT(curmon->curdesk)].msize = curmon->msize;
-	curmon->desks[POSTOINT(curmon->curdesk)].curlayout = curmon->curlayout;
+	curmon->desks[curmon->curdesk].msize = curmon->msize;
+	curmon->desks[curmon->curdesk].curlayout = curmon->curlayout;
 
 	curmon->msize = curmon->desks[i].msize;
 	curmon->curlayout = curmon->desks[i].curlayout;
@@ -1402,11 +1399,11 @@ toggleview(const Arg arg){
 
 	curmon->seldesks ^= tagmask;
 
-	if (!(curmon->curdesk & curmon->seldesks)){
+	if (!(curmon->seldesks & 1 << curmon->curdesk)){
 		for (i=0;i < NUMTAGS;i++){
 			if (curmon->seldesks & 1 << i){
 				loaddesktop(i);
-				curmon->curdesk = 1 << i;
+				curmon->curdesk = i;
 				break;
 			}
 		}
@@ -1430,11 +1427,12 @@ view(const Arg arg){
 		togglefs(dumbarg);
 
 	loaddesktop(parg.i);
-	curmon->seldesks = curmon->curdesk = 1 << parg.i;
+	curmon->seldesks = 1 << parg.i;
+	curmon->curdesk = parg.i;
 
 	if ( (c = findcurrent(curmon)) )
 		/* rezero, so it can be set and everyone else unset */
-		c->iscur ^= curmon->curdesk;
+		c->iscur ^= 1 << curmon->curdesk;
 	else
 		c = findvisclient(curmon->head, YesFloat);
 		
