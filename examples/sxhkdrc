@@ -6,46 +6,34 @@
 # spawn programs
 
 super + t
-	st
+	$TERMINAL
 
 super + w
-	firefox
+	$BROWSER
 
 super + d
 	dmenu_run -m "-1" -b -l 4 -p "Run" -fn "Misc Termsyn:size=10" -nb "#282a36" -nf "#f8f8f2" -sb "#1E88E5" -sf "#202020"
 
 # ###############
-# Function key spawns - left in as examples
+# Function key spawns
 
-XF86MonBrightnessDown
-	st -t "funkey" -e sbar_bright.sh -U 5
+XF86MonBrightness{Down,Up}
+	$TERMINAL -t "funkey" -e sbar_bright.sh -{U,A} 5
 
-XF86MonBrightnessUp
-	st -t "funkey" -e sbar_bright.sh -A 5
+shift + XF86MonBrightness{Down,Up}
+	$TERMINAL -t "funkey" -e sbar_bright.sh -{U,A} 1
 
-shift + XF86MonBrightnessDown
-	st -t "funkey" -e sbar_bright.sh -U 1
+XF86Audio{Lower,Raise}Volume
+	$TERMINAL -t "funkey" -e sbar_audio.sh {-,+} 5
 
-shift + XF86MonBrightnessUp
-	st -t "funkey" -e sbar_bright.sh -A 1
-
-XF86AudioLowerVolume
-	st -t "funkey" -e sbar_audio.sh - 5
-
-XF86AudioRaiseVolume
-	st -t "funkey" -e sbar_audio.sh + 5
-
-shift + XF86AudioLowerVolume
-	st -t "funkey" -e sbar_audio.sh - 1
-
-shift + XF86AudioRaiseVolume
-	st -t "funkey" -e sbar_audio.sh + 1
+shift + XF86Audio{Lower,Raise}Volume
+	$TERMINAL -t "funkey" -e sbar_audio.sh {-,+} 1
 
 XF86AudioMute
-	st -t "funkey" -e sbar_audio.sh mute
+	$TERMINAL -t "funkey" -e sbar_audio.sh mute
 
 @Print
-	st -t "funkey" -e scrot -q 100
+	$TERMINAL -t "funkey" -e scrot -q 100
 
 
 # ###############
@@ -55,9 +43,9 @@ XF86AudioMute
 # ###############
 # sara interfacing
 
-# STOP - quit sara (kill X)
+# quit sara (kill X)
 super + shift + e
-	sarasock 'youviolatedmymother 0'
+	sarasock 'quit 0'
 
 # ###############
 # Client interfacing
@@ -82,7 +70,7 @@ super + shift + space
 super + shift + Return
 	sarasock 'togglefs 0' 
 
-# promote client to master
+# promote client to ma$TERMINALer
 super + Return
 	sarasock 'zoom 0' 
 
@@ -90,20 +78,20 @@ super + Return
 # Desktop interfacing
 
 # view desktop
-super + {1-9}
-	sarasock 'view {0-8}'
+super + {1-8}
+	sarasock 'view {0-7}'
 
 # add client to desktop
-super + shift + {1-9}
-	sarasock 'toggledesktop {0-8}'
+super + shift + {1-8}
+	sarasock 'toggledesktop {0-7}'
 
 # add desktop to current view
-super + control + {1-9}
-	sarasock 'toggleview {0-8}'
+super + control + {1-8}
+	sarasock 'toggleview {0-7}'
 
-# send client to just desktop
-super + shift + control + {1-9}
-	sarasock 'todesktop {0-8}'
+# send client to ju$TERMINAL desktop
+super + shift + control + {1-8}
+	sarasock 'todesktop {0-7}'
 
 # view all desktops
 super + 0
