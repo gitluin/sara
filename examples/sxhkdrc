@@ -15,7 +15,7 @@ super + d
 	dmenu_run -m "-1" -b -l 4 -p "Run" -fn "Misc Termsyn:size=10" -nb "#282a36" -nf "#f8f8f2" -sb "#1E88E5" -sf "#202020"
 
 # ###############
-# Function key spawns
+# Function key spawns - left in as examples
 
 XF86MonBrightness{Down,Up}
 	$TERMINAL -t "funkey" -e sbar_bright.sh -{U,A} 5
