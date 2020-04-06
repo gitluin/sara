@@ -70,7 +70,7 @@ super + shift + space
 super + shift + Return
 	sarasock 'togglefs 0' 
 
-# promote client to ma$TERMINALer
+# promote client to master
 super + Return
 	sarasock 'zoom 0' 
 
@@ -89,7 +89,7 @@ super + shift + {1-8}
 super + control + {1-8}
 	sarasock 'toggleview {0-7}'
 
-# send client to ju$TERMINAL desktop
+# send client to just desktop
 super + shift + control + {1-8}
 	sarasock 'todesktop {0-7}'
 
