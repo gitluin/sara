@@ -78,20 +78,20 @@ super + Return
 # Desktop interfacing
 
 # view desktop
-super + {1-8}
-	sarasock 'view {0-7}'
+super + {1-9}
+	sarasock 'view {0-8}'
 
 # add client to desktop
-super + shift + {1-8}
-	sarasock 'toggledesktop {0-7}'
+super + shift + {1-9}
+	sarasock 'toggledesktop {0-8}'
 
 # add desktop to current view
-super + control + {1-8}
-	sarasock 'toggleview {0-7}'
+super + control + {1-9}
+	sarasock 'toggleview {0-8}'
 
 # send client to just desktop
-super + shift + control + {1-8}
-	sarasock 'todesktop {0-7}'
+super + shift + control + {1-9}
+	sarasock 'todesktop {0-8}'
 
 # view all desktops
 super + 0
