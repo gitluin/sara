@@ -25,15 +25,15 @@ Features
 	* easily hackable
 	* patch-like:
 		* attachaside
-		* emptyview
-		* hide vacant tags
 		* movestack
 		* pertag-like: layouts, master_size
-		* singular borders
+		* singularborders
 * bspwm-like:
 	* keyboard handling via external program (like `sxhkd`)
 * monsterwm-like:
 	* output desktop information for external parsing (like with shell script + `lemonbar`)
+* no window borders
+* no window titles
 * worst
 
 ### Design Limitations

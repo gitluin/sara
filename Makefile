@@ -4,7 +4,7 @@ BINDIR?= $(PREFIX)/bin
 #CFLAGS= -std=c99 -Wall -Wno-deprecated-declarations -g -DXINERAMA #-D_POSIX_C_SOURCE=200809L -DXINERAMA -g -Os
 CFLAGS= -std=c99 -Wall -Wno-deprecated-declarations -D_POSIX_C_SOURCE=200809L -DXINERAMA -Os
 INCFLAGS= -I/usr/include/freetype2
-LIBS= -lm -lX11 -lXft -lXinerama
+LIBS= -lX11 -lXft -lXinerama
 
 SRC= sara.c
 OBJ= ${SRC:.c=.o}
