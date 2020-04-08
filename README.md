@@ -14,36 +14,35 @@ sara is a simple and lightweight tiling window manager. Originally started with 
 Features
 -----
 ### Modes
-* Tiling mode (master window with right-hand vertical stack)
-* Monocle mode (fullscreen, but bar still visible)
-* Fullscreen mode (see limitations)
+* Tiling mode (master window with right-hand vertical stack).
+* Monocle mode (fullscreen, but bar still visible).
+* Fullscreen mode (see limitations).
 
 ### Behavior/Traits
 * dwm-like:
-	* tags
-	* Multihead support through Xinerama
-	* easily hackable
+	* tags.
+	* Multihead support through Xinerama.
 	* patch-like:
 		* attachaside
 		* movestack
 		* pertag-like: layouts, master_size
 		* singularborders
 * bspwm-like:
-	* keyboard handling via external program (like `sxhkd`)
+	* keyboard event handling via external program (like `sxhkd`).
 * monsterwm-like:
-	* output desktop information for external parsing (like with shell script + `lemonbar`)
-* no window borders
-* no window titles
-* worst
+	* output desktop information for external parsing (like with shell script + `lemonbar`).
+* no window borders.
+* no window titles.
+* easily hackable.
 
 ### Design Limitations
 * No support for urgency, because nothing I do is urgent.
-* No [ICCCM](https://web.archive.org/web/20190617214524/https://raw.githubusercontent.com/kfish/xsel/1a1c5edf0dc129055f7764c666da2dd468df6016/rant.txt) (found thanks to [dylan](https://github.com/dylanaraps/sowm)). This is mostly felt in the lack of the applysizehints behavior that dwm has (ex. cmatrix won't redraw using larger window bounds if you give it more space via togglefs, changemsize, etc.)
-* No EWMH support, because fullscreening manually isn't so bad (see config.h).
+* No [ICCCM](https://web.archive.org/web/20190617214524/https://raw.githubusercontent.com/kfish/xsel/1a1c5edf0dc129055f7764c666da2dd468df6016/rant.txt) (found thanks to [dylan](https://github.com/dylanaraps/sowm)). This is mostly felt in the lack of the applysizehints behavior that dwm has (ex. cmatrix won't redraw using larger window bounds if you give it more space via togglefs, changemsize, etc.).
+* No EWMH support. Fullscreening manually isn't so bad (see examples/sxhkdrc).
 
-### Why Use Sara Over Other Small WM, X?
+### Why Use sara Over Other WMs?
 
-* You're me and felt the need to write a tiling/dynamic window manager, even though there are plenty of them and will probably be 5 more by the time you finish this sentence. But I think the strengths are the unique combination of `dwm`'s tag system, `bspwm`'s socket approach to handling keyboard input, and a somewhat `monsterwm`-inspired information outputting setup that allows you to go real bar-crazy with things like `lemonbar`.
+* You're me and felt the need to build a tiling/dynamic window manager, even though there are plenty of them and will probably be 5 more by the time you finish this sentence. But I think the strengths are the unique combination of `dwm`'s tag system, `bspwm`'s socket approach to handling keyboard input, and a somewhat `monsterwm`-inspired information outputting setup that allows you to go real bar-crazy with things like `lemonbar`.
 * Relatedly, I wrote a [set of bar scripts](https://github.com/gitluin/sbar-lemon) that go along with it! This includes a script for getting a [lemonbar with Xft support](https://github.com/krypt-n/bar) setup running!
 
 Help Me (Keybindings, Installation, Etc.)!
