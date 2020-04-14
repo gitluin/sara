@@ -229,7 +229,6 @@ static void updategeom();
 static client* findclient(Window w);
 static client* findcurrent(monitor* m);
 static client* findprevclient(client* c, int wantvis, int wantfloat);
-static client* findtail(client* c);
 static client* findvisclient(client* c, int wantfloat);
 /* Desktop Interfacing */
 static void arrange(monitor* m);
@@ -548,7 +547,8 @@ attachaside(client* c){
 			c->mon->current->next = c;
 
 		} else {
-			if ( (l = findtail(c->mon->head)) )
+			for (l=c->mon->head;l && l->next;l=l->next);
+			if (l)
 				l->next = c;
 		}
 	}
@@ -744,7 +744,9 @@ movefocus(const Arg arg){
 
 		/* if curmon->current was highest, go to the bottom */
 		if (!c)
-			c = findtail(j);
+			for (;j;j=j->next)
+				if (ISVISIBLE(j))
+					c = j;
 
 	/* down stack, wrap around */
 	} else {
@@ -1249,15 +1251,6 @@ findprevclient(client* c, int onlyvis, int wantfloat){
 		if (ic->next == c)
 			return (onlyvis || !wantfloat) ? ret : ic;
 	}
-
-	return NULL;
-}
-
-client*
-findtail(client* c){
-	for EACHCLIENT(c)
-		if (!ic->next)
-			return ic;
 
 	return NULL;
 }
