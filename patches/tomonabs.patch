@@ -64,9 +64,9 @@ index f8295ef..919af7c 100644
 +numtomon(int num){
 +	for EACHMON(mhead)
 +		if (im->num == num)
-+			break;
++			return im;
 +
-+	return im;
++	return NULL;
 +}
 +
 +
