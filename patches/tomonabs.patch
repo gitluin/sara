@@ -1,0 +1,96 @@
+diff --git a/sara.c b/sara.c
+index f8295ef..919af7c 100644
+--- a/sara.c
++++ b/sara.c
+@@ -213,6 +213,7 @@ static void toggledesktop(const Arg arg);
+ static void togglefloat(const Arg arg);
+ static void togglefs(const Arg arg);
+ static void tomon(const Arg arg);
++static void tomonabs(const Arg arg);
+ static void unmanage(client* c);
+ static void updatefocus(monitor* m);
+ static void zoom(const Arg arg);
+@@ -222,8 +223,10 @@ static void cleanupmon(monitor* m);
+ static monitor* coordstomon(int x, int y);
+ static monitor* createmon(int num, int x, int y, int w, int h);
+ static monitor* dirtomon(int dir);
++static monitor* numtomon(int num);
+ static monitor* findmon(Window w);
+ static void focusmon(const Arg arg);
++static void focusmonabs(const Arg arg);
+ static void updategeom();
+ /* Client Interfacing */
+ static client* findclient(Window w);
+@@ -257,6 +260,7 @@ struct {
+ } conversions [] = {
+ 	{changemsize,   "changemsize"},
+ 	{focusmon,      "focusmon"},
++	{focusmonabs,   "focusmonabs"},
+ 	{killclient,    "killclient"},
+ 	{moveclient,    "moveclient"},
+ 	{movefocus,     "movefocus"},
+@@ -267,6 +271,7 @@ struct {
+ 	{togglefs,      "togglefs"},
+ 	{toggleview,    "toggleview"},
+ 	{tomon,         "tomon"},
++	{tomonabs,      "tomonabs"},
+ 	{setlayout,     "setlayout"},
+ 	{view,          "view"},
+ 	{zoom,          "zoom"},
+@@ -1001,6 +1006,18 @@ tomon(const Arg arg){
+ 	outputstats();
+ }
+ 
++void
++tomonabs(const Arg arg){
++	if (!curmon->current || !mhead->next)
++		return;
++	
++	parser[WantInt](arg.s, &parg);
++
++	sendmon(curmon->current, numtomon(parg.i));
++	outputstats();
++}
++
++
+ void
+ unmanage(client* c){
+ 	monitor* m = c->mon;
+@@ -1114,6 +1131,16 @@ dirtomon(int dir){
+ 	return m;
+ }
+ 
++monitor*
++numtomon(int num){
++	for EACHMON(mhead)
++		if (im->num == num)
++			break;
++
++	return im;
++}
++
++
+ monitor*
+ findmon(Window w){
+ 	for EACHMON(mhead)
+@@ -1138,6 +1165,20 @@ focusmon(const Arg arg){
+ 	changemon(m, YesFocus);
+ }
+ 
++void
++focusmonabs(const Arg arg){
++	monitor* m;
++
++	if (!mhead->next)
++		return;
++
++	parser[WantInt](arg.s, &parg);
++
++	if ( (m = numtomon(parg.i)) && m == curmon )
++		return;
++	changemon(m, YesFocus);
++}
++
+ #ifdef XINERAMA
+ static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo* info){
+ 	while (n--)
