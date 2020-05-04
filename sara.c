@@ -518,13 +518,16 @@ applyrules(client* c){
 			c->isfloat = r->isfloat;
 			c->isfull = r->isfull;
 			c->desks |= r->desks;
-			for EACHMON(mhead)
-				if (im->num == r->monitor)
+
+			for EACHMON(mhead){
+				if (im->num == r->monitor){
+					c->mon = im;
 					break;
-			if (im)
-				c->mon = im;
+				}
+			}
 		}
 	}
+
 	if (ch.res_class)
 		XFree(ch.res_class);
 	if (ch.res_name)
@@ -563,10 +566,12 @@ changecurrent(client* c, monitor* m, int desk, int refocused){
 		grabbuttons(c, 1);
 	}
 	
-	for EACHCLIENT(m->head) if (ic != c && (ic->iscur & 1 << desk)){
+	for EACHCLIENT(m->head){
+		if (ic != c && (ic->iscur & 1 << desk)){
 			ic->iscur ^= 1 << desk;
 			grabbuttons(ic, 0);
 		}
+	}
 
 	m->current = c;
 
@@ -929,7 +934,9 @@ todesktop(const Arg arg){
 
 	parser[WantInt](arg.s, &parg);
 
-	if (curmon->curdesk == parg.i)
+	// TODO:
+	// if curmon->current is only on curmon->curdesk and curmon->curdesk is the target
+	if ((curmon->curdesk == parg.i))// && (curmon->current->desks == (1 << curmon->curdesk)))
 		return;
 
 	curmon->current->desks = 1 << parg.i;
