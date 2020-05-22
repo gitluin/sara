@@ -1,0 +1,19 @@
+--- sara.c	2020-05-09 13:49:57.559811500 -0400
++++ sara-b.c	2020-05-19 09:04:05.420443786 -0400
+@@ -1301,6 +1301,16 @@
+ }
+ 
+ void
++floating(monitor* m){
++	for EACHCLIENT(m->head){
++		if (ISVISIBLE(ic)){
++			ic->isfloat = 1;
++			resizeclient(ic, ic->x, ic->y, ic->w, ic->h);
++		}
++	}
++}
++
++void
+ loaddesktop(int i){
+ 	curmon->desks[curmon->curdesk].msize = curmon->msize;
+ 	curmon->desks[curmon->curdesk].curlayout = curmon->curlayout;

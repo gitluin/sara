@@ -233,7 +233,6 @@ static client* findvisclient(client* c, int wantfloat);
 /* Desktop Interfacing */
 static void arrange(monitor* m);
 static void changemsize(const Arg arg);
-static void floaty(monitor* m);
 static void loaddesktop(int i);
 static void monocle(monitor* m);
 static void setlayout(const Arg arg);
@@ -834,10 +833,9 @@ manipulate(const Arg arg){
 					? curmon->wy + curmon->wh - c->h : ny;
 				trytoggle = 1;
 			}
-			/* don't toggle if floating layout, do resize if floating */
-			if (!c->isfloat && trytoggle && !(strstr(curmon->curlayout->name, "floaty")))
+			if (!c->isfloat && trytoggle)
 				togglefloat(dumbarg);
-			if (c->isfloat || (strstr(curmon->curlayout->name, "floaty")))
+			if (c->isfloat)
 				resizeclient(c, nx, ny, nw, nh);
 			XFlush(dis);
 			break;
@@ -974,9 +972,6 @@ toggledesktop(const Arg arg){
 void
 togglefloat(const Arg arg){
 	if (!curmon->current || curmon->current->isfull)
-		return;
-
-	if (strstr(curmon->curlayout->name, "floaty"))
 		return;
 
 	curmon->current->isfloat = !curmon->current->isfloat;
@@ -1303,16 +1298,6 @@ changemsize(const Arg arg){
 		? parg.f * curmon->mw : 0;
 
 	arrange(curmon);
-}
-
-/* don't toggle isfloat, so that everyone snaps back when you tile, etc. */
-void
-floaty(monitor* m){
-	for EACHCLIENT(m->head){
-		if (ISVISIBLE(ic)){
-			resizeclient(ic, ic->x, ic->y, ic->w, ic->h);
-		}
-	}
 }
 
 void

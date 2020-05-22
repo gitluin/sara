@@ -64,7 +64,11 @@ Recent Statii
 
 Bugs
 ----
- * N O N E T H A T I K N O W O F !
+ * Buttonpressing a floating window should bring it to the top of the floating stack (Zoom is a good test case).
+ * Windows should stack on top of each other in floating mode when spawning.
+   * Insert into list in front for floating?
+ * sarasock function call limitations are not (specifically MAXBUFF) explicit.
+ * Floating mode is not a patch. Should it be, or just include it?
 
 To Do
 ----
