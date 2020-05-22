@@ -69,6 +69,7 @@ Bugs
    * Insert into list in front for floating?
  * sarasock function call limitations are not (specifically MAXBUFF) explicit.
  * Floating mode is not a patch. Should it be, or just include it?
+ * floaty layout is not in config.def.h
 
 To Do
 ----
