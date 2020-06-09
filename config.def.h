@@ -60,6 +60,7 @@ static const layout layouts[] = {
 	/* symbol	function	name	   */
 	{ "[]=",	tile,		"tile"     },    /* first entry is default */
 	{ "[M]",	monocle,	"monocle"  },
+	{ "><>",	floaty,		"floaty"   },
 };
 
 static button buttons[] = {

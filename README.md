@@ -51,6 +51,7 @@ For more information, see the [wiki](https://github.com/gitluin/sara/wiki)!
 
 Recent Statii
 ------
+ * v3.1		- WIP floating layout `floaty`. Will make this a patch later. See `Bugs` for why this is WIP. Also added a trimmed `unmapnotify` and adjusted `unmanage` that resemble the `dwm` versions - needed this to deal with the behavior of current must-have software like Zoom.
  * v3.0		- Some silly bugs have been squashed, but the major news is that the bar has been excised and you are now free to use whatever you wish, so long as you can make it work with the output of sara! See the example bar setup I have in [this repo](https://github.com/gitluin/sbar-lemon) if you want to copy-paste and tweak for your system, or start from a template. This setup will produce a bar that is identical to the one in previous versions of sara.
  * v2.0		- Whole lotta UNIX philosophy up in here! Keybinds are controlled by sxhkd now! A little bit of bspwm in your dwm and sara sandwich! Pointer events (click into window, move and resize window) still handled by sara.
  * v1.0.{0-1} 	- Finished it enough to share with the class. Fixed a changecurrent bug.
@@ -67,9 +68,10 @@ Bugs
  * Buttonpressing a floating window should bring it to the top of the floating stack (Zoom is a good test case).
  * Windows should stack on top of each other in floating mode when spawning.
    * Insert into list in front for floating?
- * sarasock function call limitations are not (specifically MAXBUFF) explicit.
+ * sarasock function call limitations are not made explicit, specifically MAXBUFF.
  * Floating mode is not a patch. Should it be, or just include it?
- * floaty layout is not in config.def.h
+ * cursor in a window, move focus to other monitor using keyboard, click in same window, focus not drawn
+ * Sending floating window to another monitor doesn't move it. Gasp!
 
 To Do
 ----

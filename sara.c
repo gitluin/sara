@@ -191,6 +191,7 @@ static void enternotify(XEvent* e);
 static void focusin(XEvent* e);
 static void maprequest(XEvent* e);
 static void motionnotify(XEvent* e);
+static void unmapnotify(XEvent* e);
 /* Client & Linked List Manipulation */
 static void adjustcoords(client* c);
 static void applyrules(client* c);
@@ -213,7 +214,7 @@ static void toggledesktop(const Arg arg);
 static void togglefloat(const Arg arg);
 static void togglefs(const Arg arg);
 static void tomon(const Arg arg);
-static void unmanage(client* c);
+static void unmanage(client* c, int destroyed);
 static void updatefocus(monitor* m);
 static void zoom(const Arg arg);
 /* Monitor Manipulation */
@@ -307,7 +308,9 @@ static monitor* mhead;
 /* Backend */
 static int running;
 static const Arg dumbarg; /* passthrough for function calls like togglefs */
+static long w_data[] = { WithdrawnState, None }; /* for unmanage and unmapnotify */
 static Arg parg; /* for parser */
+static Atom w_atom; /* for unmanage and unmapnotify */
 static client* ic; /* for EACHCLIENT iterating */
 static monitor* im; /* for EACHMON iterating */
 static XEvent dumbev; /* for XCheckMasking */
@@ -320,7 +323,8 @@ static void (*events[LASTEvent])(XEvent* e) = {
 	[EnterNotify] = enternotify,
 	[FocusIn] = focusin,
 	[MapRequest] = maprequest,
-	[MotionNotify] = motionnotify
+	[MotionNotify] = motionnotify,
+	[UnmapNotify] = unmapnotify
 };
 
 static void (*parser[NumTypes])(const char* s, Arg* arg) = {
@@ -427,7 +431,7 @@ destroynotify(XEvent* e){
 	XDestroyWindowEvent* ev = &e->xdestroywindow;
 
 	if ( (c = findclient(ev->window)) )
-		unmanage(c);
+		unmanage(c, 1);
 }
 
 void
@@ -1014,13 +1018,30 @@ tomon(const Arg arg){
 }
 
 void
-unmanage(client* c){
+unmanage(client* c, int destroyed){
 	monitor* m = c->mon;
 
 	detach(c);
+	if (!destroyed){
+		XGrabServer(dis);
+		XUngrabButton(dis, AnyButton, AnyModifier, c->win);
+		XChangeProperty(dis, c->win, w_atom, w_atom, 32,
+				PropModeReplace, (unsigned char*) w_data, 2);
+		XSync(dis, False);
+		XUngrabServer(dis);
+	}
 	free(c);
 	arrange(m);
 	outputstats();
+}
+
+void
+unmapnotify(XEvent* e){
+	client* c;
+	XUnmapEvent* ev = &e->xunmap;
+
+	if ( (c = findclient(ev->window)) )
+		unmanage(c, 0);
 }
 
 void
@@ -1159,7 +1180,6 @@ static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo
 }
 #endif
 
-// TODO: some weird business with vertical monitor setups
 /* a la dwm 6.1 */
 void
 updategeom(){
@@ -1463,7 +1483,7 @@ cleanup(){
 		/* make everything visible */
 		toggleview(arg);
 		while (curmon->current)
-			unmanage(curmon->current);
+			unmanage(curmon->current, 0);
 		i++;
 	}
 
@@ -1559,6 +1579,8 @@ setup(){
 	updategeom();
 	loaddesktop(0);
 	outputstats();
+
+	w_atom = XInternAtom(dis, "WM_STATE", False);
 
 	wa.cursor = cursor;
 	wa.event_mask = SubstructureRedirectMask|SubstructureNotifyMask
