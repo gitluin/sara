@@ -962,7 +962,12 @@ toggledesktop(const Arg arg){
 
 	parser[WantInt](arg.s, &parg);
 
-	if ( (newdesks = curmon->current->desks ^ (1 << parg.i)) ){
+	if (parg.i < 0)
+		newdesks = curmon->current->desks | ~(curmon->current->desks);
+	else
+		newdesks = curmon->current->desks ^ (1 << parg.i)
+
+	if (newdesks){
 		curmon->current->desks = newdesks;
 		/* set current to be current on new desktop
 		 * if it will no longer be visible, adjust current
