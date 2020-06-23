@@ -683,6 +683,7 @@ manage(Window parent, XWindowAttributes* wa){
 	arrange(c->mon);
 	if (c->desks & c->mon->seldesks){
 		changecurrent(c, c->mon, c->mon->curdesk, 0);
+		restack(c->mon);
 
 		/* applyrules */
 		if (c->isfull){
@@ -839,9 +840,9 @@ manipulate(const Arg arg){
 				trytoggle = 1;
 			}
 			/* don't toggle if floating layout, do resize if floating */
-			if (!c->isfloat && trytoggle && !(strstr(curmon->curlayout->name, "floaty")))
+			if (!c->isfloat && trytoggle && !(curmon->curlayout->arrange == &floaty))
 				togglefloat(dumbarg);
-			if (c->isfloat || (strstr(curmon->curlayout->name, "floaty")))
+			if (c->isfloat || (curmon->curlayout->arrange == &floaty))
 				resizeclient(c, nx, ny, nw, nh);
 			XFlush(dis);
 			break;
@@ -885,7 +886,9 @@ restack(monitor* m){
 	wc.sibling = m->current->win;
 
 	for EACHCLIENT(m->head){
-		if (ic != m->current && !ic->isfloat && ISVISIBLE(ic)){
+		//if (ic != m->current && !ic->isfloat && ISVISIBLE(ic)){
+		// if not current, and visible, and both are floating or neither are floating
+		if (ic != m->current && ISVISIBLE(ic) && (ic->isfloat == m->current->isfloat)){
 			XConfigureWindow(dis, ic->win, CWSibling|CWStackMode, &wc);
 			wc.sibling = ic->win;
 		}
@@ -942,8 +945,8 @@ todesktop(const Arg arg){
 
 	// TODO:
 	// if curmon->current is only on curmon->curdesk and curmon->curdesk is the target
-	if ((curmon->curdesk == parg.i))// && (curmon->current->desks == (1 << curmon->curdesk)))
-		return;
+	//if ((curmon->curdesk == parg.i))// && (curmon->current->desks == (1 << curmon->curdesk)))
+	//	return;
 
 	curmon->current->desks = 1 << parg.i;
 	curmon->current->iscur = 0;
@@ -965,7 +968,7 @@ toggledesktop(const Arg arg){
 	if (parg.i < 0)
 		newdesks = curmon->current->desks | ~(curmon->current->desks);
 	else
-		newdesks = curmon->current->desks ^ (1 << parg.i)
+		newdesks = curmon->current->desks ^ (1 << parg.i);
 
 	if (newdesks){
 		curmon->current->desks = newdesks;
@@ -985,7 +988,7 @@ togglefloat(const Arg arg){
 	if (!curmon->current || curmon->current->isfull)
 		return;
 
-	if (strstr(curmon->curlayout->name, "floaty"))
+	if (curmon->curlayout->arrange == &floaty)
 		return;
 
 	curmon->current->isfloat = !curmon->current->isfloat;

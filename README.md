@@ -66,14 +66,14 @@ Recent Statii
 
 Bugs
 ----
- * Buttonpressing a floating window should bring it to the top of the floating stack (Zoom is a good test case).
- * Windows should stack on top of each other in floating mode when spawning.
-   * Insert into list in front for floating?
  * sarasock function call limitations are not made explicit, specifically MAXBUFF.
  * Floating mode is not a patch. Should it be, or just include it?
  * cursor in a window, move focus to other monitor using keyboard, click in same window, focus not drawn
  * Sending floating window to another monitor doesn't move it. Gasp!
  * Windows flicker in their unmanaged dimensions before being managed (i.e. tiled).
+   * Does manage() need configure()?
+ * Reinitializing monitors should update focus to a client.
+ * outputstats on unmanage() in case client was last in desktop.
 
 To Do
 ----
