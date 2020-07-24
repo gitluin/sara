@@ -73,7 +73,7 @@ Bugs
  * Windows flicker in their unmanaged dimensions before being managed (i.e. tiled).
    * Does manage() need configure()?
  * Reinitializing monitors should update focus to a client.
- * outputstats on unmanage() in case client was last in desktop.
+ * Untoggling fullscreen by changing tags, etc. should reset client to previous state, not automatically tile (i.e. if it was floating).
 
 To Do
 ----

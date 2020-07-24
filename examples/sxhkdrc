@@ -18,19 +18,19 @@ super + d
 # Function key spawns - left in as examples
 
 XF86MonBrightness{Down,Up}
-	$TERMINAL -t "funkey" -e sbar_bright.sh -{U,A} 5
+	$TERMINAL -t "funkey" -e /bin/sh -c 'light -{U,A} 5 && peachbar-signal.sh'
 
 shift + XF86MonBrightness{Down,Up}
-	$TERMINAL -t "funkey" -e sbar_bright.sh -{U,A} 1
+	$TERMINAL -t "funkey" -e /bin/sh -c 'light -{U,A} 1 && peachbar-signal.s'
 
 XF86Audio{Lower,Raise}Volume
-	$TERMINAL -t "funkey" -e sbar_audio.sh {-,+} 5
+	$TERMINAL -t "funkey" -e /bin/sh -c 'amixer set Master 5%{-,+} unmute && peachbar-signal.sh'
 
 shift + XF86Audio{Lower,Raise}Volume
-	$TERMINAL -t "funkey" -e sbar_audio.sh {-,+} 1
+	$TERMINAL -t "funkey" -e /bin/sh -c 'amixer set Master 1%{-,+} unmute && peachbar-signal.sh'
 
 XF86AudioMute
-	$TERMINAL -t "funkey" -e sbar_audio.sh mute
+	$TERMINAL -t "funkey" -e /bin/sh -c 'amixer set Master mute && peachbar-signal.sh'
 
 @Print
 	$TERMINAL -t "funkey" -e scrot -q 100
