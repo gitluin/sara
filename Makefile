@@ -11,6 +11,9 @@ OBJ= ${SRC:.c=.o}
 
 all: sara sarasock
 
+config.h:
+	cp config.def.h config.h
+
 .c.o:
 	${CC} -c ${CFLAGS} ${INCFLAGS} $<
 
