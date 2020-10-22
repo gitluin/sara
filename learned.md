@@ -13,7 +13,7 @@ Things I've Learned
 * Batshit insane pointer manipulation with for loops.
 * Complex stopping conditions in for loops.
 * #include makes things visible between files based on line of incorporation.
-* #defines are pretty nifty.
+* #define
 * Some rudimentary understanding of #ifdef, #ifndef, #endif.
 * Assign and check within if statements.
 * The ternary operator is wonderful.
@@ -35,3 +35,4 @@ Things I've Learned
 * Rudimentary understanding of FIFO pipes.
 * Using directories as locks for operations on shared resources.
 * String trimming syntax.
+* `trap`.

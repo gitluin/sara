@@ -274,7 +274,7 @@ struct {
 	{zoom,          "zoom"},
 };
 
-/* thanks to stackoverflow's wallyk for analagous str2enum */
+/* thanks to Stack Overflow's wallyk for analagous str2enum */
 void*
 str2func(const char* str){
 	int i;
@@ -483,6 +483,48 @@ motionnotify(XEvent* e){
 	if ( (m = coordstomon(ev->x_root, ev->y_root)) && m != curmon)
 		changemon(im, YesFocus);
 }
+
+//void
+//clientmessage(XEvent* e){
+//	client* c;
+//	XClientMessageEvent* ev = &e->xclient;
+//	/* == 1 -> _NET_WM_STATE_ADD, == 2 -> _NET_WM_STATE_TOGGLE */
+//	int do_toggle = ev->data.l[0] == 1 || (ev->data.l[0] == 2 && !c->isfull);
+//
+//	if ( !(c = findclient(ev->window)) )
+//		return;
+//
+//	if (ev->message_type == netatom[NetWMState]){
+//		// TODO: simplification based on do_toggle to be done?
+//		if (cme->data.l[1] == netatom[NetWMFullscreen]
+//		|| cme->data.l[2] == netatom[NetWMFullscreen])
+//			setfullscreen(c, do_toggle);
+//			//togglefs(dumbarg);
+//	}
+//}
+
+// TODO:
+//void
+//propertynotify(XEvent* e){
+//	client *c;
+//	XPropertyEvent *ev = &e->xproperty;
+//
+//	if (ev->state == PropertyDelete)
+//		return;
+//	else if ( (c = findclient(ev->window)) && (ev->atom == netatom[NetWMWindowType]) )
+//		updatefs(c);
+//	}
+//
+//}
+//
+//void
+//updatefs(client* c){
+//	Atom state = getatomprop(c, netatom[NetWMState]);
+//
+//	if (state == netatom[NetWMFullscreen])
+//		setfullscreen(c, 1);
+//}
+
 
 
 /* ---------------------------------------
@@ -1551,11 +1593,11 @@ outputstats(){
 			occ |= ic->desks;
 
 		/* uis get reordered in the dest string so they are left-to-right */
-		uitos(occ, NUMTAGS-1, isdeskocc);
-		uitos(sel, NUMTAGS-1, isdesksel);
+		uitos(occ, NUMTAGS, isdeskocc);
+		uitos(sel, NUMTAGS, isdesksel);
 
 		/* output:
-		 * "0:00000000:00000000:[]="
+		 * "0:000000000:000000000:[]="
 		 * im->num:isdeskocc:isdesksel:curlayout->symbol
 		 */
 		printf("%d:%s:%s:%s%c", im->num, isdeskocc, isdesksel, im->curlayout->symbol, im->next ? ' ' : '\n');
