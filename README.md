@@ -67,19 +67,26 @@ Recent Statii
 Bugs
 ----
  * sarasock function call limitations are not made explicit, specifically MAXBUFF.
- * Floating mode is not a patch. Should it be, or just include it?
+   * Throw error message to socket/stdout when receiving a large message?
  * cursor in a window, move focus to other monitor using keyboard, click in same window, focus not drawn
- * Sending floating window to another monitor doesn't move it. Gasp!
  * Windows flicker in their unmanaged dimensions before being managed (i.e. tiled).
-   * Does manage() need configure()?
  * Reinitializing monitors should update focus to a client.
- * Untoggling fullscreen by changing tags, etc. should reset client to previous state, not automatically tile (i.e. if it was floating).
+ * After using physlock + betterlockscreen, clients are not told to redraw.
+ * Too many clients in the stack causes a gap at the bottom of the screen/weird overlap. I am bad at math.
 
 To Do
 ----
- * My own art.
+ * Fix bugs.
+ * Partial standards compliance so `rofi -m -4` works.
+ * Don't output layout symbols, output layout name.
+ * Convert to XCB, probably.
  * Quality documentation for getting started and customizing.
- * Extensive Valgrind analysis to try and reduce resource usage.
- * Convert to XCB
+ * Any way to separate pointer behavior management?
+ * My own art.
+
+Tiling WM Probs
+----
+ * No "minimize" feature: you have some tag you dump things into.
+ * It's really only feasible to have 3 windows in the master/stack layout. Otherwise they're too small, or if you follow the dwm philosophy and only use master for active work, then you've got the equivalent of a dock taking up a lot of screen real estate.
 
 If you have some particular request, don't send me an e-mail, I won't do it! Bug/documentation reports are welcome, though!

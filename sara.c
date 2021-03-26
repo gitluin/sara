@@ -107,6 +107,7 @@ struct monitor {
 	int num;
 	unsigned int seldesks;
 	client* current;
+	//client* prev;
 	client* head;
 	desktop* desks;
 	layout* curlayout;
@@ -484,48 +485,6 @@ motionnotify(XEvent* e){
 		changemon(im, YesFocus);
 }
 
-//void
-//clientmessage(XEvent* e){
-//	client* c;
-//	XClientMessageEvent* ev = &e->xclient;
-//	/* == 1 -> _NET_WM_STATE_ADD, == 2 -> _NET_WM_STATE_TOGGLE */
-//	int do_toggle = ev->data.l[0] == 1 || (ev->data.l[0] == 2 && !c->isfull);
-//
-//	if ( !(c = findclient(ev->window)) )
-//		return;
-//
-//	if (ev->message_type == netatom[NetWMState]){
-//		// TODO: simplification based on do_toggle to be done?
-//		if (cme->data.l[1] == netatom[NetWMFullscreen]
-//		|| cme->data.l[2] == netatom[NetWMFullscreen])
-//			setfullscreen(c, do_toggle);
-//			//togglefs(dumbarg);
-//	}
-//}
-
-// TODO:
-//void
-//propertynotify(XEvent* e){
-//	client *c;
-//	XPropertyEvent *ev = &e->xproperty;
-//
-//	if (ev->state == PropertyDelete)
-//		return;
-//	else if ( (c = findclient(ev->window)) && (ev->atom == netatom[NetWMWindowType]) )
-//		updatefs(c);
-//	}
-//
-//}
-//
-//void
-//updatefs(client* c){
-//	Atom state = getatomprop(c, netatom[NetWMState]);
-//
-//	if (state == netatom[NetWMFullscreen])
-//		setfullscreen(c, 1);
-//}
-
-
 
 /* ---------------------------------------
  * Client & Linked List Manipulation
@@ -604,6 +563,9 @@ attachaside(client* c){
 	}
 }
 
+// TODO:
+// if (m->prev && m->prev != c)
+// 	m->current = m->prev
 void
 changecurrent(client* c, monitor* m, int desk, int refocused){
 	client* vis;
@@ -733,6 +695,7 @@ manage(Window parent, XWindowAttributes* wa){
 			togglefs(dumbarg);
 		}
 	}
+
 	outputstats();
 }
 
@@ -1583,6 +1546,11 @@ outputstats(){
 	char* isdeskocc, * isdesksel;
 	unsigned int occ, sel;
 
+	/* output:
+	 * "SARA{0:000000000:000000000:[]=}"
+	 * im->num:isdeskocc:isdesksel:curlayout->symbol
+	 */
+	//printf("{SARA}");
 	for EACHMON(mhead){
 		occ = sel = 0;
 		isdeskocc = ecalloc(NUMTAGS, sizeof(char));
@@ -1596,11 +1564,8 @@ outputstats(){
 		uitos(occ, NUMTAGS, isdeskocc);
 		uitos(sel, NUMTAGS, isdesksel);
 
-		/* output:
-		 * "0:000000000:000000000:[]="
-		 * im->num:isdeskocc:isdesksel:curlayout->symbol
-		 */
 		printf("%d:%s:%s:%s%c", im->num, isdeskocc, isdesksel, im->curlayout->symbol, im->next ? ' ' : '\n');
+		//printf("%d:%s:%s:%s%s", im->num, isdeskocc, isdesksel, im->curlayout->symbol, im->next ? "|" : "{SARA-}\n");
 
 		free(isdeskocc);
 		free(isdesksel);
