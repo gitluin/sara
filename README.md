@@ -51,6 +51,7 @@ For more information, see the [wiki](https://github.com/gitluin/sara/wiki)!
 
 Recent Statii
 ------
+ * v3.3		- Finally fixed some stupid bugs (flickering, bad math).
  * v3.2		- Implemented tagging to all desktops (I somehow thought I already did).
  * v3.1		- WIP floating layout `floaty`. Will make this a patch later. See `Bugs` for why this is WIP. Also added a trimmed `unmapnotify` and adjusted `unmanage` that resemble the `dwm` versions - needed this to deal with the behavior of current must-have software like Zoom.
  * v3.0		- Some silly bugs have been squashed, but the major news is that the bar has been excised and you are now free to use whatever you wish, so long as you can make it work with the output of sara! See the example bar setup I have in [this repo](https://github.com/gitluin/peachbar) if you want to copy-paste and tweak for your system, or start from a template. This setup will produce a bar that is identical to the one in previous versions of sara.
@@ -69,20 +70,19 @@ Bugs
  * sarasock function call limitations are not made explicit, specifically MAXBUFF.
    * Throw error message to socket/stdout when receiving a large message?
  * cursor in a window, move focus to other monitor using keyboard, click in same window, focus not drawn
- * Windows flicker in their unmanaged dimensions before being managed (i.e. tiled).
  * Reinitializing monitors should update focus to a client.
  * After using physlock + betterlockscreen, clients are not told to redraw.
- * Too many clients in the stack causes a gap at the bottom of the screen/weird overlap. I am bad at math.
 
 To Do
 ----
  * Fix bugs.
- * Partial standards compliance so `rofi -m -4` works.
+ * Partial standards compliance so things like `rofi -m -4` works.
  * Don't output layout symbols, output layout name.
  * Convert to XCB, probably.
  * Quality documentation for getting started and customizing.
  * Any way to separate pointer behavior management?
  * My own art.
+ * gaps because I'm cool
 
 Tiling WM Probs
 ----

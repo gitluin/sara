@@ -682,9 +682,9 @@ manage(Window parent, XWindowAttributes* wa){
 
 	/* move out of the way until told otherwise */
 	XMoveResizeWindow(dis, c->win, c->x + 2*sw, c->y, c->w, c->h);
+	arrange(c->mon);
 	XMapWindow(dis, c->win);
 
-	arrange(c->mon);
 	if (c->desks & c->mon->seldesks){
 		changecurrent(c, c->mon, c->mon->curdesk, 0);
 		restack(c->mon);
@@ -1377,7 +1377,7 @@ setlayout(const Arg arg){
 
 void
 tile(monitor* m){
-	int n = 0, x = m->mx, y = m->wy;
+	int n = 0, i = 0, x = m->mx, y = m->wy, h = 0;
 	client* nf = NULL;
 
 	/* Find the first non-floating, visible window and tally non-floating, visible windows */
@@ -1401,11 +1401,21 @@ tile(monitor* m){
 			resizeclient(nf, x, y, m->msize, m->wh);
 
 		/* Stack */
+		i = 1;
 		for EACHCLIENT(nf->next){
 			if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull){
-				resizeclient(ic, x + m->msize, y, m->mw - m->msize, m->wh / n);
+				// TODO: test if works with bottombar = 1
+				if (i == n && (y + (m->wh / n) < m->mh)){
+					h = m->mh - y;
 
-				y += m->wh / n;
+				} else {
+					h = m->wh / n;
+				}
+
+				resizeclient(ic, x + m->msize, y, m->mw - m->msize, h);
+
+				y += h;
+				i++;
 			}
 		}
 	}
