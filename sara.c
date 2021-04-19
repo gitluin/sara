@@ -646,8 +646,7 @@ manage(Window parent, XWindowAttributes* wa){
 	client* c, * t;
 	Window trans = None;
 
-	if ( !(c = ecalloc(1, sizeof(client))) )
-		die("Error while callocing new client!");
+	c = ecalloc(1, sizeof(client));
 
 	if (curmon->current && curmon->current->isfull)
 		togglefs(dumbarg);
@@ -1377,7 +1376,7 @@ setlayout(const Arg arg){
 
 void
 tile(monitor* m){
-	int n = 0, i = 0, x = m->mx, y = m->wy, h = 0;
+	int n = 0, x = m->mx, y = m->wy, h = 0, adj_h = bottombar ? m->wh : m->mh;
 	client* nf = NULL;
 
 	/* Find the first non-floating, visible window and tally non-floating, visible windows */
@@ -1401,21 +1400,16 @@ tile(monitor* m){
 			resizeclient(nf, x, y, m->msize, m->wh);
 
 		/* Stack */
-		i = 1;
 		for EACHCLIENT(nf->next){
 			if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull){
-				// TODO: test if works with bottombar = 1
-				if (i == n && (y + (m->wh / n) < m->mh)){
-					h = m->mh - y;
+				h = m->wh / n;
 
-				} else {
-					h = m->wh / n;
-				}
+				if ((y + h) > adj_h)
+					h = adj_h - y;
 
 				resizeclient(ic, x + m->msize, y, m->mw - m->msize, h);
 
 				y += h;
-				i++;
 			}
 		}
 	}
@@ -1553,14 +1547,14 @@ grabbuttons(client* c, int focused){
 
 void
 outputstats(){
-	char* isdeskocc, * isdesksel;
+	char* isdeskocc, * isdesksel, monstate[NUMTAGS+1];
+	int i;
 	unsigned int occ, sel;
 
 	/* output:
-	 * "SARA{0:000000000:000000000:[]=}"
-	 * im->num:isdeskocc:isdesksel:curlayout->symbol
+	 * "0:SONNNNNNN:[]="
+	 * im->num:SEL/OCC/EMPTY:curlayout->symbol
 	 */
-	//printf("{SARA}");
 	for EACHMON(mhead){
 		occ = sel = 0;
 		isdeskocc = ecalloc(NUMTAGS, sizeof(char));
@@ -1574,8 +1568,19 @@ outputstats(){
 		uitos(occ, NUMTAGS, isdeskocc);
 		uitos(sel, NUMTAGS, isdesksel);
 
+		for (i=0;i<NUMTAGS;i++){
+			if (isdesksel[i] == '1'){
+				monstate[i] = 'S';
+			} else if (isdeskocc[i] == '1'){
+				monstate[i] = 'O';
+			} else {
+				monstate[i] = 'N';
+			}
+		}
+		monstate[NUMTAGS] = '\0';
+
+		//printf("%d:%s:%s%c", im->num, monstate, im->curlayout->symbol, im->next ? ' ' : '\n');
 		printf("%d:%s:%s:%s%c", im->num, isdeskocc, isdesksel, im->curlayout->symbol, im->next ? ' ' : '\n');
-		//printf("%d:%s:%s:%s%s", im->num, isdeskocc, isdesksel, im->curlayout->symbol, im->next ? "|" : "{SARA-}\n");
 
 		free(isdeskocc);
 		free(isdesksel);

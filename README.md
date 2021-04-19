@@ -76,6 +76,7 @@ Bugs
 To Do
 ----
  * Fix bugs.
+ * Allow specifying barpx and bottombar at runtime, with fallback to config.h settings.
  * Partial standards compliance so things like `rofi -m -4` works.
  * Don't output layout symbols, output layout name.
  * Convert to XCB, probably.
