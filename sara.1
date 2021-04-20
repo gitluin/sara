@@ -14,7 +14,7 @@ Dynamically manages windows à la \fBdwm\fR, with a dash of \fBbspwm\fR/\fBmonst
 Communicates commands to \fBsara\fR via a socket.
 
 .SH COMMANDS
-\fBsara\fR takes no command line arguments at start, but does output information to \fBstdout\fR. This is useful for bar scripts, and is typically taken advantage of by using a FIFO, i.e. \fBsara > /tmp/sara.fifo\fR.
+\fBsara\fR takes no command line arguments at start, but does output state information as Xatom strings. Use \fBxprop -spy -root\fR to see them! This is useful for bar scripts, and provides an easy way to \fBwhile read line\fR.
 
 \fBsarasock\fR passes arbitrary text to \fBsara\fR, but \fBsara\fR will only accept a predefined set of commands (defined in the \fBconversions\fR enum) and will only copy \fBMAXBUFF\fR characters of the message (defaults to 18, set at compile time). \fBsara\fR checks that a message has a function and an argument, and will not execute it otherwise, which is why commands like \fBkillclient\fR require a passthrough value.
 
@@ -70,4 +70,4 @@ Promote the currently selected client to the master area. 0 is used as a passthr
 Tell \fBsarasock\fR to write to the compile-time specified socket, telling \fBsara\fR to increase the width of the master area by 5% of the screen width.
 
 .SH AUTHOR
-\fBsara\fR and \fBsarasock\fR were written by \fBgitluin\fR. Visit \fIhttps://github.com/gitluin\fR for more detailed licensing information, as this program would not exist without several others!
+\fBsara\fR and \fBsarasock\fR were written by \fBgitluin\fR. Visit \fIhttps://github.com/gitluin/sara\fR for more detailed licensing information, as this program would not exist without several others!

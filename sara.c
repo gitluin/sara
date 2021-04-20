@@ -16,8 +16,10 @@
 #include <sys/select.h>
 #include <unistd.h>
 /* Xlib */
+#include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xft/Xft.h>
+#include <X11/extensions/shape.h>
 #ifdef XINERAMA
 #include <X11/extensions/Xinerama.h>
 #endif
@@ -66,7 +68,7 @@ typedef struct {
 } button;
 
 typedef struct {
-	const char* symbol;
+	const char letter;
 	void (*arrange)(monitor*);
 	const char* name; /* for external layout setting */
 } layout;
@@ -247,11 +249,14 @@ static void cleanup();
 static int getptrcoords(int* x, int* y);
 static void grabbuttons(client* c, int focused);
 static void outputstats();
+static void setrootstats();
 static void setup();
 static void start();
 static int xerror(Display* dis, XErrorEvent* e);
 static int xsendkill(Window w);
 static void quit(const Arg arg);
+static void roundcorners(client* c);
+static void unroundcorners(client* c);
 
 /* callable functions from outside */
 struct {
@@ -682,6 +687,7 @@ manage(Window parent, XWindowAttributes* wa){
 	/* move out of the way until told otherwise */
 	XMoveResizeWindow(dis, c->win, c->x + 2*sw, c->y, c->w, c->h);
 	arrange(c->mon);
+	roundcorners(c);
 	XMapWindow(dis, c->win);
 
 	if (c->desks & c->mon->seldesks){
@@ -849,6 +855,8 @@ manipulate(const Arg arg){
 			if (c->isfloat || (curmon->curlayout->arrange == &floaty))
 				resizeclient(c, nx, ny, nw, nh);
 			XFlush(dis);
+
+			roundcorners(c);
 			break;
 		}
 	} while (ev.type != ButtonRelease);
@@ -865,6 +873,7 @@ manipulate(const Arg arg){
 		changemon(m, YesFocus);
 		outputstats();
 	}
+	roundcorners(c);
 }
 
 void
@@ -877,6 +886,7 @@ resizeclient(client* c, int x, int y, int w, int h){
 	c->h = wc.height = h;
 	XConfigureWindow(dis, c->win, CWX|CWY|CWWidth|CWHeight, &wc);
 	XSync(dis, False);
+	roundcorners(c);
 }
 
 void
@@ -1008,8 +1018,9 @@ togglefs(const Arg arg){
 		curmon->current->oldfloat = curmon->current->isfloat;
 		curmon->current->isfloat = 0;
 
-		XMoveResizeWindow(dis, curmon->current->win, curmon->mx, curmon->my,
+		resizeclient(curmon->current, curmon->mx, curmon->my,
 				curmon->mw, curmon->mh);
+		unroundcorners(curmon->current);
 		XRaiseWindow(dis, curmon->current->win);
 
 	} else {
@@ -1358,9 +1369,10 @@ loaddesktop(int i){
 
 void
 monocle(monitor* m){
+	int x = m->mx + gappx, y = (bottombar ? (m->my + gappx) : (m->wy + barpx)), max_h = (bottombar ? (m->wh - barpx) : (m->mh - gappx));
 	for EACHCLIENT(m->head)
 		if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull)
-			resizeclient(ic, m->mx, m->wy, m->mw, m->wh);
+			resizeclient(ic, x, y, m->mw - 2*gappx, max_h - y);
 }
 
 void
@@ -1376,7 +1388,7 @@ setlayout(const Arg arg){
 
 void
 tile(monitor* m){
-	int n = 0, x = m->mx, y = m->wy, h = 0, adj_h = bottombar ? m->wh : m->mh;
+	int n = 0, i = 0, h = 0, x = m->mx + gappx, y = (bottombar ? (m->my + gappx) : (m->wy + barpx)), max_h = (bottombar ? (m->wh - barpx) : (m->mh - gappx));
 	client* nf = NULL;
 
 	/* Find the first non-floating, visible window and tally non-floating, visible windows */
@@ -1389,7 +1401,7 @@ tile(monitor* m){
 
 	if (nf && n == 1){
 		if (!nf->isfull)
-			resizeclient(nf, x, y, m->mw, m->wh);
+			resizeclient(nf, x, y, m->mw - 2*gappx, max_h - y);
 
 	} else if (nf){
 		/* so having a master doesn't affect stack splitting */
@@ -1397,19 +1409,19 @@ tile(monitor* m){
 
 		/* Master window */
 		if (!nf->isfull)
-			resizeclient(nf, x, y, m->msize, m->wh);
+			resizeclient(nf, x, y, m->msize - gappx, max_h - y);
 
 		/* Stack */
 		for EACHCLIENT(nf->next){
 			if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull){
-				h = m->wh / n;
+				h = (max_h - y) / (n - i);
 
-				if ((y + h) > adj_h)
-					h = adj_h - y;
+				resizeclient(ic, x + m->msize, y, m->mw - m->msize - 2*gappx, h);
 
-				resizeclient(ic, x + m->msize, y, m->mw - m->msize, h);
+				if (y + h < max_h)
+					y += h + gappx;
 
-				y += h;
+				i++;
 			}
 		}
 	}
@@ -1547,7 +1559,7 @@ grabbuttons(client* c, int focused){
 
 void
 outputstats(){
-	char* isdeskocc, * isdesksel, monstate[NUMTAGS+1];
+	char* isdeskocc, * isdesksel, monstate[NUMTAGS+3];
 	int i;
 	unsigned int occ, sel;
 
@@ -1577,16 +1589,37 @@ outputstats(){
 				monstate[i] = 'N';
 			}
 		}
-		monstate[NUMTAGS] = '\0';
+		monstate[NUMTAGS] = ':';
+		monstate[NUMTAGS+1] = im->curlayout->letter;
+		monstate[NUMTAGS+2] = '\0';
+
+		setrootstats(monstate, im->num);
 
 		//printf("%d:%s:%s%c", im->num, monstate, im->curlayout->symbol, im->next ? ' ' : '\n');
-		printf("%d:%s:%s:%s%c", im->num, isdeskocc, isdesksel, im->curlayout->symbol, im->next ? ' ' : '\n');
+		//printf("%d:%s:%s:%s%c", im->num, isdeskocc, isdesksel, im->curlayout->symbol, im->next ? ' ' : '\n');
 
 		free(isdeskocc);
 		free(isdesksel);
 	}
 
 	fflush(stdout);
+}
+
+/* This man is a god
+ * https://jonas-langlotz.de/2020/10/05/polybar-on-dwm
+ */
+void
+setrootstats(char* monstate, int monnum){
+	char* atom = malloc(sizeof(char) * 40);
+	char* num = malloc(sizeof(char) * 12);
+	sprintf(atom, "");
+	sprintf(num, "%d", monnum);
+	strcat(atom, "SARA_MONSTATE_");
+	strcat(atom, num);
+	strcat(atom, "\0");
+	XChangeProperty(dis, root, XInternAtom(dis, atom, False),
+			XA_STRING, 8, PropModeReplace, (unsigned char*) monstate,
+			NUMTAGS+3);
 }
 
 void
@@ -1718,6 +1751,75 @@ xsendkill(Window w){
 void
 quit(const Arg arg){
 	running = 0;
+}
+
+void
+roundcorners(client *c)
+{
+	int diam;
+	Pixmap mask;
+	GC shapegc;
+
+	if (CORNER_RADIUS < 0)
+		return;
+
+	if (!c || c->isfull)
+		return;
+
+	diam = 2 * CORNER_RADIUS;
+	if (c->w < diam || c->h < diam)
+		return;
+
+	if (!(mask = XCreatePixmap(dis, c->win, c->w, c->h, 1)))
+		return;
+	
+	if (!(shapegc = XCreateGC(dis, mask, 0, NULL))){
+	    XFreePixmap(dis, mask);
+	    free(shapegc);
+	    return;
+	}
+
+	XFillRectangle(dis, mask, shapegc, 0, 0, c->w, c->h);
+	XSetForeground(dis, shapegc, 1);
+
+	/* topleft, topright, bottomleft, bottomright
+	 * man XArc - positive is counterclockwise
+	 */
+	XFillArc(dis, mask, shapegc, 0, 		0, 			diam, diam, 90 * 64, 90 * 64);
+	XFillArc(dis, mask, shapegc, c->w - diam - 1, 	0, 			diam, diam, 0 * 64, 90 * 64);
+	XFillArc(dis, mask, shapegc, 0,			c->h - diam - 1,	diam, diam, -90 * 64, -90 * 64);
+	XFillArc(dis, mask, shapegc, c->w - diam - 1,	c->h - diam - 1,	diam, diam, 0 * 64, -90 * 64);
+
+	XFillRectangle(dis, mask, shapegc, CORNER_RADIUS, 0, c->w - diam, c->h);
+	XFillRectangle(dis, mask, shapegc, 0, CORNER_RADIUS, c->w, c->h - diam);
+	XShapeCombineMask(dis, c->win, ShapeBounding, 0, 0, mask, ShapeSet);
+	XFreePixmap(dis, mask);
+	XFreeGC(dis, shapegc);
+}
+
+void
+unroundcorners(client *c)
+{
+	Pixmap mask;
+	GC shapegc;
+
+	if (CORNER_RADIUS < 0 || !c)
+		return;
+
+	if (!(mask = XCreatePixmap(dis, c->win, c->w, c->h, 1)))
+		return;
+	
+	if (!(shapegc = XCreateGC(dis, mask, 0, NULL))){
+	    XFreePixmap(dis, mask);
+	    free(shapegc);
+	    return;
+	}
+
+	XSetForeground(dis, shapegc, 1);
+	XFillRectangle(dis, mask, shapegc, 0, 0, c->w, c->h);
+	XShapeCombineMask(dis, c->win, ShapeBounding, 0, 0, mask, ShapeSet);
+	XFreePixmap(dis, mask);
+	XFreeGC(dis, shapegc);
 }
 
 int

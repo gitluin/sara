@@ -83,7 +83,8 @@ To Do
  * Quality documentation for getting started and customizing.
  * Any way to separate pointer behavior management?
  * My own art.
- * gaps because I'm cool
+ * gaps because I'm cool.
+ * No rules, or move rules to a runtime config.
 
 Tiling WM Probs
 ----

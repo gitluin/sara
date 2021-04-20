@@ -19,6 +19,7 @@
 #define NUMTAGS		9
 #define MOUSEMOD	Mod4Mask
 #define MASTER_SIZE     0.55
+#define CORNER_RADIUS	10
 
 
 /* ---------------------------------------
@@ -30,6 +31,7 @@
 static const int barpx			= 18;
 /* is bar at top or bottom of screen? */
 static const int bottombar		= 0;
+static const int gappx			= 10;
 
 
 /* ---------------------------------------
@@ -57,10 +59,10 @@ static const rule rules[] = {
 
 /* Layouts */
 static const layout layouts[] = {
-	/* symbol	function	name	   */
-	{ "[]=",	tile,		"tile"     },    /* first entry is default */
-	{ "[M]",	monocle,	"monocle"  },
-	{ "><>",	floaty,		"floaty"   },
+	/* letter	function	name	   */
+	{ 'T',		tile,		"tile"     },    /* first entry is default */
+	{ 'M',		monocle,	"monocle"  },
+	{ 'F',		floaty,		"floaty"   },
 };
 
 static button buttons[] = {

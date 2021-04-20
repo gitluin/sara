@@ -5,7 +5,7 @@ MANDIR?= ${PREFIX}/share/man
 #CFLAGS= -std=c99 -Wall -Wno-deprecated-declarations -g -DXINERAMA #-D_POSIX_C_SOURCE=200809L -DXINERAMA -g -Os
 CFLAGS= -std=c99 -Wall -Wno-deprecated-declarations -D_POSIX_C_SOURCE=200809L -DXINERAMA -Os
 INCFLAGS= -I/usr/include/freetype2
-LIBS= -lX11 -lXft -lXinerama
+LIBS= -lX11 -lXft -lXinerama -lXext
 
 SRC= sara.c
 OBJ= ${SRC:.c=.o}
