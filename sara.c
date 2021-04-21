@@ -19,7 +19,9 @@
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xft/Xft.h>
+#ifdef _SHAPE_H_
 #include <X11/extensions/shape.h>
+#endif
 #ifdef XINERAMA
 #include <X11/extensions/Xinerama.h>
 #endif
@@ -255,8 +257,10 @@ static void start();
 static int xerror(Display* dis, XErrorEvent* e);
 static int xsendkill(Window w);
 static void quit(const Arg arg);
+#ifdef _SHAPE_H_
 static void roundcorners(client* c);
 static void unroundcorners(client* c);
+#endif
 
 /* callable functions from outside */
 struct {
@@ -687,7 +691,9 @@ manage(Window parent, XWindowAttributes* wa){
 	/* move out of the way until told otherwise */
 	XMoveResizeWindow(dis, c->win, c->x + 2*sw, c->y, c->w, c->h);
 	arrange(c->mon);
+#ifdef _SHAPE_H_
 	roundcorners(c);
+#endif
 	XMapWindow(dis, c->win);
 
 	if (c->desks & c->mon->seldesks){
@@ -856,7 +862,9 @@ manipulate(const Arg arg){
 				resizeclient(c, nx, ny, nw, nh);
 			XFlush(dis);
 
+#ifdef _SHAPE_H_
 			roundcorners(c);
+#endif
 			break;
 		}
 	} while (ev.type != ButtonRelease);
@@ -873,7 +881,9 @@ manipulate(const Arg arg){
 		changemon(m, YesFocus);
 		outputstats();
 	}
+#ifdef _SHAPE_H_
 	roundcorners(c);
+#endif
 }
 
 void
@@ -886,7 +896,9 @@ resizeclient(client* c, int x, int y, int w, int h){
 	c->h = wc.height = h;
 	XConfigureWindow(dis, c->win, CWX|CWY|CWWidth|CWHeight, &wc);
 	XSync(dis, False);
+#ifdef _SHAPE_H_
 	roundcorners(c);
+#endif
 }
 
 void
@@ -1020,7 +1032,9 @@ togglefs(const Arg arg){
 
 		resizeclient(curmon->current, curmon->mx, curmon->my,
 				curmon->mw, curmon->mh);
+#ifdef _SHAPE_H_
 		unroundcorners(curmon->current);
+#endif
 		XRaiseWindow(dis, curmon->current->win);
 
 	} else {
@@ -1753,6 +1767,7 @@ quit(const Arg arg){
 	running = 0;
 }
 
+#ifdef _SHAPE_H_
 void
 roundcorners(client *c)
 {
@@ -1821,6 +1836,7 @@ unroundcorners(client *c)
 	XFreePixmap(dis, mask);
 	XFreeGC(dis, shapegc);
 }
+#endif
 
 int
 main(){
