@@ -1760,13 +1760,13 @@ roundcorners(client *c)
 	Pixmap mask;
 	GC shapegc;
 
-	if (CORNER_RADIUS < 0)
+	if (corner_radius < 0)
 		return;
 
 	if (!c || c->isfull)
 		return;
 
-	diam = 2 * CORNER_RADIUS;
+	diam = 2 * corner_radius;
 	if (c->w < diam || c->h < diam)
 		return;
 
@@ -1790,8 +1790,8 @@ roundcorners(client *c)
 	XFillArc(dis, mask, shapegc, 0,			c->h - diam - 1,	diam, diam, -90 * 64, -90 * 64);
 	XFillArc(dis, mask, shapegc, c->w - diam - 1,	c->h - diam - 1,	diam, diam, 0 * 64, -90 * 64);
 
-	XFillRectangle(dis, mask, shapegc, CORNER_RADIUS, 0, c->w - diam, c->h);
-	XFillRectangle(dis, mask, shapegc, 0, CORNER_RADIUS, c->w, c->h - diam);
+	XFillRectangle(dis, mask, shapegc, corner_radius, 0, c->w - diam, c->h);
+	XFillRectangle(dis, mask, shapegc, 0, corner_radius, c->w, c->h - diam);
 	XShapeCombineMask(dis, c->win, ShapeBounding, 0, 0, mask, ShapeSet);
 	XFreePixmap(dis, mask);
 	XFreeGC(dis, shapegc);
@@ -1803,7 +1803,7 @@ unroundcorners(client *c)
 	Pixmap mask;
 	GC shapegc;
 
-	if (CORNER_RADIUS < 0 || !c)
+	if (corner_radius < 0 || !c)
 		return;
 
 	if (!(mask = XCreatePixmap(dis, c->win, c->w, c->h, 1)))

@@ -9,14 +9,16 @@ STAGS="\ue3a6:\ue3a6:\ue3a6:\ue3a6:\ue3a6:\ue3a6:\ue3a6:\ue3a6:\ue3a6"
 NTAGS="$TAGS"
 OCCFG="#CBC19C"
 #OCCBG="#2F3537"
-OCCBG="%{B-}"
 SELFG="#CBC19C"
-OCCBG="%{B-}"
 #SELBG="#2F3537"
 TAGDELIMF="   "
 TAGDELIMB="$TAGDELIMF"
 LTDELIMF="  "
 LTDELIMB="$LTDELIMF"
+
+# TODO: this works, but not view/toggleview
+LTBUTTONSTART="%{A1:sarasock 'setlayout tile':}%{A3:sarasock 'setlayout monocle':}"
+LTBUTTONEND="%{A}%{A}"
 
 # This man is a god
 # https://jonas-langlotz.de/2020/10/05/polybar-on-dwm
@@ -33,7 +35,8 @@ xprop -spy -root "SARA_MONSTATE_$MONITOR" 2>/dev/null | {
 			sed 's/\(.\)/\1\n/g' | \
 			sed '/^$/d' | \
 			cat -n | \
-			sed "s/^     \([0-9]\).\(.*\)/{{${TAGDELIMF}\$(echo $\\2TAGS \| cut -d":" -f\1)${TAGDELIMB}}}/g")"
+			sed "s/^     \([0-9]\).\(.*\)/{{%{A1:sarasock \'view \1\':}${TAGDELIMF}\$(echo $\\2TAGS \| cut -d":" -f\1)${TAGDELIMB}%{A}}}/g")"
+			#sed "s/^     \([0-9]\).\(.*\)/{{%{A1:sarasock \'view \1\':}%{A3:sarasock \'toggleview \1\':}${TAGDELIMF}\$(echo $\\2TAGS \| cut -d":" -f\1)${TAGDELIMB}%{A}%{A}}}/g")"
 
 		# Insert colors
 		TAGSTR="$(echo "$TAGSTR" | sed 's/{{\([^}}]*STAGS[^}}]*\)}}/%{F$SELFG}%{B$SELBG}{{\1}}%{F-}%{B-}/g')"
@@ -45,14 +48,16 @@ xprop -spy -root "SARA_MONSTATE_$MONITOR" 2>/dev/null | {
 
 		# Perform cut operations
 		TAGSTR="$(eval echo "$TAGSTR")"
+
+		# Layout stuff
 		if test "$LAYOUTSYM" = "T"; then
-			LAYOUTSYM="[]="
+			LAYOUTSYM=""
 		elif test "$LAYOUTSYM" = "M"; then
-			LAYOUTSYM="[M]"
+			LAYOUTSYM=""
 		elif test "$LAYOUTSYM" = "F"; then
-			LAYOUTSYM="<><"
+			LAYOUTSYM=""
 		fi
-		TAGSTR="${TAGSTR}${LTDELIMF}$LAYOUTSYM${LTDELIMB}%{B$BARBG}%{F$BARFG}"
+		TAGSTR="${TAGSTR}${LTBUTTONSTART}${LTDELIMF}$LAYOUTSYM${LTDELIMB}${LTBUTTONEND}%{B$BARBG}%{F$BARFG}"
 
 		echo -e "${TAGSTR}"
 	done
