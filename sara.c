@@ -16,8 +16,12 @@
 #include <sys/select.h>
 #include <unistd.h>
 /* Xlib */
+#include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xft/Xft.h>
+#ifdef _SHAPE_H_
+#include <X11/extensions/shape.h>
+#endif
 #ifdef XINERAMA
 #include <X11/extensions/Xinerama.h>
 #endif
@@ -66,7 +70,7 @@ typedef struct {
 } button;
 
 typedef struct {
-	const char* symbol;
+	const char letter;
 	void (*arrange)(monitor*);
 	const char* name; /* for external layout setting */
 } layout;
@@ -107,6 +111,7 @@ struct monitor {
 	int num;
 	unsigned int seldesks;
 	client* current;
+	//client* prev;
 	client* head;
 	desktop* desks;
 	layout* curlayout;
@@ -191,6 +196,7 @@ static void enternotify(XEvent* e);
 static void focusin(XEvent* e);
 static void maprequest(XEvent* e);
 static void motionnotify(XEvent* e);
+static void unmapnotify(XEvent* e);
 /* Client & Linked List Manipulation */
 static void adjustcoords(client* c);
 static void applyrules(client* c);
@@ -213,7 +219,7 @@ static void toggledesktop(const Arg arg);
 static void togglefloat(const Arg arg);
 static void togglefs(const Arg arg);
 static void tomon(const Arg arg);
-static void unmanage(client* c);
+static void unmanage(client* c, int destroyed);
 static void updatefocus(monitor* m);
 static void zoom(const Arg arg);
 /* Monitor Manipulation */
@@ -233,6 +239,7 @@ static client* findvisclient(client* c, int wantfloat);
 /* Desktop Interfacing */
 static void arrange(monitor* m);
 static void changemsize(const Arg arg);
+static void floaty(monitor* m);
 static void loaddesktop(int i);
 static void monocle(monitor* m);
 static void setlayout(const Arg arg);
@@ -244,11 +251,16 @@ static void cleanup();
 static int getptrcoords(int* x, int* y);
 static void grabbuttons(client* c, int focused);
 static void outputstats();
+static void setrootstats();
 static void setup();
 static void start();
 static int xerror(Display* dis, XErrorEvent* e);
 static int xsendkill(Window w);
 static void quit(const Arg arg);
+#ifdef _SHAPE_H_
+static void roundcorners(client* c);
+static void unroundcorners(client* c);
+#endif
 
 /* callable functions from outside */
 struct {
@@ -272,7 +284,7 @@ struct {
 	{zoom,          "zoom"},
 };
 
-/* thanks to stackoverflow's wallyk for analagous str2enum */
+/* thanks to Stack Overflow's wallyk for analagous str2enum */
 void*
 str2func(const char* str){
 	int i;
@@ -306,7 +318,9 @@ static monitor* mhead;
 /* Backend */
 static int running;
 static const Arg dumbarg; /* passthrough for function calls like togglefs */
+static long w_data[] = { WithdrawnState, None }; /* for unmanage and unmapnotify */
 static Arg parg; /* for parser */
+static Atom w_atom; /* for unmanage and unmapnotify */
 static client* ic; /* for EACHCLIENT iterating */
 static monitor* im; /* for EACHMON iterating */
 static XEvent dumbev; /* for XCheckMasking */
@@ -319,7 +333,8 @@ static void (*events[LASTEvent])(XEvent* e) = {
 	[EnterNotify] = enternotify,
 	[FocusIn] = focusin,
 	[MapRequest] = maprequest,
-	[MotionNotify] = motionnotify
+	[MotionNotify] = motionnotify,
+	[UnmapNotify] = unmapnotify
 };
 
 static void (*parser[NumTypes])(const char* s, Arg* arg) = {
@@ -426,7 +441,7 @@ destroynotify(XEvent* e){
 	XDestroyWindowEvent* ev = &e->xdestroywindow;
 
 	if ( (c = findclient(ev->window)) )
-		unmanage(c);
+		unmanage(c, 1);
 }
 
 void
@@ -557,6 +572,9 @@ attachaside(client* c){
 	}
 }
 
+// TODO:
+// if (m->prev && m->prev != c)
+// 	m->current = m->prev
 void
 changecurrent(client* c, monitor* m, int desk, int refocused){
 	client* vis;
@@ -637,8 +655,7 @@ manage(Window parent, XWindowAttributes* wa){
 	client* c, * t;
 	Window trans = None;
 
-	if ( !(c = ecalloc(1, sizeof(client))) )
-		die("Error while callocing new client!");
+	c = ecalloc(1, sizeof(client));
 
 	if (curmon->current && curmon->current->isfull)
 		togglefs(dumbarg);
@@ -673,11 +690,15 @@ manage(Window parent, XWindowAttributes* wa){
 
 	/* move out of the way until told otherwise */
 	XMoveResizeWindow(dis, c->win, c->x + 2*sw, c->y, c->w, c->h);
+	arrange(c->mon);
+#ifdef _SHAPE_H_
+	roundcorners(c);
+#endif
 	XMapWindow(dis, c->win);
 
-	arrange(c->mon);
 	if (c->desks & c->mon->seldesks){
 		changecurrent(c, c->mon, c->mon->curdesk, 0);
+		restack(c->mon);
 
 		/* applyrules */
 		if (c->isfull){
@@ -685,6 +706,7 @@ manage(Window parent, XWindowAttributes* wa){
 			togglefs(dumbarg);
 		}
 	}
+
 	outputstats();
 }
 
@@ -833,11 +855,16 @@ manipulate(const Arg arg){
 					? curmon->wy + curmon->wh - c->h : ny;
 				trytoggle = 1;
 			}
-			if (!c->isfloat && trytoggle)
+			/* don't toggle if floating layout, do resize if floating */
+			if (!c->isfloat && trytoggle && !(curmon->curlayout->arrange == &floaty))
 				togglefloat(dumbarg);
-			if (c->isfloat)
+			if (c->isfloat || (curmon->curlayout->arrange == &floaty))
 				resizeclient(c, nx, ny, nw, nh);
 			XFlush(dis);
+
+#ifdef _SHAPE_H_
+			roundcorners(c);
+#endif
 			break;
 		}
 	} while (ev.type != ButtonRelease);
@@ -854,6 +881,9 @@ manipulate(const Arg arg){
 		changemon(m, YesFocus);
 		outputstats();
 	}
+#ifdef _SHAPE_H_
+	roundcorners(c);
+#endif
 }
 
 void
@@ -866,6 +896,9 @@ resizeclient(client* c, int x, int y, int w, int h){
 	c->h = wc.height = h;
 	XConfigureWindow(dis, c->win, CWX|CWY|CWWidth|CWHeight, &wc);
 	XSync(dis, False);
+#ifdef _SHAPE_H_
+	roundcorners(c);
+#endif
 }
 
 void
@@ -879,7 +912,9 @@ restack(monitor* m){
 	wc.sibling = m->current->win;
 
 	for EACHCLIENT(m->head){
-		if (ic != m->current && !ic->isfloat && ISVISIBLE(ic)){
+		//if (ic != m->current && !ic->isfloat && ISVISIBLE(ic)){
+		// if not current, and visible, and both are floating or neither are floating
+		if (ic != m->current && ISVISIBLE(ic) && (ic->isfloat == m->current->isfloat)){
 			XConfigureWindow(dis, ic->win, CWSibling|CWStackMode, &wc);
 			wc.sibling = ic->win;
 		}
@@ -936,8 +971,8 @@ todesktop(const Arg arg){
 
 	// TODO:
 	// if curmon->current is only on curmon->curdesk and curmon->curdesk is the target
-	if ((curmon->curdesk == parg.i))// && (curmon->current->desks == (1 << curmon->curdesk)))
-		return;
+	//if ((curmon->curdesk == parg.i))// && (curmon->current->desks == (1 << curmon->curdesk)))
+	//	return;
 
 	curmon->current->desks = 1 << parg.i;
 	curmon->current->iscur = 0;
@@ -956,7 +991,12 @@ toggledesktop(const Arg arg){
 
 	parser[WantInt](arg.s, &parg);
 
-	if ( (newdesks = curmon->current->desks ^ (1 << parg.i)) ){
+	if (parg.i < 0)
+		newdesks = curmon->current->desks | ~(curmon->current->desks);
+	else
+		newdesks = curmon->current->desks ^ (1 << parg.i);
+
+	if (newdesks){
 		curmon->current->desks = newdesks;
 		/* set current to be current on new desktop
 		 * if it will no longer be visible, adjust current
@@ -974,6 +1014,9 @@ togglefloat(const Arg arg){
 	if (!curmon->current || curmon->current->isfull)
 		return;
 
+	if (curmon->curlayout->arrange == &floaty)
+		return;
+
 	curmon->current->isfloat = !curmon->current->isfloat;
 	arrange(curmon);
 }
@@ -987,8 +1030,11 @@ togglefs(const Arg arg){
 		curmon->current->oldfloat = curmon->current->isfloat;
 		curmon->current->isfloat = 0;
 
-		XMoveResizeWindow(dis, curmon->current->win, curmon->mx, curmon->my,
+		resizeclient(curmon->current, curmon->mx, curmon->my,
 				curmon->mw, curmon->mh);
+#ifdef _SHAPE_H_
+		unroundcorners(curmon->current);
+#endif
 		XRaiseWindow(dis, curmon->current->win);
 
 	} else {
@@ -1009,13 +1055,30 @@ tomon(const Arg arg){
 }
 
 void
-unmanage(client* c){
+unmanage(client* c, int destroyed){
 	monitor* m = c->mon;
 
 	detach(c);
+	if (!destroyed){
+		XGrabServer(dis);
+		XUngrabButton(dis, AnyButton, AnyModifier, c->win);
+		XChangeProperty(dis, c->win, w_atom, w_atom, 32,
+				PropModeReplace, (unsigned char*) w_data, 2);
+		XSync(dis, False);
+		XUngrabServer(dis);
+	}
 	free(c);
 	arrange(m);
 	outputstats();
+}
+
+void
+unmapnotify(XEvent* e){
+	client* c;
+	XUnmapEvent* ev = &e->xunmap;
+
+	if ( (c = findclient(ev->window)) )
+		unmanage(c, 0);
 }
 
 void
@@ -1299,6 +1362,16 @@ changemsize(const Arg arg){
 	arrange(curmon);
 }
 
+/* don't toggle isfloat, so that everyone snaps back when you tile, etc. */
+void
+floaty(monitor* m){
+	for EACHCLIENT(m->head){
+		if (ISVISIBLE(ic)){
+			resizeclient(ic, ic->x, ic->y, ic->w, ic->h);
+		}
+	}
+}
+
 void
 loaddesktop(int i){
 	curmon->desks[curmon->curdesk].msize = curmon->msize;
@@ -1310,9 +1383,10 @@ loaddesktop(int i){
 
 void
 monocle(monitor* m){
+	int x = m->mx + gappx, y = (bottombar ? (m->my + gappx) : (m->wy + barpx)), max_h = (bottombar ? (m->wh - barpx) : (m->mh - gappx));
 	for EACHCLIENT(m->head)
 		if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull)
-			resizeclient(ic, m->mx, m->wy, m->mw, m->wh);
+			resizeclient(ic, x, y, m->mw - 2*gappx, max_h - y);
 }
 
 void
@@ -1328,7 +1402,7 @@ setlayout(const Arg arg){
 
 void
 tile(monitor* m){
-	int n = 0, x = m->mx, y = m->wy;
+	int n = 0, i = 0, h = 0, x = m->mx + gappx, y = (bottombar ? (m->my + gappx) : (m->wy + barpx)), max_h = (bottombar ? (m->wh - barpx) : (m->mh - gappx));
 	client* nf = NULL;
 
 	/* Find the first non-floating, visible window and tally non-floating, visible windows */
@@ -1341,7 +1415,7 @@ tile(monitor* m){
 
 	if (nf && n == 1){
 		if (!nf->isfull)
-			resizeclient(nf, x, y, m->mw, m->wh);
+			resizeclient(nf, x, y, m->mw - 2*gappx, max_h - y);
 
 	} else if (nf){
 		/* so having a master doesn't affect stack splitting */
@@ -1349,14 +1423,19 @@ tile(monitor* m){
 
 		/* Master window */
 		if (!nf->isfull)
-			resizeclient(nf, x, y, m->msize, m->wh);
+			resizeclient(nf, x, y, m->msize - gappx, max_h - y);
 
 		/* Stack */
 		for EACHCLIENT(nf->next){
 			if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull){
-				resizeclient(ic, x + m->msize, y, m->mw - m->msize, m->wh / n);
+				h = (max_h - y) / (n - i);
 
-				y += m->wh / n;
+				resizeclient(ic, x + m->msize, y, m->mw - m->msize - 2*gappx, h);
+
+				if (y + h < max_h)
+					y += h + gappx;
+
+				i++;
 			}
 		}
 	}
@@ -1447,7 +1526,7 @@ cleanup(){
 		/* make everything visible */
 		toggleview(arg);
 		while (curmon->current)
-			unmanage(curmon->current);
+			unmanage(curmon->current, 0);
 		i++;
 	}
 
@@ -1494,9 +1573,14 @@ grabbuttons(client* c, int focused){
 
 void
 outputstats(){
-	char* isdeskocc, * isdesksel;
+	char* isdeskocc, * isdesksel, monstate[NUMTAGS+3];
+	int i;
 	unsigned int occ, sel;
 
+	/* output:
+	 * "0:SONNNNNNN:[]="
+	 * im->num:SEL/OCC/EMPTY:curlayout->symbol
+	 */
 	for EACHMON(mhead){
 		occ = sel = 0;
 		isdeskocc = ecalloc(NUMTAGS, sizeof(char));
@@ -1507,20 +1591,49 @@ outputstats(){
 			occ |= ic->desks;
 
 		/* uis get reordered in the dest string so they are left-to-right */
-		uitos(occ, NUMTAGS-1, isdeskocc);
-		uitos(sel, NUMTAGS-1, isdesksel);
+		uitos(occ, NUMTAGS, isdeskocc);
+		uitos(sel, NUMTAGS, isdesksel);
 
-		/* output:
-		 * "0:00000000:00000000:[]="
-		 * im->num:isdeskocc:isdesksel:curlayout->symbol
-		 */
-		printf("%d:%s:%s:%s%c", im->num, isdeskocc, isdesksel, im->curlayout->symbol, im->next ? ' ' : '\n');
+		for (i=0;i<NUMTAGS;i++){
+			if (isdesksel[i] == '1'){
+				monstate[i] = 'S';
+			} else if (isdeskocc[i] == '1'){
+				monstate[i] = 'O';
+			} else {
+				monstate[i] = 'N';
+			}
+		}
+		monstate[NUMTAGS] = ':';
+		monstate[NUMTAGS+1] = im->curlayout->letter;
+		monstate[NUMTAGS+2] = '\0';
+
+		setrootstats(monstate, im->num);
+
+		//printf("%d:%s:%s%c", im->num, monstate, im->curlayout->symbol, im->next ? ' ' : '\n');
+		//printf("%d:%s:%s:%s%c", im->num, isdeskocc, isdesksel, im->curlayout->symbol, im->next ? ' ' : '\n');
 
 		free(isdeskocc);
 		free(isdesksel);
 	}
 
 	fflush(stdout);
+}
+
+/* This man is a god
+ * https://jonas-langlotz.de/2020/10/05/polybar-on-dwm
+ */
+void
+setrootstats(char* monstate, int monnum){
+	char* atom = malloc(sizeof(char) * 40);
+	char* num = malloc(sizeof(char) * 12);
+	sprintf(atom, "");
+	sprintf(num, "%d", monnum);
+	strcat(atom, "SARA_MONSTATE_");
+	strcat(atom, num);
+	strcat(atom, "\0");
+	XChangeProperty(dis, root, XInternAtom(dis, atom, False),
+			XA_STRING, 8, PropModeReplace, (unsigned char*) monstate,
+			NUMTAGS+3);
 }
 
 void
@@ -1543,6 +1656,8 @@ setup(){
 	updategeom();
 	loaddesktop(0);
 	outputstats();
+
+	w_atom = XInternAtom(dis, "WM_STATE", False);
 
 	wa.cursor = cursor;
 	wa.event_mask = SubstructureRedirectMask|SubstructureNotifyMask
@@ -1651,6 +1766,77 @@ void
 quit(const Arg arg){
 	running = 0;
 }
+
+#ifdef _SHAPE_H_
+void
+roundcorners(client *c)
+{
+	int diam;
+	Pixmap mask;
+	GC shapegc;
+
+	if (corner_radius < 0)
+		return;
+
+	if (!c || c->isfull)
+		return;
+
+	diam = 2 * corner_radius;
+	if (c->w < diam || c->h < diam)
+		return;
+
+	if (!(mask = XCreatePixmap(dis, c->win, c->w, c->h, 1)))
+		return;
+	
+	if (!(shapegc = XCreateGC(dis, mask, 0, NULL))){
+	    XFreePixmap(dis, mask);
+	    free(shapegc);
+	    return;
+	}
+
+	XFillRectangle(dis, mask, shapegc, 0, 0, c->w, c->h);
+	XSetForeground(dis, shapegc, 1);
+
+	/* topleft, topright, bottomleft, bottomright
+	 * man XArc - positive is counterclockwise
+	 */
+	XFillArc(dis, mask, shapegc, 0, 		0, 			diam, diam, 90 * 64, 90 * 64);
+	XFillArc(dis, mask, shapegc, c->w - diam - 1, 	0, 			diam, diam, 0 * 64, 90 * 64);
+	XFillArc(dis, mask, shapegc, 0,			c->h - diam - 1,	diam, diam, -90 * 64, -90 * 64);
+	XFillArc(dis, mask, shapegc, c->w - diam - 1,	c->h - diam - 1,	diam, diam, 0 * 64, -90 * 64);
+
+	XFillRectangle(dis, mask, shapegc, corner_radius, 0, c->w - diam, c->h);
+	XFillRectangle(dis, mask, shapegc, 0, corner_radius, c->w, c->h - diam);
+	XShapeCombineMask(dis, c->win, ShapeBounding, 0, 0, mask, ShapeSet);
+	XFreePixmap(dis, mask);
+	XFreeGC(dis, shapegc);
+}
+
+void
+unroundcorners(client *c)
+{
+	Pixmap mask;
+	GC shapegc;
+
+	if (corner_radius < 0 || !c)
+		return;
+
+	if (!(mask = XCreatePixmap(dis, c->win, c->w, c->h, 1)))
+		return;
+	
+	if (!(shapegc = XCreateGC(dis, mask, 0, NULL))){
+	    XFreePixmap(dis, mask);
+	    free(shapegc);
+	    return;
+	}
+
+	XSetForeground(dis, shapegc, 1);
+	XFillRectangle(dis, mask, shapegc, 0, 0, c->w, c->h);
+	XShapeCombineMask(dis, c->win, ShapeBounding, 0, 0, mask, ShapeSet);
+	XFreePixmap(dis, mask);
+	XFreeGC(dis, shapegc);
+}
+#endif
 
 int
 main(){

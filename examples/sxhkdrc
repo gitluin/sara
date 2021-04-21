@@ -15,28 +15,6 @@ super + d
 	dmenu_run -m "-1" -b -l 4 -p "Run" -fn "Misc Termsyn:size=10" -nb "#282a36" -nf "#f8f8f2" -sb "#1E88E5" -sf "#202020"
 
 # ###############
-# Function key spawns - left in as examples
-
-XF86MonBrightness{Down,Up}
-	$TERMINAL -t "funkey" -e sbar_bright.sh -{U,A} 5
-
-shift + XF86MonBrightness{Down,Up}
-	$TERMINAL -t "funkey" -e sbar_bright.sh -{U,A} 1
-
-XF86Audio{Lower,Raise}Volume
-	$TERMINAL -t "funkey" -e sbar_audio.sh {-,+} 5
-
-shift + XF86Audio{Lower,Raise}Volume
-	$TERMINAL -t "funkey" -e sbar_audio.sh {-,+} 1
-
-XF86AudioMute
-	$TERMINAL -t "funkey" -e sbar_audio.sh mute
-
-@Print
-	$TERMINAL -t "funkey" -e scrot -q 100
-
-
-# ###############
 # sara hotkeys
 # ###############
 

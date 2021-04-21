@@ -1,0 +1,73 @@
+.TH sara 1 "" "" "User Commands"
+.SH NAME
+\fBsara\fR - Another X11 dynamic window manager. Doesn't even use XCB. Also not EWMH/ICCCM compliant.
+
+fight me
+
+.SH SYNOPSIS
+\fBsara\fR
+
+Dynamically manages windows à la \fBdwm\fR, with a dash of \fBbspwm\fR/\fBmonsterwm\fR flavor for interacting with it. \fBsara\fR receives commands on a dedicated socket set in \fBconfig.h\fR, which defaults to \fB/tmp/sara.sock\fR. Commands are written to the socket using the companion program \fBsarasock\fR. Despite the nomenclature, "desktops" behave like tags.
+
+\fBsarasock\fR [\fIcommand\fR]
+
+Communicates commands to \fBsara\fR via a socket.
+
+.SH COMMANDS
+\fBsara\fR takes no command line arguments at start, but does output state information as Xatom strings. Use \fBxprop -spy -root\fR to see them! This is useful for bar scripts, and provides an easy way to \fBwhile read line\fR.
+
+\fBsarasock\fR passes arbitrary text to \fBsara\fR, but \fBsara\fR will only accept a predefined set of commands (defined in the \fBconversions\fR enum) and will only copy \fBMAXBUFF\fR characters of the message (defaults to 18, set at compile time). \fBsara\fR checks that a message has a function and an argument, and will not execute it otherwise, which is why commands like \fBkillclient\fR require a passthrough value.
+
+.TP
+\fBchangemsize\fR \fI+/-[0.05,0.95]\fR
+Increment the horizontal size of the master area by the amount given. Can be either positive or negative. If the result would lead to a value greater than 0.95 or less than 0.05 of the screen width, it will not be changed.
+.TP
+\fBfocusmon\fR \fI+/-1\fR
+Change focus to the next (+) or previous (-) monitor. Will not move the cursor.
+.TP
+\fBkillclient\fR \fI0\fR
+Kill the currently selected client. 0 is used as a passthrough.
+.TP
+\fBmoveclient\fR \fI+/-1\fR
+Move the currently selected client up (+) or down (-) the client list.
+.TP
+\fBmovefocus\fR \fI+/-1\fR
+Move focus up (+) or down (-) the client list.
+.TP
+\fBquit\fR \fI0\fR
+Safely quit \fBsara\fR. 0 is used as a passthrough.
+.TP
+\fBtodesktop\fR \fI[0-8]\fR
+Send the currently selected client to only the specified tag. The number range will depend on how many tags you have allowed in \fBconfig.h\fR.
+.TP
+\fBtoggledesktop\fR \fI[0-8]/-1\fR
+Tag the currently selected client with the specified tag. If the client has already been tagged with that number, it will untag it (hence "toggle"). The number range will depend on how many tags you have allowed in \fBconfig.h\fR. The sepcial value \fI-1\fR can also be used to add the client to all tags (note that this will \fInot\fR toggle the state of any tags already set for the client).
+.TP
+\fBtogglefloat\fR \fI0\fR
+Toggle the floating state of the currently selected client. 0 is used as a passthrough.
+.TP
+\fBtogglefs\fR \fI0\fR
+Toggle the fullscreen state of the currently selected client. 0 is used as a passthrough.
+.TP
+\fBtoggleview\fR \fI[0-8]/-1\fR
+Toggle the specified tag into/out of view. The number range will depend on how many tags you have allowed in \fBconfig.h\fR. The special value of \fI-1\fR can also be used to view all tags.
+.TP
+\fBtomon\fR \fI+/-1\fR
+Send the currently selected client to the next (+) or the previous (-) monitor. If on the first monitor, previous will loop around and send it to the last monitor.
+.TP
+\fBsetlayout\fR \fIname\fR
+Set the layout for the currently selected tag to the specified layout. Layouts must be identified at compile time in \fBconfig.h\fR and have a corresponding function in \fBsara.c\fR. This mirrors the behavior of the \fBdwm's pertag\fR patch.
+.TP
+\fBview\fR \fI[0-8]\fR
+View the specified tag. The number range will depend on how many tags you have allowed in \fBconfig.h\fR.
+.TP
+\fBzoom\fR \fI0\fR
+Promote the currently selected client to the master area. 0 is used as a passthrough.
+
+.SH EXAMPLE
+.B sarasock 'changemsize +0.05'
+
+Tell \fBsarasock\fR to write to the compile-time specified socket, telling \fBsara\fR to increase the width of the master area by 5% of the screen width.
+
+.SH AUTHOR
+\fBsara\fR and \fBsarasock\fR were written by \fBgitluin\fR. Visit \fIhttps://github.com/gitluin/sara\fR for more detailed licensing information, as this program would not exist without several others!
