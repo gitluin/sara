@@ -55,6 +55,7 @@ If that doesn't answer your question, check out the [wiki](https://github.com/gi
 
 Recent Statii
 ------
+ * v4.1		- Now sources a config file, `$XDG_CONFIG_HOME/sara/sararc` or `$HOME/.config/sara/sararc`, which is a shell script that specifies programs to start à la `bspwm`. My plan is to update `sarasock` to configure some variables at runtime in a similar fashion. Also including a `polybar` script for tag information that has support for clickable areas.
  * v4.0		- A man page! Lots of """"bloat""""; polybar is now the suggested default! Huge shoutout to [Jonas](https://jonas-langlotz.de/2020/10/05/polybar-on-dwm) for the only post on his blog single-handedly making my `peachbar` problems obsolete.
  * v3.{0-3}	- Internal bar removed and bar scripts created. Floating layout. More Zoom-friendly client handling (nothing is sacred). Fixed longstanding math issues with `tile()`.
  * v2.0		- Whole lotta UNIX philosophy up in here! Keybinds are controlled by sxhkd now! A little bit of bspwm in your dwm and sara sandwich! Pointer events (click into window, move and resize window) still handled by sara.
