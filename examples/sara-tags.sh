@@ -1,22 +1,21 @@
 #!/bin/bash
 
+# Characters are from IcoMoon
+
 #TAGS="I:II:III:IV:V:VI:VII:VIII:IX"
 #OTAGS="$TAGS"
 #STAGS="$TAGS"
-TAGS="\ue836:\ue836:\ue836:\ue836:\ue836:\ue836:\ue836:\ue836:\ue836"
-OTAGS="\ue837:\ue837:\ue837:\ue837:\ue837:\ue837:\ue837:\ue837:\ue837"
-STAGS="\ue3a6:\ue3a6:\ue3a6:\ue3a6:\ue3a6:\ue3a6:\ue3a6:\ue3a6:\ue3a6"
+TAGS="\uea56:\uea56:\uea56:\uea56:\uea56:\uea56:\uea56:\uea56:\uea56"
+OTAGS="\uea54:\uea54:\uea54:\uea54:\uea54:\uea54:\uea54:\uea54:\uea54"
+STAGS="\uea55:\uea55:\uea55:\uea55:\uea55:\uea55:\uea55:\uea55:\uea55"
 NTAGS="$TAGS"
 OCCFG="#CBC19C"
-#OCCBG="#2F3537"
 SELFG="#CBC19C"
-#SELBG="#2F3537"
 TAGDELIMF="   "
 TAGDELIMB="$TAGDELIMF"
 LTDELIMF="  "
 LTDELIMB="$LTDELIMF"
 
-# TODO: this works, but not view/toggleview
 LTBUTTONSTART="%{A1:sarasock 'setlayout tile':}%{A3:sarasock 'setlayout monocle':}"
 LTBUTTONEND="%{A}%{A}"
 
@@ -31,12 +30,12 @@ xprop -spy -root "SARA_MONSTATE_$MONITOR" 2>/dev/null | {
 		LAYOUTSYM="$(echo $MONLINE | cut -d':' -f2)"
 
 		# Generate call to insert correct tags by using line numbers
+		#	(have to subtract 1, though)
 		TAGSTR="$(echo $DESKSTATE | \
 			sed 's/\(.\)/\1\n/g' | \
 			sed '/^$/d' | \
 			cat -n | \
-			sed "s/^     \([0-9]\).\(.*\)/{{%{A1:sarasock \'view \1\':}${TAGDELIMF}\$(echo $\\2TAGS \| cut -d":" -f\1)${TAGDELIMB}%{A}}}/g")"
-			#sed "s/^     \([0-9]\).\(.*\)/{{%{A1:sarasock \'view \1\':}%{A3:sarasock \'toggleview \1\':}${TAGDELIMF}\$(echo $\\2TAGS \| cut -d":" -f\1)${TAGDELIMB}%{A}%{A}}}/g")"
+			sed "s/^     \([0-9]\).\(.*\)/{{%{A1:sarasock view \$((\1 - 1)):}%{A3:sarasock toggleview \$((\1 - 1)):}${TAGDELIMF}\$(echo $\\2TAGS \| cut -d":" -f\1)${TAGDELIMB}%{A}%{A}}}/g")"
 
 		# Insert colors
 		TAGSTR="$(echo "$TAGSTR" | sed 's/{{\([^}}]*STAGS[^}}]*\)}}/%{F$SELFG}%{B$SELBG}{{\1}}%{F-}%{B-}/g')"
@@ -46,18 +45,22 @@ xprop -spy -root "SARA_MONSTATE_$MONITOR" 2>/dev/null | {
 		# Remove newlines
 		TAGSTR="$(echo $TAGSTR | sed 's/}} {{//g' | sed 's/{{//g' | sed 's/}}//g')"
 
-		# Perform cut operations
+		# Perform cut operations, set correct view numbers
 		TAGSTR="$(eval echo "$TAGSTR")"
 
 		# Layout stuff
 		if test "$LAYOUTSYM" = "T"; then
-			LAYOUTSYM=""
+			LAYOUTSYM="\ue964"
 		elif test "$LAYOUTSYM" = "M"; then
-			LAYOUTSYM=""
+			LAYOUTSYM="\ue91f"
 		elif test "$LAYOUTSYM" = "F"; then
-			LAYOUTSYM=""
+			LAYOUTSYM="\ue9c1"
 		fi
 		TAGSTR="${TAGSTR}${LTBUTTONSTART}${LTDELIMF}$LAYOUTSYM${LTDELIMB}${LTBUTTONEND}%{B$BARBG}%{F$BARFG}"
+
+		# Insert '' for proper sarasock arg'ing
+		TAGSTR="$(echo "$TAGSTR" | sed "s/[^e]\(view.[0-9]\)/ \'\1\'/g")"
+		TAGSTR="$(echo "$TAGSTR" | sed "s/\(toggleview.[0-9]\)/\'\1\'/g")"
 
 		echo -e "${TAGSTR}"
 	done

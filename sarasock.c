@@ -16,7 +16,8 @@
 #include <unistd.h>
 
 /* this NEEDS to match with sara.c */
-#define INPUTSOCK	"/tmp/sara.sock"
+#define INPUTSOCK			"/tmp/sara.sock"
+#define MAXBUFF				18*sizeof(char) /* longest is "changemsize -0.05" at 17, +1 for '\0' */
 
 int
 slen(const char* str){
@@ -44,7 +45,7 @@ main(int argc, char* argv[]){
 		die("failed to create socket!");
 	if (connect(sfd, &saddress, sizeof(saddress)) < 0)
 		die("failed to connect to socket!");
-	if (send(sfd, argv[1], slen(argv[1])+1, 0) < 0)
+	if (send(sfd, argv[1], MAXBUFF, 0) < 0)
 		die("failed to send to socket!");
 
 	close(sfd);

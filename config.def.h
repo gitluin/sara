@@ -19,7 +19,6 @@
 #define NUMTAGS		9
 #define MOUSEMOD	Mod4Mask
 #define MASTER_SIZE     0.55
-#define CORNER_RADIUS	10
 
 
 /* ---------------------------------------
@@ -28,10 +27,11 @@
  */
 
 /* vertical space allotted for your bar of choice */
-static const int barpx			= 18;
+static const int barpx			= 20;
 /* is bar at top or bottom of screen? */
 static const int bottombar		= 0;
 static const int gappx			= 10;
+static const int corner_radius		= 10;
 
 
 /* ---------------------------------------

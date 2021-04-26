@@ -69,17 +69,14 @@ Recent Statii
 
 Bugs
 ----
- * cursor in a window, move focus to other monitor using keyboard, click in same window, focus not drawn
  * Reinitializing monitors should update focus to a client.
- * After using physlock + betterlockscreen, clients are not told to redraw.
+ * After using physlock + betterlockscreen, sometimes causes clients to need a redraw.
 
 To Do
 ----
  * Fix bugs.
  * `bspc` style interfacing with `sara`: config setting, rule setting.
  * Partial standards compliance so things like `rofi -m -4` works.
- * Convert to XCB, probably.
- * Quality documentation for getting started and customizing.
  * Any way to separate pointer behavior management?
  * My own art.
 

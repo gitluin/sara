@@ -19,9 +19,7 @@
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xft/Xft.h>
-#ifdef _SHAPE_H_
 #include <X11/extensions/shape.h>
-#endif
 #ifdef XINERAMA
 #include <X11/extensions/Xinerama.h>
 #endif
@@ -37,6 +35,7 @@
 /* this NEEDS to match with sarasock.c */
 #define INPUTSOCK			"/tmp/sara.sock"
 #define MAXBUFF				18*sizeof(char) /* longest is "changemsize -0.05" at 17, +1 for '\0' */
+#define MAXLEN				256
 
 enum { AnyVis,     OnlyVis };
 enum { NoZoom,     YesZoom };
@@ -251,6 +250,7 @@ static void cleanup();
 static int getptrcoords(int* x, int* y);
 static void grabbuttons(client* c, int focused);
 static void outputstats();
+static void runconfig();
 static void setrootstats();
 static void setup();
 static void start();
@@ -324,6 +324,8 @@ static Atom w_atom; /* for unmanage and unmapnotify */
 static client* ic; /* for EACHCLIENT iterating */
 static monitor* im; /* for EACHMON iterating */
 static XEvent dumbev; /* for XCheckMasking */
+/* BSPWM-style */
+static char config_path[MAXLEN];
 
 static void (*events[LASTEvent])(XEvent* e) = {
 	[ButtonPress] = buttonpress,
@@ -457,7 +459,7 @@ enternotify(XEvent* e){
 		return;
 
 	if ( (m = c->mon) && m != curmon )
-		changemon(m, NoFocus);
+		changemon(m, YesFocus);
 
 	changecurrent(c, c->mon, c->mon->curdesk, 0);
 }
@@ -861,10 +863,6 @@ manipulate(const Arg arg){
 			if (c->isfloat || (curmon->curlayout->arrange == &floaty))
 				resizeclient(c, nx, ny, nw, nh);
 			XFlush(dis);
-
-#ifdef _SHAPE_H_
-			roundcorners(c);
-#endif
 			break;
 		}
 	} while (ev.type != ButtonRelease);
@@ -969,10 +967,8 @@ todesktop(const Arg arg){
 
 	parser[WantInt](arg.s, &parg);
 
-	// TODO:
-	// if curmon->current is only on curmon->curdesk and curmon->curdesk is the target
-	//if ((curmon->curdesk == parg.i))// && (curmon->current->desks == (1 << curmon->curdesk)))
-	//	return;
+	if (curmon->current->desks == (1 << parg.i))
+		return;
 
 	curmon->current->desks = 1 << parg.i;
 	curmon->current->iscur = 0;
@@ -1619,6 +1615,28 @@ outputstats(){
 	fflush(stdout);
 }
 
+/* à la BSPWM */
+void
+runconfig(){
+	char* config_home = getenv("XDG_CONFIG_HOME");
+
+	if (config_home){
+		snprintf(config_path, sizeof(config_path), "%s/sara/sararc", config_home);
+	} else {
+		snprintf(config_path, sizeof(config_path), "%s/.config/sara/sararc", getenv("HOME"));
+	}
+
+	if (fork() == 0) {
+		if (dis)
+			close(ConnectionNumber(dis));
+		setsid();
+		execl(config_path, config_path, (char *) NULL);
+		fprintf(stderr, "sara: failed to execute sararc\n");
+		exit(EXIT_SUCCESS);
+	}
+}
+
+
 /* This man is a god
  * https://jonas-langlotz.de/2020/10/05/polybar-on-dwm
  */
@@ -1689,6 +1707,8 @@ start(){
 
 	if (listen(sfd, SOMAXCONN) < 0)
 		die("couldn't listen to socket!");
+
+	runconfig();
 
 	while (running){
 		XFlush(dis);
