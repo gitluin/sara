@@ -2,7 +2,7 @@ sara
 =====
 Description
 -------
-sara is a simple and lightweight dynamic window manager. What started out as an attempt to make catwm into a small and fully-functional window manager has turned into my primary project in C. At the moment, sara combines aspects of dwm, bspwm, and monsterwm. As my needs/wants change, so too will the program, and probably how much you like it.
+sara is a simple and lightweight dynamic window manager. What started out as an attempt to make catwm into a small and fully-functional window manager has turned into my primary project in C. At the moment, sara combines aspects of dwm and bspwm with some custom features. As my needs/wants change, so too will the program, and probably how much you like it.
 
 If things like [dwm-ipc](https://github.com/mihirlad55/dwm-ipc) scare the hell out of you because they're so big, this window manager might be for you. You want a window manager that works like a souped-up dwm with sane defaults that is also opinionated like all the cool kids. I think the combination of the tag system, the flexibility of sxhkd and IPC interaction, and the ease of parsing the window manager's internal state are good selling points.
 
@@ -27,8 +27,7 @@ Features
 * bspwm-like:
 	* IPC-based interaction via a client program, `sarasock`.
 	* keyboard event handling via external program (like `sxhkd`).
-* monsterwm-like:
-	* output desktop information for external parsing (like with shell script + `lemonbar`/`polybar`).
+* output desktop information to XOrg for external parsing (like with shell script + `lemonbar`/`polybar`).
 * no window borders.
 * no window titles.
 * easily hackable.
