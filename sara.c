@@ -1605,9 +1605,6 @@ outputstats(){
 
 		setrootstats(monstate, im->num);
 
-		//printf("%d:%s:%s%c", im->num, monstate, im->curlayout->symbol, im->next ? ' ' : '\n');
-		//printf("%d:%s:%s:%s%c", im->num, isdeskocc, isdesksel, im->curlayout->symbol, im->next ? ' ' : '\n');
-
 		free(isdeskocc);
 		free(isdesksel);
 	}
