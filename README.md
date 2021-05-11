@@ -37,8 +37,6 @@ Features
 * No [ICCCM](https://web.archive.org/web/20190617214524/https://raw.githubusercontent.com/kfish/xsel/1a1c5edf0dc129055f7764c666da2dd468df6016/rant.txt). This is mostly felt in the lack of the applysizehints behavior that dwm has (ex. cmatrix won't redraw using larger window bounds if you give it more space via togglefs, changemsize, etc.).
 * No EWMH support. Fullscreening manually isn't so bad (see examples/sxhkdrc).
 
-### Why Use sara Over Other WMs?
-
 
 Help Me (Keybindings, Installation, Etc.)!
 -------------------------------------------
