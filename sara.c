@@ -202,6 +202,7 @@ static void maprequest(XEvent* e);
 static void motionnotify(XEvent* e);
 static void unmapnotify(XEvent* e);
 /* Client & Linked List Manipulation */
+static void add_rule(const char* rulestr);
 static void adjustcoords(client* c);
 static void applyrules(client* c);
 static void attachaside(client* c);
@@ -266,6 +267,10 @@ static void quit(const Arg arg);
 static void roundcorners(client* c);
 static void unroundcorners(client* c);
 #endif
+/* sarasock interfacing */
+static void assign_config(void* var_ptr, char* valstr, const char* typestr);
+static void* str2conf(const char* str, const char*** typestr);
+static void* str2func(const char* str);
 
 /* callable functions from outside */
 struct {
@@ -288,17 +293,6 @@ struct {
 	{view,          "view"},
 	{zoom,          "zoom"},
 };
-
-/* thanks to Stack Overflow's wallyk for analagous str2enum */
-void*
-str2func(const char* str){
-	int i;
-	for (i=0;i < TABLENGTH(conversions);i++)
-		if (strcmp(str, conversions[i].str) == 0)
-			return conversions[i].func;
-
-	return NULL;
-}
 
 
 /* Make the above known */
@@ -332,6 +326,13 @@ static XEvent dumbev; /* for XCheckMasking */
 /* BSPWM-style */
 static char config_path[MAXLEN];
 static rule* rules;
+/* Default config values */
+static int barpx			= 20;
+static int bottombar			= 0;
+static int gappx			= 10;
+static int corner_radius		= 10;
+/* once within snappx of a monitor edge, snap to the edge */
+static unsigned int snappx		= 32;
 
 static void (*events[LASTEvent])(XEvent* e) = {
 	[ButtonPress] = buttonpress,
@@ -349,6 +350,24 @@ static void (*parser[NumTypes])(const char* s, Arg* arg) = {
 	[WantInt] = eatoi,
 	[WantFloat] = eatof
 };
+
+// TODO: if update barpx, bottombar, gappx, actual "updategeom" w/o reinit
+// TODO: if update corner_radius, re-roundcorners()
+// TODO: if update gappx, re-arrange()
+/* configurable variables from outside */
+struct {
+	void* ret;
+	const char* val;
+	const char* rettype;
+} configs [] = {
+	{&barpx,		"barpx",		"int"},
+	{&bottombar,		"bottombar",		"int"},
+	{&corner_radius,	"corner_radius",	"int"},
+	{&gappx,		"gappx",		"int"},
+	{&snappx,		"snappx",		"int"},
+};
+
+
 
 
 /* ---------------------------------------
@@ -508,32 +527,24 @@ motionnotify(XEvent* e){
  * ---------------------------------------
  */
 
+//r "firefox firefox-leedle '1 << 8' 1 1 -1"
 void
-adjustcoords(client* c){
-	monitor* m;
-
-	if ( (m = coordstomon(c->x, c->y)) && m != c->mon ){
-		c->x += (m->mx < c->mon->mx) ? c->mon->mx : -m->mx;
-		c->y += (m->my < c->mon->my) ? c->mon->my : -m->my;
-	}
-}
-
-//"r firefox firefox-leedle '1 << 8' 1 1 -1"
-
-void
-addrule(char* class, char* name, int desks, int isfloat, int isfull, int monitor){
+add_rule(const char* rulestr){
 	rule* currule;
-	rule* r = ecalloc(1, sizeof(rule));
+	rule* r;
 
-	r->class = class;
-	r->name = name;
-	r->desks = desks;
-	r->isfloat = isfloat;
-	r->isfull = isfull;
-	r->monitor = monitor;
-
-	if (!rule)
+	// TODO: check that rulestr is properly formed
+	if ()
 		return;
+
+	r = ecalloc(1, sizeof(rule));
+
+	r->class = strtok(rulestr, " ");
+	r->name = strtok(NULL, " ");
+	r->desks = (unsigned int) strtoul(strtok(NULL, " "), (char**) NULL, 10);
+	r->isfloat = (int) strtol(strtok(NULL, " "), (char**) NULL, 10);
+	r->isfull = (int) strtol(strtok(NULL, " "), (char**) NULL, 10);
+	r->monitor = (int) strtol(strtok(NULL, " "), (char**) NULL, 10);
 
 	if (!rules){
 		rules = r;
@@ -543,6 +554,16 @@ addrule(char* class, char* name, int desks, int isfloat, int isfull, int monitor
 	for (currule=rules;currule && currule->next;currule=currule->next);
 	if (currule)
 		currule->next = r;
+}
+
+void
+adjustcoords(client* c){
+	monitor* m;
+
+	if ( (m = coordstomon(c->x, c->y)) && m != c->mon ){
+		c->x += (m->mx < c->mon->mx) ? c->mon->mx : -m->mx;
+		c->y += (m->my < c->mon->my) ? c->mon->my : -m->my;
+	}
 }
 
 void
@@ -878,14 +899,14 @@ manipulate(const Arg arg){
 				trytoggle = 1;
 
 			} else {
-				/* if c is within snap pixels of the monitor borders,
+				/* if c is within snappx of the monitor borders,
 				 * then snap and make it a float
 				 */
-				nx = (abs(curmon->mx - nx) < snap) ? curmon->mx : nx;
-				nx = (abs((curmon->mx + curmon->mw) - (nx + c->w)) < snap)
+				nx = (abs(curmon->mx - nx) < snappx) ? curmon->mx : nx;
+				nx = (abs((curmon->mx + curmon->mw) - (nx + c->w)) < snappx)
 					? curmon->mx + curmon->mw - c->w : nx;
-				ny = (abs(curmon->wy - ny) < snap) ? curmon->wy : ny;
-				ny = (abs((curmon->wy + curmon->wh) - (ny + c->h)) < snap)
+				ny = (abs(curmon->wy - ny) < snappx) ? curmon->wy : ny;
+				ny = (abs((curmon->wy + curmon->wh) - (ny + c->h)) < snappx)
 					? curmon->wy + curmon->wh - c->h : ny;
 				trytoggle = 1;
 			}
@@ -1727,8 +1748,9 @@ setup(){
 void
 start(){
 	int nbytes;
-	char* funcstr, * argstr;
+	char* cmdstr, * retstr, * valstr;
 	char msg[MAXBUFF];
+	const char** typestr;
 	void (*func)(const Arg);
 	fd_set desc;
 	XEvent ev;
@@ -1762,16 +1784,29 @@ start(){
 				cfd = accept(sfd, NULL, NULL);
 				if (cfd > 0 && (nbytes = recv(cfd, msg, sizeof(msg)-1, 0)) > 0){
 					msg[nbytes] = '\0';
-					funcstr = strtok(msg, " ");
-					argstr = strtok(NULL, " ");
-					
-					/* all functions only have one argument */
-					if (argstr){
-						const Arg arg = {.s = argstr};
-						if ( (func = str2func(funcstr)) )
-							func(arg);
+					cmdstr = strtok(msg, " ");
+					retstr = strtok(NULL, " ");
+					valstr = strtok(NULL, " ");
+
+					if (cmdstr && retstr){
+						/* all functions only have one argument */
+						if (strcmp(cmdstr, "wm") == 0){
+							const Arg arg = {.s = retstr};
+							if ( (func = str2func(retstr)) )
+								func(arg);
+						}
+
+					} else if (cmdstr && retstr && valstr){
+						if (strcmp(cmdstr, "c") == 0){
+							if ( (var_ptr = str2conf(retstr, &typestr)) )
+								assign_config(var_ptr, valstr, *typestr);
+
+						} else if (strcmp(cmdstr, "r") == 0){
+							add_rule(valstr);
+						}
 					}
 					close(cfd);
+
 				}
 			}
 
@@ -1895,6 +1930,56 @@ unroundcorners(client *c)
 	XFreeGC(dis, shapegc);
 }
 #endif
+
+
+/* ---------------------------------------
+ * sarasock interfacing
+ * ---------------------------------------
+ */
+
+/* thanks to Stack Overflow's wallyk for analagous str2enum */
+void*
+str2conf(const char* str, const char*** typestr){
+	int i;
+
+	for (i=0;i < TABLENGTH(configs);i++){
+		if (strcmp(str, configs[i].val) == 0){
+			*typestr = &(configs[i].rettype);
+
+			return configs[i].ret;
+		}
+	}
+
+	return NULL;
+}
+
+/* thanks to Stack Overflow's wallyk for analagous str2enum */
+void*
+str2func(const char* str){
+	int i;
+	for (i=0;i < TABLENGTH(conversions);i++)
+		if (strcmp(str, conversions[i].str) == 0)
+			return conversions[i].func;
+
+	return NULL;
+}
+
+// TODO: how dangerous is this...
+/* Assign config options to the appropriate variable, casting where necessary */
+void
+assign_config(void* var_ptr, char* valstr, const char* typestr){
+	if (strcmp(typestr, "int") == 0){
+		*(int *) var_ptr = (int) strtol(valstr, (char**) NULL, 10);
+	} else if (strcmp(typestr, "float") == 0){
+		*(float *) var_ptr = (float) strtof(valstr, (char**) NULL);
+	} else if (strcmp(typestr, "unsigned int") == 0){
+		*(unsigned int*) var_ptr = (unsigned int) strtoul(valstr, (char**) NULL, 10);
+	} else if (strcmp(typestr, "str") == 0){
+		*(char**) var_ptr = (char*) valstr;
+	}
+}
+
+
 
 int
 main(){
