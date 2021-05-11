@@ -1574,7 +1574,7 @@ outputstats(){
 	unsigned int occ, sel;
 
 	/* output:
-	 * "0:SONNNNNNN:[]="
+	 * "0:SONNNNNNN:Y"
 	 * im->num:SEL/OCC/EMPTY:curlayout->symbol
 	 */
 	for EACHMON(mhead){

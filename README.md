@@ -27,7 +27,7 @@ Features
 * bspwm-like:
 	* IPC-based interaction via a client program, `sarasock`.
 	* keyboard event handling via external program (like `sxhkd`).
-* output desktop information to XOrg for external parsing (like with shell script + `lemonbar`/`polybar`).
+* output desktop information to the X server for external parsing (like with shell script + `lemonbar`/`polybar`).
 * no window borders.
 * no window titles.
 * easily hackable.
@@ -56,7 +56,7 @@ Recent Statii
 
 Bugs
 ----
- * Reinitializing monitors should update focus to a client.
+ * Reinitializing monitors should update focus to a client and reset enternotify status.
  * Sometimes after using physlock + betterlockscreen, clients need a redraw and don't do it until toggled/moved around.
 
 To Do
