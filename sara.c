@@ -34,7 +34,11 @@
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
 /* this NEEDS to match with sarasock.c */
 #define INPUTSOCK			"/tmp/sara.sock"
+// TODO: reasonable max for rules, configs?
 #define MAXBUFF				18*sizeof(char) /* longest is "changemsize -0.05" at 17, +1 for '\0' */
+//#define MAXBUFF				20*sizeof(char) /* longest is "c changemsize -0.05" at 17, +1 for '\0' */
+//"r WM_CLASS WM_NAME tags_mask isfloat isfull monitor"
+//"r firefox firefox-leedle '1 << 8' 1 1 -1"
 #define MAXLEN				256
 
 enum { AnyVis,     OnlyVis };
@@ -82,6 +86,7 @@ typedef struct {
 	int isfloat;
 	int isfull;
 	int monitor;
+	rule* next;
 } rule;
 
 struct client {
@@ -326,6 +331,7 @@ static monitor* im; /* for EACHMON iterating */
 static XEvent dumbev; /* for XCheckMasking */
 /* BSPWM-style */
 static char config_path[MAXLEN];
+static rule* rules;
 
 static void (*events[LASTEvent])(XEvent* e) = {
 	[ButtonPress] = buttonpress,
@@ -512,11 +518,38 @@ adjustcoords(client* c){
 	}
 }
 
+//"r firefox firefox-leedle '1 << 8' 1 1 -1"
+
+void
+addrule(char* class, char* name, int desks, int isfloat, int isfull, int monitor){
+	rule* currule;
+	rule* r = ecalloc(1, sizeof(rule));
+
+	r->class = class;
+	r->name = name;
+	r->desks = desks;
+	r->isfloat = isfloat;
+	r->isfull = isfull;
+	r->monitor = monitor;
+
+	if (!rule)
+		return;
+
+	if (!rules){
+		rules = r;
+		return;
+	}
+
+	for (currule=rules;currule && currule->next;currule=currule->next);
+	if (currule)
+		currule->next = r;
+}
+
 void
 applyrules(client* c){
 	const char* class, * instance;
 	int i;
-	const rule* r;
+	rule* r;
 	XTextProperty tp;
 	XClassHint ch = { NULL, NULL };
 
@@ -527,8 +560,7 @@ applyrules(client* c){
 	class = ch.res_class ? ch.res_class : "broken";
 	instance = ch.res_name  ? ch.res_name  : "broken";
 
-	for (i=0;i < TABLENGTH(rules);i++){
-		r = &rules[i];
+	for (r=rules;r;r=r->next){
 		if ((!r->title || (tp.value && strstr(r->title, (const char*) tp.value)))
 		&& (!r->class || strstr(class, r->class))
 		&& (!r->instance || strstr(instance, r->instance))){
@@ -1514,6 +1546,7 @@ void
 cleanup(){
 	int i = 0;
 	monitor* m, * tm = mhead;
+	rule* tmp, * currule = rules;
 	const Arg arg = {.s = "-1"};
 
 	/* for an unknown reason, using EACHMON segfaults this */
@@ -1531,6 +1564,13 @@ cleanup(){
 	while ( (m = tm) ){
 		tm = m->next;
 		cleanupmon(m);
+	}
+
+	while (currule){
+		tmp = currule;
+		currule = currule->next;
+
+		free(tmp);
 	}
 
 	XFreeCursor(dis, cursor);
@@ -1667,6 +1707,7 @@ setup(){
 
 	mhead = NULL;
 	curmon = NULL;
+	rules = NULL;
 
 	updategeom();
 	loaddesktop(0);
