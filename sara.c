@@ -22,6 +22,7 @@
 #include <X11/extensions/Xinerama.h>
 #endif
 
+#define SAFEPARG(A,B)			((A < parg.i && parg.i < B))
 #define BUTTONMASK              	(ButtonPressMask|ButtonReleaseMask)
 #define MOUSEMASK               	(BUTTONMASK|PointerMotionMask)
 #define EACHCLIENT(I)			(ic=I;ic;ic=ic->next) /* ic is a global */
@@ -29,12 +30,12 @@
 #define ISOUTSIDE(PX,PY,X,Y,W,H)	((PX > X + W || PX < X || PY > Y + H || PY < Y))
 #define ISVISIBLE(C)			((C->desks & C->mon->seldesks))
 #define MAX(A,B)               		((A) > (B) ? (A) : (B))
+#define STREQ(A,B)			((strcmp(A,B) == 0))
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
 /* this NEEDS to match with sarasock.c */
 #define INPUTSOCK			"/tmp/sara.sock"
 // TODO: reasonable max for rules, configs?
 #define MAXBUFF				18*sizeof(char) /* longest is "changemsize -0.05" at 17, +1 for '\0' */
-//#define MAXBUFF				20*sizeof(char) /* longest is "c changemsize -0.05" at 17, +1 for '\0' */
 //"r WM_CLASS WM_NAME tags_mask isfloat isfull monitor"
 //"r firefox firefox-leedle '1 << 8' 1 1 -1"
 #define MAXLEN				256
@@ -156,12 +157,12 @@ die(const char* e, ...){
 
 void
 eatoi(const char* s, Arg* arg){
-	arg->i = atoi(s);
+	arg->i = (int) strtol(s, (char**) NULL, 10);
 }
 
 void
 eatof(const char* s, Arg* arg){
-	arg->f = atof(s);
+	arg->f = (float) strtof(s, (char**) NULL);
 }
 
 void*
@@ -200,7 +201,6 @@ static void maprequest(XEvent* e);
 static void motionnotify(XEvent* e);
 static void unmapnotify(XEvent* e);
 /* Client & Linked List Manipulation */
-static void add_rule(const char* rulestr);
 static void adjustcoords(client* c);
 static void applyrules(client* c);
 static void attachaside(client* c);
@@ -266,9 +266,11 @@ static void roundcorners(client* c);
 static void unroundcorners(client* c);
 #endif
 /* sarasock interfacing */
-static void assign_config(void* var_ptr, char* valstr, const char* typestr);
-static void* str2conf(const char* str, const char*** typestr);
+static void addrule(char** args);
+static void assignconfig(char** args);
+static void handlemsg(const char* msg);
 static void* str2func(const char* str);
+static void* str2var(const char* str, const char*** typestr);
 
 /* callable functions from outside */
 struct {
@@ -344,6 +346,7 @@ static void (*events[LASTEvent])(XEvent* e) = {
 	[UnmapNotify] = unmapnotify
 };
 
+// TODO: not safe, what if malformed junk?
 static void (*parser[NumTypes])(const char* s, Arg* arg) = {
 	[WantInt] = eatoi,
 	[WantFloat] = eatof
@@ -524,35 +527,6 @@ motionnotify(XEvent* e){
  * Client & Linked List Manipulation
  * ---------------------------------------
  */
-
-//r "firefox firefox-leedle '1 << 8' 1 1 -1"
-void
-add_rule(const char* rulestr){
-	rule* currule;
-	rule* r;
-
-	// TODO: check that rulestr is properly formed
-	if ()
-		return;
-
-	r = ecalloc(1, sizeof(rule));
-
-	r->class = strtok(rulestr, " ");
-	r->name = strtok(NULL, " ");
-	r->desks = (unsigned int) strtoul(strtok(NULL, " "), (char**) NULL, 10);
-	r->isfloat = (int) strtol(strtok(NULL, " "), (char**) NULL, 10);
-	r->isfull = (int) strtol(strtok(NULL, " "), (char**) NULL, 10);
-	r->monitor = (int) strtol(strtok(NULL, " "), (char**) NULL, 10);
-
-	if (!rules){
-		rules = r;
-		return;
-	}
-
-	for (currule=rules;currule && currule->next;currule=currule->next);
-	if (currule)
-		currule->next = r;
-}
 
 void
 adjustcoords(client* c){
@@ -829,7 +803,7 @@ movefocus(const Arg arg){
 					c = j;
 
 	/* down stack, wrap around */
-	} else {
+	} else if (parg.i < 0) {
 		if ( !(c = findvisclient(curmon->current->next, WantFloating)) )
 			c = findvisclient(curmon->head, WantFloating);
 	}
@@ -1018,6 +992,9 @@ todesktop(const Arg arg){
 
 	parser[WantInt](arg.s, &parg);
 
+	if (!SAFEPARG(0,NUMTAGS-1))
+		return;
+
 	if (curmon->current->desks == (1 << parg.i))
 		return;
 
@@ -1037,6 +1014,9 @@ toggledesktop(const Arg arg){
 		return;
 
 	parser[WantInt](arg.s, &parg);
+
+	if (!SAFEPARG(-1,NUMTAGS-1))
+		return;
 
 	if (parg.i < 0)
 		newdesks = curmon->current->desks | ~(curmon->current->desks);
@@ -1440,7 +1420,7 @@ void
 setlayout(const Arg arg){
 	int i;
 	for (i=0;i < TABLENGTH(layouts);i++)
-		if (strcmp(arg.s, layouts[i].name) == 0)
+		if (STREQ(arg.s, layouts[i].name))
 			curmon->curlayout = (layout*) &layouts[i];
 
 	arrange(curmon);
@@ -1495,6 +1475,9 @@ toggleview(const Arg arg){
 
 	parser[WantInt](arg.s, &parg);
 
+	if (!SAFEPARG(-1,NUMTAGS-1))
+		return;
+
 	if (parg.i < 0)
 		tagmask = ~(curmon->seldesks);
 	else
@@ -1532,6 +1515,9 @@ view(const Arg arg){
 	client* c;
 
 	parser[WantInt](arg.s, &parg);
+
+	if (!SAFEPARG(-1,NUMTAGS-1))
+		return;
 
 	if (curmon->current && curmon->current->isfull)
 		togglefs(dumbarg);
@@ -1746,10 +1732,7 @@ setup(){
 void
 start(){
 	int nbytes;
-	char* cmdstr, * retstr, * valstr;
 	char msg[MAXBUFF];
-	const char** typestr;
-	void (*func)(const Arg);
 	fd_set desc;
 	XEvent ev;
 	int cfd, max_fd, sfd, xfd = ConnectionNumber(dis);
@@ -1782,29 +1765,8 @@ start(){
 				cfd = accept(sfd, NULL, NULL);
 				if (cfd > 0 && (nbytes = recv(cfd, msg, sizeof(msg)-1, 0)) > 0){
 					msg[nbytes] = '\0';
-					cmdstr = strtok(msg, " ");
-					retstr = strtok(NULL, " ");
-					valstr = strtok(NULL, " ");
-
-					if (cmdstr && retstr){
-						/* all functions only have one argument */
-						if (strcmp(cmdstr, "wm") == 0){
-							const Arg arg = {.s = retstr};
-							if ( (func = str2func(retstr)) )
-								func(arg);
-						}
-
-					} else if (cmdstr && retstr && valstr){
-						if (strcmp(cmdstr, "c") == 0){
-							if ( (var_ptr = str2conf(retstr, &typestr)) )
-								assign_config(var_ptr, valstr, *typestr);
-
-						} else if (strcmp(cmdstr, "r") == 0){
-							add_rule(valstr);
-						}
-					}
+					handlemsg(msg);
 					close(cfd);
-
 				}
 			}
 
@@ -1935,48 +1897,141 @@ unroundcorners(client *c)
  * ---------------------------------------
  */
 
-/* thanks to Stack Overflow's wallyk for analagous str2enum */
-void*
-str2conf(const char* str, const char*** typestr){
-	int i;
+// "firefox firefox-leedle '1 << 8' 1 1 -1"
+void
+addrule(char* rulestr){
+	rule* currule;
+	rule* r;
 
-	for (i=0;i < TABLENGTH(configs);i++){
-		if (strcmp(str, configs[i].val) == 0){
-			*typestr = &(configs[i].rettype);
+	// TODO: desks doesn't work, the ' don't prevent 1 << 8 from splitting
 
-			return configs[i].ret;
-		}
+	r = ecalloc(1, sizeof(rule));
+
+	r->class = strtok(rulestr, " ");
+	r->name = strtok(NULL, " ");
+	r->desks = (unsigned int) strtoul(strtok(NULL, " "), (char**) NULL, 10);
+	r->isfloat = (int) strtol(strtok(NULL, " "), (char**) NULL, 10);
+	r->isfull = (int) strtol(strtok(NULL, " "), (char**) NULL, 10);
+	r->monitor = (int) strtol(strtok(NULL, " "), (char**) NULL, 10);
+
+	if (!rules){
+		rules = r;
+		return;
 	}
 
-	return NULL;
-}
-
-/* thanks to Stack Overflow's wallyk for analagous str2enum */
-void*
-str2func(const char* str){
-	int i;
-	for (i=0;i < TABLENGTH(conversions);i++)
-		if (strcmp(str, conversions[i].str) == 0)
-			return conversions[i].func;
-
-	return NULL;
+	for (currule=rules;currule && currule->next;currule=currule->next);
+	if (currule)
+		currule->next = r;
 }
 
 // TODO: how dangerous is this...
 /* Assign config options to the appropriate variable, casting where necessary */
 void
-assign_config(void* var_ptr, char* valstr, const char* typestr){
-	if (strcmp(typestr, "int") == 0){
+assignconfig(char** args){
+	const char** typestr;
+	void* var_ptr = str2var(*(args+1), &typestr);
+	char* valstr = *(args+2);
+
+	if (!var_ptr)
+		return;
+
+	if (STREQ(typestr, "int")){
 		*(int *) var_ptr = (int) strtol(valstr, (char**) NULL, 10);
-	} else if (strcmp(typestr, "float") == 0){
+	} else if (STREQ(typestr, "float")){
 		*(float *) var_ptr = (float) strtof(valstr, (char**) NULL);
-	} else if (strcmp(typestr, "unsigned int") == 0){
+	} else if (STREQ(typestr, "unsigned int")){
 		*(unsigned int*) var_ptr = (unsigned int) strtoul(valstr, (char**) NULL, 10);
-	} else if (strcmp(typestr, "str") == 0){
+	} else if (STREQ(typestr, "str")){
 		*(char**) var_ptr = (char*) valstr;
 	}
 }
 
+/* Thanks to bspwm's handle_message and process_message for some inspiration */
+void
+handlemsg(char* msg){
+	char** tmp_args;
+	int nargs = 0;
+	char* tmp = strtok(msg, " ");
+	char** args = ecalloc(1, sizeof(char*));
+	char** args_bak;
+
+
+	/*
+	 * "wm changemsize +0.05"
+	 * "r firefox firefox-leedle '1 << 8' 1 1 -1"
+	 * "c barpx 10"
+	 *
+	 * Goal
+	 * 	wm: convert to funcptr, call funcptr on remaining args (1)
+	 * 	r: call addrule on remaining args (6)
+	 * 	c: call assignconfig on remaining args (2)
+	 *
+	 */
+
+	if (tmp){
+		args[0] = tmp;
+		nargs++;
+	}
+
+	while ((tmp = strtok(NULL, " ")) && nargs++){
+		if ( (tmp_args = realloc(args, nargs * sizeof(char *))) ){
+			args = tmp_args;
+
+		} else {
+			free(args);
+			fprintf(stderr, "sara: failed to realloc args\n");
+			return 0;
+		}
+
+		args[nargs-1] = tmp;
+	}
+
+	args_bak = args;
+
+	if (STREQ("wm", *args) && nargs == 3){
+		arg.s = *(args+2);	
+
+		if ( (func = str2func(*(args+1))) )
+			func(arg);
+
+	} else if (STREQ("c", *args) && nargs == 3){
+		assignconfig((args+1));
+
+	} else if (STREQ("r", *args) && nargs == 6){
+		addrule((args+1));
+	}
+
+	free(args_bak);
+}
+
+/* thanks to StackOverflow's wallyk for analagous str2enum */
+void*
+str2func(const char* str){
+	int i;
+	for (i=0;i < TABLENGTH(conversions);i++)
+		if (STREQ(str, conversions[i].str))
+			return conversions[i].func;
+
+	return NULL;
+}
+
+/* thanks to StackOverflow's wallyk for analagous str2enum */
+void*
+str2var(const char* str, const char*** typestr){
+	int i;
+
+	if (typestr){
+		for (i=0;i < TABLENGTH(configs);i++){
+			if (strcmp(str, configs[i].val) == 0){
+				*typestr = &(configs[i].rettype);
+
+				return configs[i].ret;
+			}
+		}
+	}
+
+	return NULL;
+}
 
 
 int
