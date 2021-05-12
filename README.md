@@ -61,6 +61,8 @@ To Do
 ----
  * Fix bugs.
  * `bspc` style interfacing with `sara`: config setting, rule setting, pointer management.
+ * `moveclient` and `changecurrent` feel overcomplicated.
+ * Refactor into separate files to facilitate XCB migration.
  * Partial standards compliance so things like `rofi -m -4` works.
  * Convert to XCB.
 

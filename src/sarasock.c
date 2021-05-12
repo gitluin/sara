@@ -13,24 +13,8 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-/* this NEEDS to match with sara.c */
-#define INPUTSOCK			"/tmp/sara.sock"
-#define MAXBUFF				18*sizeof(char) /* longest is "changemsize -0.05" at 17, +1 for '\0' */
+#include "util.h"
 
-int
-slen(const char* str){
-	int i = 0;
-
-	while (*str){ str++; i++; }
-
-	return i;
-}
-
-void
-die(const char* e, ...){
-	fprintf(stdout, "sarasock: %s\n", e);
-	exit(1);
-}
 
 int
 main(int argc, char* argv[]){

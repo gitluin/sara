@@ -22,167 +22,8 @@
 #include <X11/extensions/Xinerama.h>
 #endif
 
-#define SAFEPARG(A,B)			((A < parg.i && parg.i < B))
-#define BUTTONMASK              	(ButtonPressMask|ButtonReleaseMask)
-#define MOUSEMASK               	(BUTTONMASK|PointerMotionMask)
-#define EACHCLIENT(I)			(ic=I;ic;ic=ic->next) /* ic is a global */
-#define EACHMON(M)			(im=M;im;im=im->next) /* im is a global */
-#define ISOUTSIDE(PX,PY,X,Y,W,H)	((PX > X + W || PX < X || PY > Y + H || PY < Y))
-#define ISVISIBLE(C)			((C->desks & C->mon->seldesks))
-#define MAX(A,B)               		((A) > (B) ? (A) : (B))
-#define STREQ(A,B)			((strcmp(A,B) == 0))
-#define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
-/* this NEEDS to match with sarasock.c */
-#define INPUTSOCK			"/tmp/sara.sock"
-// TODO: reasonable max for rules, configs?
-#define MAXBUFF				18*sizeof(char) /* longest is "changemsize -0.05" at 17, +1 for '\0' */
-//"r WM_CLASS WM_NAME tags_mask isfloat isfull monitor"
-//"r firefox firefox-leedle '1 << 8' 1 1 -1"
-#define MAXLEN				256
-
-enum { AnyVis,     OnlyVis };
-enum { NoZoom,     YesZoom };
-enum { NoFocus,    YesFocus };
-enum { WantMove,   WantResize };
-enum { WantTiled,  WantFloating };
-enum { WantInt,    WantFloat,	NumTypes};
-
-
-/* ---------------------------------------
- * Structs
- * ---------------------------------------
- */
-
-typedef struct client client;
-typedef struct desktop desktop;
-typedef struct monitor monitor;
-
-typedef union {
-	int i;
-	float f;
-	/* received from sarasock */
-	const char* s;
-} Arg;
-
-typedef struct {
-	unsigned int mask;
-	unsigned int btn;
-	void (*func)(const Arg arg);
-	const Arg arg;
-} button;
-
-typedef struct {
-	const char letter;
-	void (*arrange)(monitor*);
-	const char* name; /* for external layout setting */
-} layout;
-
-typedef struct {
-	const char* class;
-	const char* instance;
-	const char* title;
-	int desks;
-	int isfloat;
-	int isfull;
-	int monitor;
-	rule* next;
-} rule;
-
-struct client {
-	int x, y, w, h;
-	/* being in monocle is not considered floating */
-	int isfloat;
-	/* prior to togglefs */
-	int oldfloat;
-	int isfull;
-	unsigned int desks;
-	unsigned int iscur;
-	client* next;
-	monitor* mon;
-	Window win;
-}; 
-
-struct desktop {
-	float msize;
-	layout* curlayout;
-};
-
-struct monitor {
-	float msize;
-	int curdesk;
-	int mx, my, mh, mw, wy, wh;
-	int num;
-	unsigned int seldesks;
-	client* current;
-	//client* prev;
-	client* head;
-	desktop* desks;
-	layout* curlayout;
-	monitor* next;
-};
-
-
-/* ---------------------------------------
- * Util Functions
- * ---------------------------------------
- */
-
-/* convert 11011110 to "01111011"
- * for this example, len = 8
- * dest must be a calloc'd char* that you free() afterwards
- */
-void
-uitos(unsigned int ui, int len, char* dest){
-	int i, j, res;
-	int bytearray[len];
-	char bytestr[len + 1];
-
-	/* reverse the array, as tags are printed left to right, not right to left */
-	for (i=0;i < len;i++)
-		bytearray[i] = ui >> i & 1;
-
-	for (i=0, j=0;
-	(i < (len + 1)) && (res = snprintf(bytestr + j, (len + 1) - j, "%d", bytearray[i])) > 0;
-	i++)
-		j += res;
-
-	snprintf(dest, len + 1, "%s", bytestr);
-}
-
-void
-die(const char* e, ...){
-	fprintf(stdout, "sara: %s\n", e);
-	exit(1);
-}
-
-void
-eatoi(const char* s, Arg* arg){
-	arg->i = (int) strtol(s, (char**) NULL, 10);
-}
-
-void
-eatof(const char* s, Arg* arg){
-	arg->f = (float) strtof(s, (char**) NULL);
-}
-
-void*
-ecalloc(size_t nmemb, size_t size){
-	void* p;
-
-	if ( !(p = calloc(nmemb, size)) )
-		die("ecalloc failed");
-
-	return p;
-}
-
-int
-slen(const char* str){
-	int i = 0;
-
-	while (*str){ str++; i++; }
-
-	return i;
-}
+#include "types.h"
+#include "util.h"
 
 
 /* ---------------------------------------
@@ -268,13 +109,13 @@ static void unroundcorners(client* c);
 /* sarasock interfacing */
 static void addrule(char** args);
 static void assignconfig(char** args);
-static void handlemsg(const char* msg);
-static void* str2func(const char* str);
-static void* str2var(const char* str, const char*** typestr);
+static void handlemsg(char* msg);
+static void (*str2func(const char* str))(Arg);
+static void* str2var(const char* str, const char** typestr, void (**func)(void));
 
 /* callable functions from outside */
 struct {
-	void (*func);
+	void (*func)(Arg);
 	const char* str;
 } conversions [] = {
 	{changemsize,   "changemsize"},
@@ -346,26 +187,26 @@ static void (*events[LASTEvent])(XEvent* e) = {
 	[UnmapNotify] = unmapnotify
 };
 
-// TODO: not safe, what if malformed junk?
+/* Check assigned fields in arg when you use parser for safety.
+ * If range is being used, SAFEPARG is suggested.
+ */
 static void (*parser[NumTypes])(const char* s, Arg* arg) = {
-	[WantInt] = eatoi,
-	[WantFloat] = eatof
+	[WantInt] = estrtoi,
+	[WantFloat] = estrtof
 };
 
-// TODO: if update barpx, bottombar, gappx, actual "updategeom" w/o reinit
-// TODO: if update corner_radius, re-roundcorners()
-// TODO: if update gappx, re-arrange()
 /* configurable variables from outside */
 struct {
 	void* ret;
 	const char* val;
 	const char* rettype;
+	void (*func)(void);
 } configs [] = {
-	{&barpx,		"barpx",		"int"},
-	{&bottombar,		"bottombar",		"int"},
-	{&corner_radius,	"corner_radius",	"int"},
-	{&gappx,		"gappx",		"int"},
-	{&snappx,		"snappx",		"int"},
+	{&barpx,		"barpx",		"int",		updategeom},
+	{&bottombar,		"bottombar",		"int",		updategeom},
+	{&corner_radius,	"corner_radius",	"int",		updategeom},
+	{&gappx,		"gappx",		"int",		updategeom},
+	{&snappx,		"snappx",		"int",		updategeom},
 };
 
 
@@ -541,7 +382,6 @@ adjustcoords(client* c){
 void
 applyrules(client* c){
 	const char* class, * instance;
-	int i;
 	rule* r;
 	XTextProperty tp;
 	XClassHint ch = { NULL, NULL };
@@ -1244,6 +1084,11 @@ static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo
 }
 #endif
 
+// TODO: separate updategeom and reinitgeom
+// 	updategeom should adjust wh, wy, for EACHMON(mhead) arrange(im);
+// 		resizeclient() contains a call to roundcorners
+// 	reinitgeom should do what updategeom currently does
+// 		something more like dwm 6.2 would be less intrusive to users
 /* a la dwm 6.1 */
 void
 updategeom(){
@@ -1897,22 +1742,20 @@ unroundcorners(client *c)
  * ---------------------------------------
  */
 
-// "firefox firefox-leedle '1 << 8' 1 1 -1"
 void
-addrule(char* rulestr){
+addrule(char** args){
 	rule* currule;
 	rule* r;
 
-	// TODO: desks doesn't work, the ' don't prevent 1 << 8 from splitting
-
 	r = ecalloc(1, sizeof(rule));
 
-	r->class = strtok(rulestr, " ");
-	r->name = strtok(NULL, " ");
-	r->desks = (unsigned int) strtoul(strtok(NULL, " "), (char**) NULL, 10);
-	r->isfloat = (int) strtol(strtok(NULL, " "), (char**) NULL, 10);
-	r->isfull = (int) strtol(strtok(NULL, " "), (char**) NULL, 10);
-	r->monitor = (int) strtol(strtok(NULL, " "), (char**) NULL, 10);
+	r->class = args[0];
+	r->instance = args[1];
+	r->title = args[2];
+	r->desks = estrtoul(args[3], slen(args[3]), 0);
+	r->isfloat = (int) strtol(args[4], (char**) NULL, 10);
+	r->isfull = (int) strtol(args[5], (char**) NULL, 10);
+	r->monitor = (int) strtol(args[6], (char**) NULL, 10);
 
 	if (!rules){
 		rules = r;
@@ -1928,8 +1771,9 @@ addrule(char* rulestr){
 /* Assign config options to the appropriate variable, casting where necessary */
 void
 assignconfig(char** args){
-	const char** typestr;
-	void* var_ptr = str2var(*(args+1), &typestr);
+	const char* typestr;
+	void (*func)(void) = NULL;
+	void* var_ptr = str2var(*(args+1), &typestr, &func);
 	char* valstr = *(args+2);
 
 	if (!var_ptr)
@@ -1944,6 +1788,9 @@ assignconfig(char** args){
 	} else if (STREQ(typestr, "str")){
 		*(char**) var_ptr = (char*) valstr;
 	}
+
+	if (func)
+		func();
 }
 
 /* Thanks to bspwm's handle_message and process_message for some inspiration */
@@ -1954,6 +1801,7 @@ handlemsg(char* msg){
 	char* tmp = strtok(msg, " ");
 	char** args = ecalloc(1, sizeof(char*));
 	char** args_bak;
+	void (*func)(Arg);
 
 
 	/*
@@ -1976,20 +1824,19 @@ handlemsg(char* msg){
 	while ((tmp = strtok(NULL, " ")) && nargs++){
 		if ( (tmp_args = realloc(args, nargs * sizeof(char *))) ){
 			args = tmp_args;
+			args[nargs-1] = tmp;
 
 		} else {
 			free(args);
 			fprintf(stderr, "sara: failed to realloc args\n");
-			return 0;
+			return;
 		}
-
-		args[nargs-1] = tmp;
 	}
 
 	args_bak = args;
 
 	if (STREQ("wm", *args) && nargs == 3){
-		arg.s = *(args+2);	
+		const Arg arg = {.s = *(args+2)};
 
 		if ( (func = str2func(*(args+1))) )
 			func(arg);
@@ -1997,6 +1844,7 @@ handlemsg(char* msg){
 	} else if (STREQ("c", *args) && nargs == 3){
 		assignconfig((args+1));
 
+	// TODO: proper count? what about class/instance/title?
 	} else if (STREQ("r", *args) && nargs == 6){
 		addrule((args+1));
 	}
@@ -2005,8 +1853,7 @@ handlemsg(char* msg){
 }
 
 /* thanks to StackOverflow's wallyk for analagous str2enum */
-void*
-str2func(const char* str){
+void (*str2func(const char* str))(Arg){
 	int i;
 	for (i=0;i < TABLENGTH(conversions);i++)
 		if (STREQ(str, conversions[i].str))
@@ -2017,13 +1864,14 @@ str2func(const char* str){
 
 /* thanks to StackOverflow's wallyk for analagous str2enum */
 void*
-str2var(const char* str, const char*** typestr){
+str2var(const char* str, const char** typestr, void (**func)(void)){
 	int i;
 
 	if (typestr){
 		for (i=0;i < TABLENGTH(configs);i++){
 			if (strcmp(str, configs[i].val) == 0){
-				*typestr = &(configs[i].rettype);
+				*typestr = configs[i].rettype;
+				func = &(configs[i].func);
 
 				return configs[i].ret;
 			}
