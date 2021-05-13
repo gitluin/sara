@@ -22,8 +22,265 @@
 #include <X11/extensions/Xinerama.h>
 #endif
 
-#include "types.h"
-#include "util.h"
+#include "common.h"
+
+
+#define SAFEPARG(A,B)			((A < parg.i && parg.i < B))
+#define BUTTONMASK              	(ButtonPressMask|ButtonReleaseMask)
+#define MOUSEMASK               	(BUTTONMASK|PointerMotionMask)
+#define EACHCLIENT(I)			(ic=I;ic;ic=ic->next) /* ic is a global */
+#define EACHMON(M)			(im=M;im;im=im->next) /* im is a global */
+#define ISOUTSIDE(PX,PY,X,Y,W,H)	((PX > X + W || PX < X || PY > Y + H || PY < Y))
+#define ISVISIBLE(C)			((C->desks & C->mon->seldesks))
+#define MAX(A,B)               		((A) > (B) ? (A) : (B))
+#define STREQ(A,B)			((strcmp(A,B) == 0))
+#define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
+#define MAXLEN				256
+
+
+enum { AnyVis,     OnlyVis };
+enum { NoZoom,     YesZoom };
+enum { NoFocus,    YesFocus };
+enum { WantMove,   WantResize };
+enum { WantTiled,  WantFloating };
+enum { WantInt,    WantFloat,	NumTypes};
+
+
+/* ---------------------------------------
+ * Typedefs
+ * ---------------------------------------
+ */
+
+typedef struct client client;
+typedef struct desktop desktop;
+typedef struct monitor monitor;
+typedef struct rule rule;
+
+typedef union {
+	int i;
+	float f;
+	/* received from sarasock */
+	const char* s;
+} Arg;
+
+typedef struct {
+	unsigned int mask;
+	unsigned int btn;
+	void (*func)(const Arg arg);
+	const Arg arg;
+} button;
+
+typedef struct {
+	const char letter;
+	void (*arrange)(monitor*);
+	/* for external layout setting */
+	const char* name;
+} layout;
+
+struct client {
+	int x, y, w, h;
+	/* being in monocle is not considered floating */
+	int isfloat;
+	/* prior to togglefs */
+	int oldfloat;
+	int isfull;
+	unsigned int desks;
+	unsigned int iscur;
+	client* next;
+	monitor* mon;
+	Window win;
+}; 
+
+struct desktop {
+	float msize;
+	layout* curlayout;
+};
+
+struct monitor {
+	float msize;
+	int curdesk;
+	int mx, my, mh, mw, wy, wh;
+	int num;
+	unsigned int seldesks;
+	client* current;
+	//client* prev;
+	client* head;
+	desktop* desks;
+	layout* curlayout;
+	monitor* next;
+};
+
+struct rule {
+	const char* class;
+	const char* instance;
+	const char* title;
+	int desks;
+	int isfloat;
+	int isfull;
+	int monitor;
+	rule* next;
+};
+
+
+/* ---------------------------------------
+ * Util Functions
+ * ---------------------------------------
+ */
+
+void*
+ecalloc(size_t nmemb, size_t size){
+	void* p;
+
+	if ( !(p = calloc(nmemb, size)) )
+		die("ecalloc failed");
+
+	return p;
+}
+
+void
+estrtoi(const char* s, Arg* arg){
+	arg->i = (int) strtol(s, (char**) NULL, 10);
+}
+
+void
+estrtof(const char* s, Arg* arg){
+	arg->f = (float) strtof(s, (char**) NULL);
+}
+
+/* more flexible strtoul */
+unsigned int
+estrtoul(char* str, int nchar, int base){
+	char* check, * tmp, * local_str, * saveptr;
+	char** tmp_ops;
+	int i, j;
+	unsigned int to_store;
+	unsigned int* tmp_vals;
+	int nops = 0, nvals = 0, panic = 0;
+	char** ops = ecalloc(1, sizeof(char*));
+	unsigned int ret = 0;
+	unsigned int* vals = ecalloc(1, sizeof(unsigned int));
+
+	local_str = strndup(str, nchar*sizeof(char));
+
+	if (base != 0){
+		ret = strtoul(local_str, &check, base);
+
+		/* if entire string was valid, all good */
+		if (*local_str != '\0' && *check == '\0')
+			return ret;
+	}
+	
+	if ( (tmp = strtok_r(local_str, " ", &saveptr)) ){
+		to_store = (unsigned int) strtoul(tmp, &check, 10);
+
+		/* if you don't start with a value, ya dun fer */
+		if ( !(*tmp != '\0' && *check == '\0') )
+			return 0;
+
+		vals[0] = to_store;
+		nvals++;
+	}
+
+	while ( (tmp = strtok_r(NULL, " ", &saveptr)) ){
+		printf("tmp is: %s\n", tmp);
+	
+		if (strcmp(tmp, ">>") == 0 || strcmp(tmp, "<<") == 0){
+			/* if double operators, we're done */
+			if (ops[nops] && (strcmp(ops[nops], ">>") == 0 || strcmp(ops[nops], "<<") == 0)){
+				break;
+
+			} else {
+				nops++;
+
+				if ( (tmp_ops = realloc(ops, nops * sizeof(char *))) ){
+					ops = tmp_ops;
+					ops[nops-1] = tmp;
+
+				} else {
+					panic = 1;
+				}
+			}
+
+		} else if ( (to_store = strtoul(tmp, (char**) NULL, 10)) ){
+			nvals++;
+
+			if ( (tmp_vals = realloc(vals, nvals * sizeof(int))) ){
+				vals = tmp_vals;
+				vals[nvals-1] = to_store;
+
+			} else {
+				panic = 1;
+			}
+		}
+
+		if (panic){
+			free(ops);
+			free(vals);
+			free(local_str);
+			fprintf(stderr, "estrtoul: failed to realloc ops or vals\n");
+			return 0;
+		}
+	}
+
+	/* trim any excess
+	 * will prevent catastrophic failure from malformed value input, but
+	 * junk will ensue!
+	 */
+	while (nvals > nops + 1 && nvals > 0)
+		nvals--;
+
+	while (nops > nvals - 1 && nops > 0)
+		nops--;
+
+	for (i=0,j=i-1;i < nvals;i++,j++){
+		if (i == 0){
+			ret = vals[i];
+			continue;
+		}
+
+		if (strcmp(ops[j], ">>") == 0)
+			ret >>= vals[i];
+		else if (strcmp(ops[j], "<<") == 0)
+			ret <<= vals[i];
+	}
+
+	free(ops);
+	free(vals);
+	free(local_str);
+
+	return ret;
+}
+
+int
+slen(const char* str){
+	int i = 0;
+
+	for (;*str;str++,i++);
+
+	return i;
+}
+
+/* convert 11011110 to "01111011"
+ * for this example, len = 8
+ * dest must be a calloc'd char* that you free() afterwards
+ */
+void
+uitos(unsigned int ui, int len, char* dest){
+	int i, j, res;
+	int bytearray[len];
+	char bytestr[len + 1];
+
+	/* reverse the array, as tags are printed left to right, not right to left */
+	for (i=0;i < len;i++)
+		bytearray[i] = ui >> i & 1;
+
+	for (i=0, j=0;
+	(i < (len + 1)) && (res = snprintf(bytestr + j, (len + 1) - j, "%d", bytearray[i])) > 0;
+	i++)
+		j += res;
+
+	snprintf(dest, len + 1, "%s", bytestr);
+}
 
 
 /* ---------------------------------------
@@ -188,13 +445,6 @@ static XEvent dumbev; /* for XCheckMasking */
 /* BSPWM-style */
 static char config_path[MAXLEN];
 static rule* rules;
-/* Default config values */
-static int barpx			= 20;
-static int bottombar			= 0;
-static int gappx			= 10;
-static int corner_radius		= 10;
-/* once within snappx of a monitor edge, snap to the edge */
-static unsigned int snappx		= 32;
 
 /* configurable variables from outside */
 struct {

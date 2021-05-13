@@ -7,10 +7,10 @@ CFLAGS= -std=c99 -Wall -Wno-deprecated-declarations -D_POSIX_C_SOURCE=200809L -D
 INCFLAGS= -I/usr/include/freetype2
 LIBS= -lX11 -lXft -lXinerama -lXext
 
-SARASRC= sara.c util.c
+SARASRC= sara.c common.c
 SARAOBJ= ${SARASRC:.c=.o}
 
-SOCKSRC= sarasock.c util.c
+SOCKSRC= sarasock.c common.c
 SOCKOBJ= ${SOCKSRC:.c=.o}
 
 all: sara sarasock man
@@ -18,13 +18,13 @@ all: sara sarasock man
 VPATH=src
 
 config.h:
-	cp config.def.h config.h
+	cp src/config.def.h src/config.h
 
 .c.o:
 	${CC} -c ${CFLAGS} ${INCFLAGS} $<
 
-${SARAOBJ}: config.h util.h types.h
-${SOCKOBJ}: util.h
+${SARAOBJ}: config.h common.h
+${SOCKOBJ}: config.h common.h
 
 sara: ${SARAOBJ}
 	${CC} -o $@ ${SARAOBJ} ${LIBS}
