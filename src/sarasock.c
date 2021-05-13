@@ -18,7 +18,7 @@
 
 int
 main(int argc, char* argv[]){
-	int sfd, n;
+	int sfd;
 	struct sockaddr saddress = {AF_UNIX, INPUTSOCK};
 
 	if (argc != 2)

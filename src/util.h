@@ -6,9 +6,17 @@
  * Please refer to the MIT license for details on usage: https://mit-license.org/
  */ 
 
+#ifndef SARA_UTIL_H
+#define SARA_UTIL_H
+
+#include <string.h>
+
 #include "types.h"
 
 
+#define NUMTAGS				9
+#define MOUSEMOD			Mod4Mask
+#define MASTER_SIZE     		0.55
 #define SAFEPARG(A,B)			((A < parg.i && parg.i < B))
 #define BUTTONMASK              	(ButtonPressMask|ButtonReleaseMask)
 #define MOUSEMASK               	(BUTTONMASK|PointerMotionMask)
@@ -40,3 +48,9 @@ void estrtof(const char* s, Arg* arg);
 unsigned int estrtoul(char* str, int nchar, int base);
 int slen(const char* str);
 void uitos(unsigned int ui, int len, char* dest);
+
+/* for EACHCLIENT/EACHMON iterating */
+extern client* ic;
+extern monitor* im;
+
+#endif

@@ -31,23 +31,17 @@
  * ---------------------------------------
  */
 
-/* X Event Processing */
-static void buttonpress(XEvent* e);
-static void configurenotify(XEvent* e);
-static void configurerequest(XEvent* e);
-static void destroynotify(XEvent* e);
-static void enternotify(XEvent* e);
-static void focusin(XEvent* e);
-static void maprequest(XEvent* e);
-static void motionnotify(XEvent* e);
-static void unmapnotify(XEvent* e);
-/* Client & Linked List Manipulation */
+/* Clients */
 static void adjustcoords(client* c);
 static void applyrules(client* c);
 static void attachaside(client* c);
 static void changecurrent(client* c, monitor* m, int desk, int refocused);
 static void configure(client* c);
 static void detach(client* c);
+static client* findclient(Window w);
+static client* findcurrent(monitor* m);
+static client* findprevclient(client* c, int wantvis, int wantfloat);
+static client* findvisclient(client* c, int wantfloat);
 static void killclient(const Arg arg);
 static void manage(Window parent, XWindowAttributes* wa);
 static void manipulate(const Arg arg);
@@ -66,21 +60,7 @@ static void tomon(const Arg arg);
 static void unmanage(client* c, int destroyed);
 static void updatefocus(monitor* m);
 static void zoom(const Arg arg);
-/* Monitor Manipulation */
-static void changemon(monitor* m, int wantfocus);
-static void cleanupmon(monitor* m);
-static monitor* coordstomon(int x, int y);
-static monitor* createmon(int num, int x, int y, int w, int h);
-static monitor* dirtomon(int dir);
-static monitor* findmon(Window w);
-static void focusmon(const Arg arg);
-static void updategeom();
-/* Client Interfacing */
-static client* findclient(Window w);
-static client* findcurrent(monitor* m);
-static client* findprevclient(client* c, int wantvis, int wantfloat);
-static client* findvisclient(client* c, int wantfloat);
-/* Desktop Interfacing */
+/* Desktops */
 static void arrange(monitor* m);
 static void changemsize(const Arg arg);
 static void floaty(monitor* m);
@@ -90,6 +70,15 @@ static void setlayout(const Arg arg);
 static void tile(monitor* m);
 static void toggleview(const Arg arg);
 static void view(const Arg arg);
+/* Monitor Manipulation */
+static void changemon(monitor* m, int wantfocus);
+static void cleanupmon(monitor* m);
+static monitor* coordstomon(int x, int y);
+static monitor* createmon(int num, int x, int y, int w, int h);
+static monitor* dirtomon(int dir);
+static monitor* findmon(Window w);
+static void focusmon(const Arg arg);
+static void updategeom();
 /* Backend */
 static void cleanup();
 static int getptrcoords(int* x, int* y);
@@ -112,6 +101,37 @@ static void assignconfig(char** args);
 static void handlemsg(char* msg);
 static void (*str2func(const char* str))(Arg);
 static void* str2var(const char* str, const char** typestr, void (**func)(void));
+/* X */
+void buttonpress(XEvent* e);
+void configurenotify(XEvent* e);
+void configurerequest(XEvent* e);
+void destroynotify(XEvent* e);
+void enternotify(XEvent* e);
+void focusin(XEvent* e);
+void maprequest(XEvent* e);
+void motionnotify(XEvent* e);
+void unmapnotify(XEvent* e);
+
+void (*events[LASTEvent])(XEvent* e) = {
+	[ButtonPress] = buttonpress,
+	[ConfigureNotify] = configurenotify,
+	[ConfigureRequest] = configurerequest,
+	[DestroyNotify] = destroynotify,
+	[EnterNotify] = enternotify,
+	[FocusIn] = focusin,
+	[MapRequest] = maprequest,
+	[MotionNotify] = motionnotify,
+	[UnmapNotify] = unmapnotify
+};
+
+/* Check assigned fields in arg when you use parser for safety.
+ * If range is being used, SAFEPARG is suggested.
+ */
+void (*parser[NumTypes])(const char* s, Arg* arg) = {
+	[WantInt] = estrtoi,
+	[WantFloat] = estrtof
+};
+
 
 /* callable functions from outside */
 struct {
@@ -145,13 +165,17 @@ struct {
  * ---------------------------------------
  */
 
-/* X Interfacing */
+/* X */
 static int screen;
 static int sh;
 static int sw;
 static Cursor cursor;
 static Display* dis;
 static Window root;
+/* for EACHCLIENT/EACHMON iterating */
+client* ic;
+monitor* im;
+Arg parg; /* for parser */
 /* Monitor Interfacing */
 static monitor* curmon;
 static monitor* mhead;
@@ -159,10 +183,7 @@ static monitor* mhead;
 static int running;
 static const Arg dumbarg; /* passthrough for function calls like togglefs */
 static long w_data[] = { WithdrawnState, None }; /* for unmanage and unmapnotify */
-static Arg parg; /* for parser */
 static Atom w_atom; /* for unmanage and unmapnotify */
-static client* ic; /* for EACHCLIENT iterating */
-static monitor* im; /* for EACHMON iterating */
 static XEvent dumbev; /* for XCheckMasking */
 /* BSPWM-style */
 static char config_path[MAXLEN];
@@ -174,26 +195,6 @@ static int gappx			= 10;
 static int corner_radius		= 10;
 /* once within snappx of a monitor edge, snap to the edge */
 static unsigned int snappx		= 32;
-
-static void (*events[LASTEvent])(XEvent* e) = {
-	[ButtonPress] = buttonpress,
-	[ConfigureNotify] = configurenotify,
-	[ConfigureRequest] = configurerequest,
-	[DestroyNotify] = destroynotify,
-	[EnterNotify] = enternotify,
-	[FocusIn] = focusin,
-	[MapRequest] = maprequest,
-	[MotionNotify] = motionnotify,
-	[UnmapNotify] = unmapnotify
-};
-
-/* Check assigned fields in arg when you use parser for safety.
- * If range is being used, SAFEPARG is suggested.
- */
-static void (*parser[NumTypes])(const char* s, Arg* arg) = {
-	[WantInt] = estrtoi,
-	[WantFloat] = estrtof
-};
 
 /* configurable variables from outside */
 struct {
@@ -210,162 +211,8 @@ struct {
 };
 
 
-
-
 /* ---------------------------------------
- * X Event Processing
- * ---------------------------------------
- */
-
-void
-buttonpress(XEvent* e){
-	int i;
-	client* c;
-	monitor* m;
-	XButtonPressedEvent* ev = &e->xbutton;
-
-	if ( (m = findmon(ev->window)) && m != curmon )
-		changemon(m, NoFocus);
-
-	if ( (c = findclient(ev->window)) ){
-		if (c != c->mon->current)
-			changecurrent(c, c->mon, c->mon->curdesk, 0);
-
-		restack(c->mon);
-		XAllowEvents(dis, ReplayPointer, CurrentTime);
-
-		/* "all" our button functions are performed on a client */
-		for (i=0;i < TABLENGTH(buttons);i++)
-			if (buttons[i].func && buttons[i].btn == ev->button
-			&& buttons[i].mask == ev->state)
-				buttons[i].func(buttons[i].arg);
-	}
-}
-
-void
-configurenotify(XEvent* e){
-	XConfigureEvent* ev = &e->xconfigure;
-
-	if (ev->window == root){
-		sw = ev->width; sh = ev->height;
-		updategeom();
-
-		for EACHMON(mhead){
-			for EACHCLIENT(im->head)
-				if (ic->isfull)
-					resizeclient(ic, im->mx, im->my, im->mw, im->mh);
-
-			arrange(im);
-		}
-	}
-}
-
-void
-configurerequest(XEvent* e){
-	client* c;
-	monitor* m;
-	XWindowChanges wc;
-	XConfigureRequestEvent* ev = &e->xconfigurerequest;
-
-	if ( (c = findclient(ev->window)) ){
-		if (c->isfloat){
-			m = c->mon;
-			if (ev->value_mask & CWX)
-				c->x = m->mx + ev->x;
-			if (ev->value_mask & CWY)
-				c->y = (ev->y < barpx) ? barpx : ev->y;
-			if (ev->value_mask & CWWidth)
-				c->w = ev->width;
-			if (ev->value_mask & CWHeight)
-				c->h = ev->height;
-			if ((c->x + c->w) > m->mx + m->mw)
-				c->x = m->mx + (m->mw / 2 - c->w / 2);
-			if ((c->y + c->h) > m->wy + m->wh)
-				c->y = m->wy + (m->wh / 2 - c->h / 2);
-			if ((ev->value_mask & (CWX|CWY)) && !(ev->value_mask & (CWWidth|CWHeight)))
-				configure(c);
-			if (ISVISIBLE(c))
-				XMoveResizeWindow(dis, c->win, c->x, c->y, c->w, c->h);
-
-		} else {
-			configure(c);
-		}
-
-	} else {
-		wc.x = ev->x;
-		wc.y = ev->y;
-		wc.width = ev->width;
-		wc.height = ev->height;
-		wc.sibling = ev->above;
-		wc.stack_mode = ev->detail;
-		XConfigureWindow(dis, ev->window, ev->value_mask, &wc);
-	}
-
-	XSync(dis, False);
-}
-
-void
-destroynotify(XEvent* e){
-	client* c;
-	XDestroyWindowEvent* ev = &e->xdestroywindow;
-
-	if ( (c = findclient(ev->window)) )
-		unmanage(c, 1);
-}
-
-void
-enternotify(XEvent* e){
-	client* c;
-	monitor* m;
-	XCrossingEvent* ev = &e->xcrossing;
-
-	if ((ev->mode != NotifyNormal || ev->detail == NotifyInferior) && ev->window != root)
-		return;
-
-	if ( !(c = findclient(ev->window)) || c == curmon->current )
-		return;
-
-	if ( (m = c->mon) && m != curmon )
-		changemon(m, YesFocus);
-
-	changecurrent(c, c->mon, c->mon->curdesk, 0);
-}
-
-void
-focusin(XEvent* e){
-	XFocusChangeEvent* ev = &e->xfocus;
-
-	if (curmon->current && ev->window != curmon->current->win)
-		updatefocus(curmon);
-}
-
-void
-maprequest(XEvent* e){
-	XWindowAttributes wa;
-	XMapRequestEvent* ev = &e->xmaprequest;
-
-	if (!XGetWindowAttributes(dis, ev->window, &wa) || wa.override_redirect)
-		return;
-
-	if (!findclient(ev->window))
-		manage(ev->window, &wa);
-}
-
-void
-motionnotify(XEvent* e){
-	monitor* m;
-	XMotionEvent* ev = &e->xmotion;
-
-	if (ev->window != root)
-		return;
-
-	if ( (m = coordstomon(ev->x_root, ev->y_root)) && m != curmon)
-		changemon(im, YesFocus);
-}
-
-
-/* ---------------------------------------
- * Client & Linked List Manipulation
+ * Clients
  * ---------------------------------------
  */
 
@@ -501,6 +348,63 @@ detach(client* c){
 		p->next = c->next;
 	else
 		c->mon->head = c->next;
+}
+
+client*
+findclient(Window w){
+	for EACHMON(mhead)
+		for EACHCLIENT(im->head)
+			if (ic->win == w)
+				return ic;
+
+	return NULL;
+}
+
+client*
+findcurrent(monitor* m){
+	for EACHCLIENT(m->head)
+		if (ISVISIBLE(ic) && (ic->iscur & 1 << m->curdesk))
+			return ic;
+
+	return NULL;
+}
+
+client*
+findprevclient(client* c, int onlyvis, int wantfloat){
+	client* ret = NULL;
+
+	for EACHCLIENT(c->mon->head){
+		if (ic == c)
+			break;
+
+		if (onlyvis){
+			if (ISVISIBLE(ic))
+				ret = ic;
+
+		} else if (!wantfloat){
+			if (ISVISIBLE(ic) && !ic->isfloat)
+				ret = ic;
+		}
+
+		if (ic->next == c)
+			return (onlyvis || !wantfloat) ? ret : ic;
+	}
+
+	return NULL;
+}
+
+client*
+findvisclient(client* c, int wantfloat){
+	for EACHCLIENT(c){
+		if (ISVISIBLE(ic)){
+			if (!wantfloat && !ic->isfloat)
+				return ic;
+			else if (wantfloat)
+				return ic;
+		}
+	}
+	
+	return NULL;
 }
 
 void
@@ -940,15 +844,6 @@ unmanage(client* c, int destroyed){
 }
 
 void
-unmapnotify(XEvent* e){
-	client* c;
-	XUnmapEvent* ev = &e->xunmap;
-
-	if ( (c = findclient(ev->window)) )
-		unmanage(c, 0);
-}
-
-void
 updatefocus(monitor* m){
 	if (!m)
 		return;
@@ -968,6 +863,178 @@ zoom(const Arg arg){
 
 	moveclientup(curmon->current, YesZoom);
 	arrange(curmon);
+}
+
+
+/* ---------------------------------------
+ * Desktops
+ * ---------------------------------------
+ */
+
+void
+arrange(monitor* m){
+	showhide(m);
+	m->curlayout->arrange(m);
+	restack(m);
+};
+
+void
+changemsize(const Arg arg){
+	parser[WantFloat](arg.s, &parg);
+	curmon->msize += ( ((curmon->msize < 0.95 * curmon->mw) && (parg.f > 0))
+			|| ((curmon->msize > 0.05 * curmon->mw) && (parg.f < 0)) )
+		? parg.f * curmon->mw : 0;
+
+	arrange(curmon);
+}
+
+/* don't toggle isfloat, so that everyone snaps back when you tile, etc. */
+void
+floaty(monitor* m){
+	for EACHCLIENT(m->head){
+		if (ISVISIBLE(ic)){
+			resizeclient(ic, ic->x, ic->y, ic->w, ic->h);
+		}
+	}
+}
+
+void
+loaddesktop(int i){
+	curmon->desks[curmon->curdesk].msize = curmon->msize;
+	curmon->desks[curmon->curdesk].curlayout = curmon->curlayout;
+
+	curmon->msize = curmon->desks[i].msize;
+	curmon->curlayout = curmon->desks[i].curlayout;
+}
+
+void
+monocle(monitor* m){
+	int x = m->mx + gappx, y = (bottombar ? (m->my + gappx) : (m->wy + barpx)), max_h = (bottombar ? (m->wh - barpx) : (m->mh - gappx));
+	for EACHCLIENT(m->head)
+		if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull)
+			resizeclient(ic, x, y, m->mw - 2*gappx, max_h - y);
+}
+
+void
+setlayout(const Arg arg){
+	int i;
+	for (i=0;i < TABLENGTH(layouts);i++)
+		if (STREQ(arg.s, layouts[i].name))
+			curmon->curlayout = (layout*) &layouts[i];
+
+	arrange(curmon);
+	outputstats();
+}
+
+void
+tile(monitor* m){
+	int n = 0, i = 0, h = 0, x = m->mx + gappx, y = (bottombar ? (m->my + gappx) : (m->wy + barpx)), max_h = (bottombar ? (m->wh - barpx) : (m->mh - gappx));
+	client* nf = NULL;
+
+	/* Find the first non-floating, visible window and tally non-floating, visible windows */
+	for EACHCLIENT(m->head){
+		if (!ic->isfloat && ISVISIBLE(ic)){
+			nf = (!nf) ? ic : nf;
+			n++;
+		}
+	}
+
+	if (nf && n == 1){
+		if (!nf->isfull)
+			resizeclient(nf, x, y, m->mw - 2*gappx, max_h - y);
+
+	} else if (nf){
+		/* so having a master doesn't affect stack splitting */
+		n--;
+
+		/* Master window */
+		if (!nf->isfull)
+			resizeclient(nf, x, y, m->msize - gappx, max_h - y);
+
+		/* Stack */
+		for EACHCLIENT(nf->next){
+			if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull){
+				h = (max_h - y) / (n - i);
+
+				resizeclient(ic, x + m->msize, y, m->mw - m->msize - 2*gappx, h);
+
+				if (y + h < max_h)
+					y += h + gappx;
+
+				i++;
+			}
+		}
+	}
+}
+
+void
+toggleview(const Arg arg){
+	int i;
+	unsigned int tagmask;
+
+	parser[WantInt](arg.s, &parg);
+
+	if (!SAFEPARG(-1,NUMTAGS-1))
+		return;
+
+	if (parg.i < 0)
+		tagmask = ~(curmon->seldesks);
+	else
+		tagmask = 1 << parg.i;
+
+	/* if this would leave nothing visible */
+	if ((curmon->seldesks ^ tagmask) == 0)
+		return;
+
+	if (curmon->current && curmon->current->isfull)
+		togglefs(dumbarg);
+
+	curmon->seldesks ^= tagmask;
+
+	if (!(curmon->seldesks & 1 << curmon->curdesk)){
+		for (i=0;i < NUMTAGS;i++){
+			if (curmon->seldesks & 1 << i){
+				loaddesktop(i);
+				curmon->curdesk = i;
+				break;
+			}
+		}
+	}
+
+	/* refocuses, toggles off curmon->current's currentness */
+	if (curmon->current && !ISVISIBLE(curmon->current))
+		changecurrent(curmon->current, curmon, curmon->curdesk, 1);
+
+	arrange(curmon);
+	outputstats();
+}
+
+void
+view(const Arg arg){
+	client* c;
+
+	parser[WantInt](arg.s, &parg);
+
+	if (!SAFEPARG(-1,NUMTAGS-1))
+		return;
+
+	if (curmon->current && curmon->current->isfull)
+		togglefs(dumbarg);
+
+	loaddesktop(parg.i);
+	curmon->seldesks = 1 << parg.i;
+	curmon->curdesk = parg.i;
+
+	if ( (c = findcurrent(curmon)) )
+		/* rezero, so it can be set and everyone else unset */
+		c->iscur ^= 1 << curmon->curdesk;
+	else
+		c = findvisclient(curmon->head, WantFloating);
+		
+	changecurrent(c, curmon, curmon->curdesk, 0);
+
+	arrange(curmon);
+	outputstats();
 }
 
 
@@ -1145,241 +1212,6 @@ updategeom(){
 	if (!curmon)
 		changemon(mhead, YesFocus);
 
-	outputstats();
-}
-
-
-/* ---------------------------------------
- * Client Interfacing
- * ---------------------------------------
- */
-
-client*
-findclient(Window w){
-	for EACHMON(mhead)
-		for EACHCLIENT(im->head)
-			if (ic->win == w)
-				return ic;
-
-	return NULL;
-}
-
-client*
-findcurrent(monitor* m){
-	for EACHCLIENT(m->head)
-		if (ISVISIBLE(ic) && (ic->iscur & 1 << m->curdesk))
-			return ic;
-
-	return NULL;
-}
-
-client*
-findprevclient(client* c, int onlyvis, int wantfloat){
-	client* ret = NULL;
-
-	for EACHCLIENT(c->mon->head){
-		if (ic == c)
-			break;
-
-		if (onlyvis){
-			if (ISVISIBLE(ic))
-				ret = ic;
-
-		} else if (!wantfloat){
-			if (ISVISIBLE(ic) && !ic->isfloat)
-				ret = ic;
-		}
-
-		if (ic->next == c)
-			return (onlyvis || !wantfloat) ? ret : ic;
-	}
-
-	return NULL;
-}
-
-client*
-findvisclient(client* c, int wantfloat){
-	for EACHCLIENT(c){
-		if (ISVISIBLE(ic)){
-			if (!wantfloat && !ic->isfloat)
-				return ic;
-			else if (wantfloat)
-				return ic;
-		}
-	}
-	
-	return NULL;
-}
-
-
-/* ---------------------------------------
- * Desktop Interfacing
- * ---------------------------------------
- */
-
-void
-arrange(monitor* m){
-	showhide(m);
-	m->curlayout->arrange(m);
-	restack(m);
-};
-
-void
-changemsize(const Arg arg){
-	parser[WantFloat](arg.s, &parg);
-	curmon->msize += ( ((curmon->msize < 0.95 * curmon->mw) && (parg.f > 0))
-			|| ((curmon->msize > 0.05 * curmon->mw) && (parg.f < 0)) )
-		? parg.f * curmon->mw : 0;
-
-	arrange(curmon);
-}
-
-/* don't toggle isfloat, so that everyone snaps back when you tile, etc. */
-void
-floaty(monitor* m){
-	for EACHCLIENT(m->head){
-		if (ISVISIBLE(ic)){
-			resizeclient(ic, ic->x, ic->y, ic->w, ic->h);
-		}
-	}
-}
-
-void
-loaddesktop(int i){
-	curmon->desks[curmon->curdesk].msize = curmon->msize;
-	curmon->desks[curmon->curdesk].curlayout = curmon->curlayout;
-
-	curmon->msize = curmon->desks[i].msize;
-	curmon->curlayout = curmon->desks[i].curlayout;
-}
-
-void
-monocle(monitor* m){
-	int x = m->mx + gappx, y = (bottombar ? (m->my + gappx) : (m->wy + barpx)), max_h = (bottombar ? (m->wh - barpx) : (m->mh - gappx));
-	for EACHCLIENT(m->head)
-		if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull)
-			resizeclient(ic, x, y, m->mw - 2*gappx, max_h - y);
-}
-
-void
-setlayout(const Arg arg){
-	int i;
-	for (i=0;i < TABLENGTH(layouts);i++)
-		if (STREQ(arg.s, layouts[i].name))
-			curmon->curlayout = (layout*) &layouts[i];
-
-	arrange(curmon);
-	outputstats();
-}
-
-void
-tile(monitor* m){
-	int n = 0, i = 0, h = 0, x = m->mx + gappx, y = (bottombar ? (m->my + gappx) : (m->wy + barpx)), max_h = (bottombar ? (m->wh - barpx) : (m->mh - gappx));
-	client* nf = NULL;
-
-	/* Find the first non-floating, visible window and tally non-floating, visible windows */
-	for EACHCLIENT(m->head){
-		if (!ic->isfloat && ISVISIBLE(ic)){
-			nf = (!nf) ? ic : nf;
-			n++;
-		}
-	}
-
-	if (nf && n == 1){
-		if (!nf->isfull)
-			resizeclient(nf, x, y, m->mw - 2*gappx, max_h - y);
-
-	} else if (nf){
-		/* so having a master doesn't affect stack splitting */
-		n--;
-
-		/* Master window */
-		if (!nf->isfull)
-			resizeclient(nf, x, y, m->msize - gappx, max_h - y);
-
-		/* Stack */
-		for EACHCLIENT(nf->next){
-			if (ISVISIBLE(ic) && !ic->isfloat && !ic->isfull){
-				h = (max_h - y) / (n - i);
-
-				resizeclient(ic, x + m->msize, y, m->mw - m->msize - 2*gappx, h);
-
-				if (y + h < max_h)
-					y += h + gappx;
-
-				i++;
-			}
-		}
-	}
-}
-
-void
-toggleview(const Arg arg){
-	int i;
-	unsigned int tagmask;
-
-	parser[WantInt](arg.s, &parg);
-
-	if (!SAFEPARG(-1,NUMTAGS-1))
-		return;
-
-	if (parg.i < 0)
-		tagmask = ~(curmon->seldesks);
-	else
-		tagmask = 1 << parg.i;
-
-	/* if this would leave nothing visible */
-	if ((curmon->seldesks ^ tagmask) == 0)
-		return;
-
-	if (curmon->current && curmon->current->isfull)
-		togglefs(dumbarg);
-
-	curmon->seldesks ^= tagmask;
-
-	if (!(curmon->seldesks & 1 << curmon->curdesk)){
-		for (i=0;i < NUMTAGS;i++){
-			if (curmon->seldesks & 1 << i){
-				loaddesktop(i);
-				curmon->curdesk = i;
-				break;
-			}
-		}
-	}
-
-	/* refocuses, toggles off curmon->current's currentness */
-	if (curmon->current && !ISVISIBLE(curmon->current))
-		changecurrent(curmon->current, curmon, curmon->curdesk, 1);
-
-	arrange(curmon);
-	outputstats();
-}
-
-void
-view(const Arg arg){
-	client* c;
-
-	parser[WantInt](arg.s, &parg);
-
-	if (!SAFEPARG(-1,NUMTAGS-1))
-		return;
-
-	if (curmon->current && curmon->current->isfull)
-		togglefs(dumbarg);
-
-	loaddesktop(parg.i);
-	curmon->seldesks = 1 << parg.i;
-	curmon->curdesk = parg.i;
-
-	if ( (c = findcurrent(curmon)) )
-		/* rezero, so it can be set and everyone else unset */
-		c->iscur ^= 1 << curmon->curdesk;
-	else
-		c = findvisclient(curmon->head, WantFloating);
-		
-	changecurrent(c, curmon, curmon->curdesk, 0);
-
-	arrange(curmon);
 	outputstats();
 }
 
@@ -1879,6 +1711,168 @@ str2var(const char* str, const char** typestr, void (**func)(void)){
 	}
 
 	return NULL;
+}
+
+
+/* ---------------------------------------
+ * X
+ * ---------------------------------------
+ */
+
+
+void
+buttonpress(XEvent* e){
+	int i;
+	client* c;
+	monitor* m;
+	XButtonPressedEvent* ev = &e->xbutton;
+
+	if ( (m = findmon(ev->window)) && m != curmon )
+		changemon(m, NoFocus);
+
+	if ( (c = findclient(ev->window)) ){
+		if (c != c->mon->current)
+			changecurrent(c, c->mon, c->mon->curdesk, 0);
+
+		restack(c->mon);
+		XAllowEvents(dis, ReplayPointer, CurrentTime);
+
+		/* "all" our button functions are performed on a client */
+		for (i=0;i < TABLENGTH(buttons);i++)
+			if (buttons[i].func && buttons[i].btn == ev->button
+			&& buttons[i].mask == ev->state)
+				buttons[i].func(buttons[i].arg);
+	}
+}
+
+void
+configurenotify(XEvent* e){
+	XConfigureEvent* ev = &e->xconfigure;
+
+	if (ev->window == root){
+		sw = ev->width; sh = ev->height;
+		updategeom();
+
+		for EACHMON(mhead){
+			for EACHCLIENT(im->head)
+				if (ic->isfull)
+					resizeclient(ic, im->mx, im->my, im->mw, im->mh);
+
+			arrange(im);
+		}
+	}
+}
+
+void
+configurerequest(XEvent* e){
+	client* c;
+	monitor* m;
+	XWindowChanges wc;
+	XConfigureRequestEvent* ev = &e->xconfigurerequest;
+
+	if ( (c = findclient(ev->window)) ){
+		if (c->isfloat){
+			m = c->mon;
+			if (ev->value_mask & CWX)
+				c->x = m->mx + ev->x;
+			if (ev->value_mask & CWY)
+				c->y = (ev->y < barpx) ? barpx : ev->y;
+			if (ev->value_mask & CWWidth)
+				c->w = ev->width;
+			if (ev->value_mask & CWHeight)
+				c->h = ev->height;
+			if ((c->x + c->w) > m->mx + m->mw)
+				c->x = m->mx + (m->mw / 2 - c->w / 2);
+			if ((c->y + c->h) > m->wy + m->wh)
+				c->y = m->wy + (m->wh / 2 - c->h / 2);
+			if ((ev->value_mask & (CWX|CWY)) && !(ev->value_mask & (CWWidth|CWHeight)))
+				configure(c);
+			if (ISVISIBLE(c))
+				XMoveResizeWindow(dis, c->win, c->x, c->y, c->w, c->h);
+
+		} else {
+			configure(c);
+		}
+
+	} else {
+		wc.x = ev->x;
+		wc.y = ev->y;
+		wc.width = ev->width;
+		wc.height = ev->height;
+		wc.sibling = ev->above;
+		wc.stack_mode = ev->detail;
+		XConfigureWindow(dis, ev->window, ev->value_mask, &wc);
+	}
+
+	XSync(dis, False);
+}
+
+void
+destroynotify(XEvent* e){
+	client* c;
+	XDestroyWindowEvent* ev = &e->xdestroywindow;
+
+	if ( (c = findclient(ev->window)) )
+		unmanage(c, 1);
+}
+
+void
+enternotify(XEvent* e){
+	client* c;
+	monitor* m;
+	XCrossingEvent* ev = &e->xcrossing;
+
+	if ((ev->mode != NotifyNormal || ev->detail == NotifyInferior) && ev->window != root)
+		return;
+
+	if ( !(c = findclient(ev->window)) || c == curmon->current )
+		return;
+
+	if ( (m = c->mon) && m != curmon )
+		changemon(m, YesFocus);
+
+	changecurrent(c, c->mon, c->mon->curdesk, 0);
+}
+
+void
+focusin(XEvent* e){
+	XFocusChangeEvent* ev = &e->xfocus;
+
+	if (curmon->current && ev->window != curmon->current->win)
+		updatefocus(curmon);
+}
+
+void
+maprequest(XEvent* e){
+	XWindowAttributes wa;
+	XMapRequestEvent* ev = &e->xmaprequest;
+
+	if (!XGetWindowAttributes(dis, ev->window, &wa) || wa.override_redirect)
+		return;
+
+	if (!findclient(ev->window))
+		manage(ev->window, &wa);
+}
+
+void
+motionnotify(XEvent* e){
+	monitor* m;
+	XMotionEvent* ev = &e->xmotion;
+
+	if (ev->window != root)
+		return;
+
+	if ( (m = coordstomon(ev->x_root, ev->y_root)) && m != curmon)
+		changemon(im, YesFocus);
+}
+
+void
+unmapnotify(XEvent* e){
+	client* c;
+	XUnmapEvent* ev = &e->xunmap;
+
+	if ( (c = findclient(ev->window)) )
+		unmanage(c, 0);
 }
 
 
