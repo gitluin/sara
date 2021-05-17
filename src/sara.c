@@ -184,9 +184,9 @@ estrtoul(char* str, int nchar, int base){
 	while ( (tmp = strtok_r(NULL, " ", &saveptr)) ){
 		printf("tmp is: %s\n", tmp);
 	
-		if (strcmp(tmp, ">>") == 0 || strcmp(tmp, "<<") == 0){
+		if (STREQ(tmp, ">>") || STREQ(tmp, "<<")){
 			/* if double operators, we're done */
-			if (ops[nops] && (strcmp(ops[nops], ">>") == 0 || strcmp(ops[nops], "<<") == 0)){
+			if (ops[nops] && (STREQ(ops[nops], ">>") || STREQ(ops[nops], "<<"))){
 				break;
 
 			} else {
@@ -238,9 +238,9 @@ estrtoul(char* str, int nchar, int base){
 			continue;
 		}
 
-		if (strcmp(ops[j], ">>") == 0)
+		if (STREQ(ops[j], ">>"))
 			ret >>= vals[i];
-		else if (strcmp(ops[j], "<<") == 0)
+		else if (STREQ(ops[j], "<<"))
 			ret <<= vals[i];
 	}
 
@@ -356,18 +356,19 @@ static void unroundcorners(client* c);
 static void addrule(char** args);
 static void assignconfig(char** args);
 static void handlemsg(char* msg);
+static void reloadgeom();
 static void (*str2func(const char* str))(Arg);
-static void* str2var(const char* str, const char** typestr, void (**func)(void));
+static void* str2var(const char* str, const char** typestr);
 /* X */
-void buttonpress(XEvent* e);
-void configurenotify(XEvent* e);
-void configurerequest(XEvent* e);
-void destroynotify(XEvent* e);
-void enternotify(XEvent* e);
-void focusin(XEvent* e);
-void maprequest(XEvent* e);
-void motionnotify(XEvent* e);
-void unmapnotify(XEvent* e);
+static void buttonpress(XEvent* e);
+static void configurenotify(XEvent* e);
+static void configurerequest(XEvent* e);
+static void destroynotify(XEvent* e);
+static void enternotify(XEvent* e);
+static void focusin(XEvent* e);
+static void maprequest(XEvent* e);
+static void motionnotify(XEvent* e);
+static void unmapnotify(XEvent* e);
 
 void (*events[LASTEvent])(XEvent* e) = {
 	[ButtonPress] = buttonpress,
@@ -451,13 +452,12 @@ struct {
 	void* ret;
 	const char* val;
 	const char* rettype;
-	void (*func)(void);
 } configs [] = {
-	{&barpx,		"barpx",		"int",		updategeom},
-	{&bottombar,		"bottombar",		"int",		updategeom},
-	{&corner_radius,	"corner_radius",	"int",		updategeom},
-	{&gappx,		"gappx",		"int",		updategeom},
-	{&snappx,		"snappx",		"int",		updategeom},
+	{&barpx,		"barpx",		"int"},
+	{&bottombar,		"bottombar",		"int"},
+	{&corner_radius,	"corner_radius",	"int"},
+	{&gappx,		"gappx",		"int"},
+	{&snappx,		"snappx",		"int"},
 };
 
 
@@ -476,6 +476,7 @@ adjustcoords(client* c){
 	}
 }
 
+// TODO: doesn't consistently work
 void
 applyrules(client* c){
 	const char* class, * instance;
@@ -1401,11 +1402,7 @@ static int isuniquegeom(XineramaScreenInfo* unique, size_t n, XineramaScreenInfo
 }
 #endif
 
-// TODO: separate updategeom and reinitgeom
-// 	updategeom should adjust wh, wy, for EACHMON(mhead) arrange(im);
-// 		resizeclient() contains a call to roundcorners
-// 	reinitgeom should do what updategeom currently does
-// 		something more like dwm 6.2 would be less intrusive to users
+// TODO: 6.2 approach to be less intrusive?
 /* a la dwm 6.1 */
 void
 updategeom(){
@@ -1499,6 +1496,7 @@ cleanup(){
 	}
 
 	while (currule){
+		fprintf(stderr, "sara: cleanup: 1 rule\n");
 		tmp = currule;
 		currule = currule->next;
 
@@ -1827,17 +1825,18 @@ unroundcorners(client *c)
 void
 addrule(char** args){
 	rule* currule;
-	rule* r;
+	rule* r = ecalloc(1, sizeof(rule));
 
-	r = ecalloc(1, sizeof(rule));
+	args++;
 
-	r->class = args[0];
-	r->instance = args[1];
-	r->title = args[2];
+	r->class = STREQ(args[0], "NULL") ? NULL : args[0];
+	r->instance = STREQ(args[1], "NULL") ? NULL : args[1];
+	r->title = STREQ(args[2], "NULL") ? NULL : args[2];
 	r->desks = estrtoul(args[3], slen(args[3]), 0);
 	r->isfloat = (int) strtol(args[4], (char**) NULL, 10);
 	r->isfull = (int) strtol(args[5], (char**) NULL, 10);
 	r->monitor = (int) strtol(args[6], (char**) NULL, 10);
+	r->next = NULL;
 
 	if (!rules){
 		rules = r;
@@ -1849,13 +1848,11 @@ addrule(char** args){
 		currule->next = r;
 }
 
-// TODO: how dangerous is this...
 /* Assign config options to the appropriate variable, casting where necessary */
 void
 assignconfig(char** args){
 	const char* typestr;
-	void (*func)(void) = NULL;
-	void* var_ptr = str2var(*(args+1), &typestr, &func);
+	void* var_ptr = str2var(*(args+1), &typestr);
 	char* valstr = *(args+2);
 
 	if (!var_ptr)
@@ -1871,8 +1868,7 @@ assignconfig(char** args){
 		*(char**) var_ptr = (char*) valstr;
 	}
 
-	if (func)
-		func();
+	reloadgeom();
 }
 
 /* Thanks to bspwm's handle_message and process_message for some inspiration */
@@ -1887,13 +1883,13 @@ handlemsg(char* msg){
 
 
 	/*
-	 * "wm changemsize +0.05"
-	 * "r firefox firefox-leedle '1 << 8' 1 1 -1"
-	 * "c barpx 10"
+	 * sarasock "wm changemsize +0.05"
+	 * sarasock "r firefox NULL weeb-trash '1 << 8' 1 1 -1"
+	 * sarasock "c barpx 10"
 	 *
 	 * Goal
 	 * 	wm: convert to funcptr, call funcptr on remaining args (1)
-	 * 	r: call addrule on remaining args (6)
+	 * 	r: call addrule on remaining args (7)
 	 * 	c: call assignconfig on remaining args (2)
 	 *
 	 */
@@ -1924,14 +1920,22 @@ handlemsg(char* msg){
 			func(arg);
 
 	} else if (STREQ("c", *args) && nargs == 3){
-		assignconfig((args+1));
+		assignconfig((args++));
 
-	// TODO: proper count? what about class/instance/title?
-	} else if (STREQ("r", *args) && nargs == 6){
-		addrule((args+1));
+	} else if (STREQ("r", *args) && nargs == 8){
+		addrule((args++));
 	}
 
 	free(args_bak);
+}
+
+void
+reloadgeom(){
+	for EACHMON(mhead){
+		im->wy = im->my + (bottombar ? 0 : barpx );
+		im->wh = im->mh - barpx;
+		arrange(im);
+	}
 }
 
 /* thanks to StackOverflow's wallyk for analagous str2enum */
@@ -1946,14 +1950,13 @@ void (*str2func(const char* str))(Arg){
 
 /* thanks to StackOverflow's wallyk for analagous str2enum */
 void*
-str2var(const char* str, const char** typestr, void (**func)(void)){
+str2var(const char* str, const char** typestr){
 	int i;
 
 	if (typestr){
 		for (i=0;i < TABLENGTH(configs);i++){
-			if (strcmp(str, configs[i].val) == 0){
+			if (STREQ(str, configs[i].val)){
 				*typestr = configs[i].rettype;
-				func = &(configs[i].func);
 
 				return configs[i].ret;
 			}

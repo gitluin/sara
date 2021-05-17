@@ -46,6 +46,7 @@ If that doesn't answer your question, check out the [wiki](https://github.com/gi
 
 Recent Statii
 ------
+ * v4.2		- Now supports adding rules and changing config values via `sarasock`. Traditional `sarasock` commands should now be prepended with `"wm"`, i.e. `"wm changemsize +0.05"`.
  * v4.1		- Now sources a config file, `$XDG_CONFIG_HOME/sara/sararc` or `$HOME/.config/sara/sararc`, which is a shell script that specifies programs to start à la `bspwm`. My plan is to update `sarasock` to configure some variables at runtime in a similar fashion. Also including a `polybar` script for tag information that has support for clickable areas.
  * v4.0		- A man page! Lots of """"bloat""""; polybar is now the suggested default! Huge shoutout to [Jonas](https://jonas-langlotz.de/2020/10/05/polybar-on-dwm) for the only post on his blog single-handedly making my `peachbar` problems obsolete.
  * v3.0		- Internal bar removed and bar scripts created. Floating layout. More Zoom-friendly client handling (nothing is sacred). Fixed longstanding math issues with `tile()`.
@@ -56,13 +57,13 @@ Bugs
 ----
  * Reinitializing monitors should update focus to a client and reset enternotify status.
  * Sometimes after using physlock + betterlockscreen, clients need a redraw and don't do it until toggled/moved around.
+ * Applyrules doesn't always work. Issues with `instance`?
 
 To Do
 ----
  * Fix bugs.
- * `bspc` style interfacing with `sara`: config setting, rule setting, pointer management.
- * `moveclient` and `changecurrent` feel overcomplicated.
- * Refactor into separate files to facilitate XCB migration.
+ * External pointer management: can `sxhkd` reasonably do this?
+ * `moveclient` and `changecurrent` feel overcomplicated. Any refactoring?
  * Partial standards compliance so things like `rofi -m -4` works.
  * Convert to XCB.
 
