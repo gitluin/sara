@@ -1,6 +1,6 @@
 .TH sara 1 "" "" "User Commands"
 .SH NAME
-\fBsara\fR - Another X11 dynamic window manager. Doesn't even use XCB. Also not EWMH/ICCCM compliant.
+\fBsara\fR - Another X11 dynamic window manager. Doesn't even use XCB (yet). Also not EWMH/ICCCM compliant.
 
 fight me
 
@@ -18,7 +18,7 @@ Communicates commands to \fBsara\fR via a socket.
 
 \fBsarasock\fR passes arbitrary text to \fBsara\fR, but \fBsara\fR will only accept a predefined set of commands (defined in the \fBconversions\fR enum) and will only copy \fBMAXBUFF\fR characters of the message (defaults to 18, set at compile time). \fBsara\fR checks that a message has a function and an argument, and will not execute it otherwise, which is why commands like \fBkillclient\fR require a passthrough value.
 
-\fB*Important!*\fR sara reads only a single string from sarasock, so your sarasock usage must be properly quoted. For example, \fBsarasock 'changemsize +0.05'\fR will work, whereas \fBsarasock 'changemsize' '+0.05'\fR will not work. This is a limitation I plan to address.
+\fB*Important!*\fR sara reads only a single string from sarasock, so your sarasock usage must be properly quoted. For example, \fBsarasock 'changemsize +0.05'\fR will work, whereas \fBsarasock 'changemsize' '+0.05'\fR or even simply \fBsarasock changemsize +0.05\fR will not work. This is a limitation I plan to address.
 
 .TP
 \fBchangemsize\fR \fI+/-[0.05,0.95]\fR
@@ -36,8 +36,8 @@ Move the currently selected client up (+) or down (-) the client list.
 \fBmovefocus\fR \fI+/-1\fR
 Move focus up (+) or down (-) the client list.
 .TP
-\fBquit\fR \fI0\fR
-Safely quit \fBsara\fR. 0 is used as a passthrough.
+\fBquit\fR \fI{0,1}\fR
+Safely quit (0) or restart (1) \fBsara\fR.
 .TP
 \fBtodesktop\fR \fI[0-8]\fR
 Send the currently selected client to only the specified tag. The number range will depend on how many tags you have allowed in \fBconfig.h\fR.

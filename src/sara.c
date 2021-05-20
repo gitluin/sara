@@ -25,7 +25,7 @@
 #include "common.h"
 
 
-#define SAFEPARG(A,B)			((A < parg.i && parg.i < B))
+#define SAFEPARG(A,B)			((A <= parg.i && parg.i <= B))
 #define BUTTONMASK              	(ButtonPressMask|ButtonReleaseMask)
 #define MOUSEMASK               	(BUTTONMASK|PointerMotionMask)
 #define EACHCLIENT(I)			(ic=I;ic;ic=ic->next) /* ic is a global */
@@ -146,110 +146,6 @@ estrtof(const char* s, Arg* arg){
 	arg->f = (float) strtof(s, (char**) NULL);
 }
 
-/* more flexible strtoul */
-unsigned int
-estrtoul(char* str, int nchar, int base){
-	char* check, * tmp, * local_str, * saveptr;
-	char** tmp_ops;
-	int i, j;
-	unsigned int to_store;
-	unsigned int* tmp_vals;
-	int nops = 0, nvals = 0, panic = 0;
-	char** ops = ecalloc(1, sizeof(char*));
-	unsigned int ret = 0;
-	unsigned int* vals = ecalloc(1, sizeof(unsigned int));
-
-	local_str = strndup(str, nchar*sizeof(char));
-
-	if (base != 0){
-		ret = strtoul(local_str, &check, base);
-
-		/* if entire string was valid, all good */
-		if (*local_str != '\0' && *check == '\0')
-			return ret;
-	}
-	
-	if ( (tmp = strtok_r(local_str, " ", &saveptr)) ){
-		to_store = (unsigned int) strtoul(tmp, &check, 10);
-
-		/* if you don't start with a value, ya dun fer */
-		if ( !(*tmp != '\0' && *check == '\0') )
-			return 0;
-
-		vals[0] = to_store;
-		nvals++;
-	}
-
-	while ( (tmp = strtok_r(NULL, " ", &saveptr)) ){
-		printf("tmp is: %s\n", tmp);
-	
-		if (STREQ(tmp, ">>") || STREQ(tmp, "<<")){
-			/* if double operators, we're done */
-			if (ops[nops] && (STREQ(ops[nops], ">>") || STREQ(ops[nops], "<<"))){
-				break;
-
-			} else {
-				nops++;
-
-				if ( (tmp_ops = realloc(ops, nops * sizeof(char *))) ){
-					ops = tmp_ops;
-					ops[nops-1] = tmp;
-
-				} else {
-					panic = 1;
-				}
-			}
-
-		} else if ( (to_store = strtoul(tmp, (char**) NULL, 10)) ){
-			nvals++;
-
-			if ( (tmp_vals = realloc(vals, nvals * sizeof(int))) ){
-				vals = tmp_vals;
-				vals[nvals-1] = to_store;
-
-			} else {
-				panic = 1;
-			}
-		}
-
-		if (panic){
-			free(ops);
-			free(vals);
-			free(local_str);
-			fprintf(stderr, "estrtoul: failed to realloc ops or vals\n");
-			return 0;
-		}
-	}
-
-	/* trim any excess
-	 * will prevent catastrophic failure from malformed value input, but
-	 * junk will ensue!
-	 */
-	while (nvals > nops + 1 && nvals > 0)
-		nvals--;
-
-	while (nops > nvals - 1 && nops > 0)
-		nops--;
-
-	for (i=0,j=i-1;i < nvals;i++,j++){
-		if (i == 0){
-			ret = vals[i];
-			continue;
-		}
-
-		if (STREQ(ops[j], ">>"))
-			ret >>= vals[i];
-		else if (STREQ(ops[j], "<<"))
-			ret <<= vals[i];
-	}
-
-	free(ops);
-	free(vals);
-	free(local_str);
-
-	return ret;
-}
-
 int
 slen(const char* str){
 	int i = 0;
@@ -356,6 +252,7 @@ static void handlemsg(char* msg);
 static void reloadgeom();
 static void (*str2func(const char* str))(Arg);
 /* X */
+static void adopt();
 static void buttonpress(XEvent* e);
 static void configurenotify(XEvent* e);
 static void configurerequest(XEvent* e);
@@ -434,13 +331,12 @@ Arg parg; /* for parser */
 static monitor* curmon;
 static monitor* mhead;
 /* Backend */
+static int restart;
 static int running;
 static const Arg dumbarg; /* passthrough for function calls like togglefs */
 static long w_data[] = { WithdrawnState, None }; /* for unmanage and unmapnotify */
 static Atom w_atom; /* for unmanage and unmapnotify */
 static XEvent dumbev; /* for XCheckMasking */
-/* BSPWM-style */
-static char config_path[MAXLEN];
 
 
 /* ---------------------------------------
@@ -462,7 +358,7 @@ void
 applyrules(client* c){
 	const char* class, * instance;
 	int i;
-	rule* r;
+	const rule* r;
 	XTextProperty tp;
 	XClassHint ch = { NULL, NULL };
 
@@ -971,7 +867,7 @@ todesktop(const Arg arg){
 
 	parser[WantInt](arg.s, &parg);
 
-	if (!SAFEPARG(-1,NUMTAGS-1))
+	if (!SAFEPARG(0,NUMTAGS))
 		return;
 
 	if (curmon->current->desks == (1 << parg.i))
@@ -994,7 +890,7 @@ toggledesktop(const Arg arg){
 
 	parser[WantInt](arg.s, &parg);
 
-	if (!SAFEPARG(-2,NUMTAGS-1))
+	if (!SAFEPARG(-1,NUMTAGS))
 		return;
 
 	if (parg.i < 0)
@@ -1209,7 +1105,7 @@ toggleview(const Arg arg){
 
 	parser[WantInt](arg.s, &parg);
 
-	if (!SAFEPARG(-2,NUMTAGS-1))
+	if (!SAFEPARG(0,NUMTAGS))
 		return;
 
 	if (parg.i < 0)
@@ -1250,7 +1146,7 @@ view(const Arg arg){
 
 	parser[WantInt](arg.s, &parg);
 
-	if (!SAFEPARG(-1,NUMTAGS-1))
+	if (!SAFEPARG(0,NUMTAGS))
 		return;
 
 	if (curmon->current && curmon->current->isfull)
@@ -1457,7 +1353,6 @@ updategeom(){
  */
 void
 cleanup(){
-	int i = 0;
 	monitor* m, * tm = mhead;
 	const Arg arg = {.s = "-1"};
 
@@ -1468,7 +1363,6 @@ cleanup(){
 		toggleview(arg);
 		while (curmon->current)
 			unmanage(curmon->current, 0);
-		i++;
 	}
 
 	XUngrabKey(dis, AnyKey, AnyModifier, root);
@@ -1557,21 +1451,21 @@ outputstats(){
 	fflush(stdout);
 }
 
-// TODO:
 /* à la BSPWM */
 void
 runconfig(){
+	int i;
 	char shcmd[MAXLEN];
 
-	for (i=0;i < TABLENGTH(prog);i++){
-		snprintf(shcmd, slen(prog[i])+1+11, "/bin/sh -c %s", prog[i]);
+	for (i=0;i < TABLENGTH(progs);i++){
+		snprintf(shcmd, slen(progs[i])+1, "%s", progs[i]);
 
 		if (fork() == 0) {
 			if (dis)
 				close(ConnectionNumber(dis));
 			setsid();
-			execl(shcmd, shcmd, (char *) NULL);
-			fprintf(stderr, "sara: failed to execute sararc\n");
+			execl("/bin/sh", "/bin/sh", "-c", shcmd, (char *) NULL);
+			fprintf(stderr, "sara: failed to execute startup cmd\n");
 			exit(EXIT_SUCCESS);
 		}
 	}
@@ -1715,6 +1609,15 @@ xsendkill(Window w){
 
 void
 quit(const Arg arg){
+
+	parser[WantInt](arg.s, &parg);
+
+	if (!SAFEPARG(0,1))
+		return;
+
+	if (parg.i > 0)
+		restart = 1;
+
 	running = 0;
 }
 
@@ -1795,45 +1698,22 @@ unroundcorners(client *c)
  * ---------------------------------------
  */
 
-// TODO: cleanup à la previous version
 /* Thanks to bspwm's handle_message and process_message for some inspiration */
 void
 handlemsg(char* msg){
-	char* tmp;
-	char** tmp_args;
-	int nargs = 0;
-	char** args = ecalloc(1, sizeof(char*));
-	char** args_bak;
+	char* funcstr, * argstr;
 	void (*func)(Arg);
 	Arg arg;
 
-	if ( (tmp = strtok(msg, " ")) ){
-		args[0] = tmp;
-		nargs++;
-	}
+	funcstr = strtok(msg, " ");
+	argstr = strtok(NULL, " ");
 
-	while ((tmp = strtok(NULL, " ")) && nargs++){
-		if ( (tmp_args = realloc(args, nargs * sizeof(char *))) ){
-			args = tmp_args;
-			args[nargs-1] = tmp;
+	if (argstr){
+		arg.s = argstr;
 
-		} else {
-			free(args);
-			fprintf(stderr, "sara: failed to realloc args\n");
-			return;
-		}
-	}
-
-	args_bak = args;
-
-	if (STREQ("wm", *args) && nargs == 3){
-		arg.s = *(args+2);
-
-		if ( (func = str2func(*(args+1))) )
+		if ( (func = str2func(funcstr)) )
 			func(arg);
 	}
-
-	free(args_bak);
 }
 
 void
@@ -1861,6 +1741,36 @@ void (*str2func(const char* str))(Arg){
  * ---------------------------------------
  */
 
+
+// TODO: good XCB guinea pig?
+/* dwm */
+void
+adopt(){
+	unsigned int i, num;
+	Window d1, d2, *wins = NULL;
+	XWindowAttributes wa;
+
+	if (XQueryTree(dis, root, &d1, &d2, &wins, &num)) {
+		for (i = 0; i < num; i++) {
+			if (!XGetWindowAttributes(dis, wins[i], &wa)
+			|| wa.override_redirect || XGetTransientForHint(dis, wins[i], &d1))
+				continue;
+			if (wa.map_state == IsViewable)
+				manage(wins[i], &wa);
+		}
+
+		for (i = 0; i < num; i++) { /* now the transients */
+			if (!XGetWindowAttributes(dis, wins[i], &wa))
+				continue;
+			if (XGetTransientForHint(dis, wins[i], &d1)
+			&& (wa.map_state == IsViewable))
+				manage(wins[i], &wa);
+		}
+
+		if (wins)
+			XFree(wins);
+	}
+}
 
 void
 buttonpress(XEvent* e){
@@ -2025,7 +1935,11 @@ main(){
 	XSetErrorHandler(xerror);
 	setup();
 
+	adopt();
 	start();
+
+	if (restart)
+		execlp("sara", "sara");
 
 	cleanup();
         XCloseDisplay(dis);

@@ -10,14 +10,9 @@
 #define COMMON_H
 
 #define INPUTSOCK			"/tmp/sara.sock"
-/* longest I accounted for is "r firefox NULL some-thing '1 << 8' 1 1 -1"
- * at 41, +1 for '\0'
- */
-#define MAXBUFF				42*sizeof(char) 
-/* max size of r->class, r->instance, r->title
- * when parsing rules from sarasock, this will never fill up beyond what
- * MAXBUFF allows
- */
+/* longest is "changemsize -0.05" at 17, +1 for '\0' */
+#define MAXBUFF				18*sizeof(char)
+/* max length of a progs command */
 #define MAXLEN				256
 
 void die(const char* e, ...);

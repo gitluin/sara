@@ -16,7 +16,7 @@ TAGDELIMB="$TAGDELIMF"
 LTDELIMF="  "
 LTDELIMB="$LTDELIMF"
 
-LTBUTTONSTART="%{A1:sarasock 'wm setlayout tile':}%{A3:sarasock 'wm setlayout monocle':}"
+LTBUTTONSTART="%{A1:sarasock 'setlayout tile':}%{A3:sarasock 'setlayout monocle':}"
 LTBUTTONEND="%{A}%{A}"
 
 # This man is a god
@@ -35,7 +35,7 @@ xprop -spy -root "SARA_MONSTATE_$MONITOR" 2>/dev/null | {
 			sed 's/\(.\)/\1\n/g' | \
 			sed '/^$/d' | \
 			cat -n | \
-			sed "s/^     \([0-9]\).\(.*\)/{{%{A1:sarasock wm view \$((\1 - 1)):}%{A3:sarasock wm toggleview \$((\1 - 1)):}${TAGDELIMF}\$(echo $\\2TAGS \| cut -d":" -f\1)${TAGDELIMB}%{A}%{A}}}/g")"
+			sed "s/^     \([0-9]\).\(.*\)/{{%{A1:sarasock view \$((\1 - 1)):}%{A3:sarasock toggleview \$((\1 - 1)):}${TAGDELIMF}\$(echo $\\2TAGS \| cut -d":" -f\1)${TAGDELIMB}%{A}%{A}}}/g")"
 
 		# Insert colors
 		TAGSTR="$(echo "$TAGSTR" | sed 's/{{\([^}}]*STAGS[^}}]*\)}}/%{F$SELFG}%{B$SELBG}{{\1}}%{F-}%{B-}/g')"
@@ -59,8 +59,8 @@ xprop -spy -root "SARA_MONSTATE_$MONITOR" 2>/dev/null | {
 		TAGSTR="${TAGSTR}${LTBUTTONSTART}${LTDELIMF}$LAYOUTSYM${LTDELIMB}${LTBUTTONEND}%{B$BARBG}%{F$BARFG}"
 
 		# Insert '' for proper sarasock arg'ing
-		TAGSTR="$(echo "$TAGSTR" | sed "s/\(wm view [0-9]\)/ \'\1\'/g")"
-		TAGSTR="$(echo "$TAGSTR" | sed "s/\(wm toggleview [0-9]\)/\'\1\'/g")"
+		TAGSTR="$(echo "$TAGSTR" | sed "s/[^e]\(view [0-9]\)/ \'\1\'/g")"
+		TAGSTR="$(echo "$TAGSTR" | sed "s/\(toggleview [0-9]\)/\'\1\'/g")"
 
 		echo -e "${TAGSTR}"
 	done

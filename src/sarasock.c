@@ -18,18 +18,24 @@
 
 int
 main(int argc, char* argv[]){
-	int sfd;
+	int i, sfd;
+	char msg[MAXBUFF];
 	struct sockaddr saddress = {AF_UNIX, INPUTSOCK};
 
 	// TODO: convert args array into single string, then write string
 
 	if (argc != 2)
 		die("please provide one argument!");
+
+	// TODO: safe, can strcat into empty?
+	for (i=1;i < argc;i++)
+		strcat(msg, argv[i]);
+
 	if ( (sfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
 		die("failed to create socket!");
 	if (connect(sfd, &saddress, sizeof(saddress)) < 0)
 		die("failed to connect to socket!");
-	if (send(sfd, argv[1], MAXBUFF, 0) < 0)
+	if (send(sfd, msg, MAXBUFF, 0) < 0)
 		die("failed to send to socket!");
 
 	close(sfd);
