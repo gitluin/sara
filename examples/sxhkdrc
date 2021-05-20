@@ -23,73 +23,73 @@ super + d
 
 # quit sara (kill X)
 super + shift + e
-	sarasock 'quit 0'
+	sarasock 'wm quit 0'
 
 # ###############
 # Client interfacing
 
 # kill client
 super + shift + q
-	sarasock 'killclient 0'
+	sarasock 'wm killclient 0'
 
 # move focus down/up
 super + {j,k}
-	sarasock 'movefocus {-,+}1' 
+	sarasock 'wm movefocus {-,+}1'
 
 # move client down/up
 super + shift + {j,k}
-	sarasock 'moveclient {-,+}1' 
+	sarasock 'wm moveclient {-,+}1'
 
 # toggle client to floating
 super + shift + space
-	sarasock 'togglefloat 0' 
+	sarasock 'wm togglefloat 0'
 
 # toggle client to fullscreen
 super + shift + Return
-	sarasock 'togglefs 0' 
+	sarasock 'wm togglefs 0'
 
 # promote client to master
 super + Return
-	sarasock 'zoom 0' 
+	sarasock 'wm zoom 0'
 
 # ###############
 # Desktop interfacing
 
 # view desktop
 super + {1-9}
-	sarasock 'view {0-8}'
+	sarasock 'wm view {0-8}'
 
 # add client to desktop
 super + shift + {1-9}
-	sarasock 'toggledesktop {0-8}'
+	sarasock 'wm toggledesktop {0-8}'
 
 # add desktop to current view
 super + control + {1-9}
-	sarasock 'toggleview {0-8}'
+	sarasock 'wm toggleview {0-8}'
 
 # send client to just desktop
 super + shift + control + {1-9}
-	sarasock 'todesktop {0-8}'
+	sarasock 'wm todesktop {0-8}'
 
 # view all desktops
 super + 0
-	sarasock 'toggleview -1' 
+	sarasock 'wm toggleview -1'
 
 # decrease/increase master area size
 super + {h,l}
-	sarasock 'changemsize {-,+}0.05' 
+	sarasock 'wm changemsize {-,+}0.05'
 
 # set layouts
 super + control + {t,m}
-	sarasock 'setlayout {tile,monocle}' 
+	sarasock 'wm setlayout {tile,monocle}'
 
 # ###############
 # Monitor interfacing
 
 # focus left/right monitor
 super + {comma,period}
-	sarasock 'focusmon {-,+}1' 
+	sarasock 'wm focusmon {-,+}1'
 
 # send client to left/right monitor
 super + shift + {comma,period}
-	sarasock 'tomon {-,+}1' 
+	sarasock 'wm tomon {-,+}1'

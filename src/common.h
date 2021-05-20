@@ -14,6 +14,11 @@
  * at 41, +1 for '\0'
  */
 #define MAXBUFF				42*sizeof(char) 
+/* max size of r->class, r->instance, r->title
+ * when parsing rules from sarasock, this will never fill up beyond what
+ * MAXBUFF allows
+ */
+#define MAXLEN				256
 
 void die(const char* e, ...);
 

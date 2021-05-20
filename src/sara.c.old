@@ -35,6 +35,7 @@
 #define MAX(A,B)               		((A) > (B) ? (A) : (B))
 #define STREQ(A,B)			((strcmp(A,B) == 0))
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
+#define MAXLEN				256
 
 
 enum { AnyVis,     OnlyVis };
@@ -110,9 +111,9 @@ struct monitor {
 };
 
 struct rule {
-	char* class;
-	char* instance;
-	char* title;
+	const char* class;
+	const char* instance;
+	const char* title;
 	unsigned int desks;
 	int isfloat;
 	int isfull;
@@ -475,6 +476,7 @@ adjustcoords(client* c){
 	}
 }
 
+// TODO: doesn't consistently work
 void
 applyrules(client* c){
 	const char* class, * instance;
@@ -486,12 +488,10 @@ applyrules(client* c){
 
 	XGetWMName(dis, c->win, &tp);
 	XGetClassHint(dis, c->win, &ch);
-	class = ch.res_class ? ch.res_class : "NULL";
-	instance = ch.res_name  ? ch.res_name  : "NULL";
+	class = ch.res_class ? ch.res_class : "broken";
+	instance = ch.res_name  ? ch.res_name  : "broken";
 
 	fprintf(stderr, "sara: applyrules: tp.value is %s\n", tp.value);
-	fprintf(stderr, "sara: applyrules: class is %s\n", class);
-	fprintf(stderr, "sara: applyrules: instance is %s\n", instance);
 
 	fprintf(stderr, "sara: applyrules: about to loop\n");
 	for (r=rules;r;r=r->next){
@@ -1010,7 +1010,7 @@ todesktop(const Arg arg){
 
 	parser[WantInt](arg.s, &parg);
 
-	if (!SAFEPARG(-1,NUMTAGS-1))
+	if (!SAFEPARG(0,NUMTAGS-1))
 		return;
 
 	if (curmon->current->desks == (1 << parg.i))
@@ -1033,7 +1033,7 @@ toggledesktop(const Arg arg){
 
 	parser[WantInt](arg.s, &parg);
 
-	if (!SAFEPARG(-2,NUMTAGS-1))
+	if (!SAFEPARG(-1,NUMTAGS-1))
 		return;
 
 	if (parg.i < 0)
@@ -1248,7 +1248,7 @@ toggleview(const Arg arg){
 
 	parser[WantInt](arg.s, &parg);
 
-	if (!SAFEPARG(-2,NUMTAGS-1))
+	if (!SAFEPARG(-1,NUMTAGS-1))
 		return;
 
 	if (parg.i < 0)
@@ -1523,9 +1523,6 @@ cleanup(){
 		tmp = currule;
 		currule = currule->next;
 
-		free(tmp->class);
-		free(tmp->instance);
-		free(tmp->title);
 		free(tmp);
 	}
 
@@ -1853,27 +1850,11 @@ addrule(char** args){
 	rule* currule;
 	rule* r = ecalloc(1, sizeof(rule));
 
-	r->class = ecalloc(MAXLEN, sizeof(char));
-	r->instance = ecalloc(MAXLEN, sizeof(char));
-	r->title = ecalloc(MAXLEN, sizeof(char));
-
 	args++;
-	
-	if (STREQ(args[0], "NULL"))
-		r->class = NULL;
-	else
-		snprintf(r->class, slen(args[0])+1, "%s", args[0]);
 
-	if (STREQ(args[1], "NULL"))
-		r->instance = NULL;
-	else
-		snprintf(r->instance, slen(args[1])+1, "%s", args[1]);
-
-	if (STREQ(args[2], "NULL"))
-		r->title = NULL;
-	else
-		snprintf(r->title, slen(args[2])+1, "%s", args[2]);
-
+	r->class = STREQ(args[0], "NULL") ? NULL : args[0];
+	r->instance = STREQ(args[1], "NULL") ? NULL : args[1];
+	r->title = STREQ(args[2], "NULL") ? NULL : args[2];
 	r->desks = estrtoul(args[3], slen(args[3]), 0);
 	r->isfloat = (int) strtol(args[4], (char**) NULL, 10);
 	r->isfull = (int) strtol(args[5], (char**) NULL, 10);
@@ -1916,13 +1897,12 @@ assignconfig(char** args){
 /* Thanks to bspwm's handle_message and process_message for some inspiration */
 void
 handlemsg(char* msg){
-	char* tmp;
 	char** tmp_args;
 	int nargs = 0;
+	char* tmp = strtok(msg, " ");
 	char** args = ecalloc(1, sizeof(char*));
 	char** args_bak;
 	void (*func)(Arg);
-	Arg arg;
 
 
 	/*
@@ -1937,12 +1917,11 @@ handlemsg(char* msg){
 	 *
 	 */
 
-	if ( (tmp = strtok(msg, " ")) ){
+	if (tmp){
 		args[0] = tmp;
 		nargs++;
 	}
 
-	// TODO: presumably this destroys '1 << 8'
 	while ((tmp = strtok(NULL, " ")) && nargs++){
 		if ( (tmp_args = realloc(args, nargs * sizeof(char *))) ){
 			args = tmp_args;
@@ -1958,7 +1937,7 @@ handlemsg(char* msg){
 	args_bak = args;
 
 	if (STREQ("wm", *args) && nargs == 3){
-		arg.s = *(args+2);
+		const Arg arg = {.s = *(args+2)};
 
 		if ( (func = str2func(*(args+1))) )
 			func(arg);

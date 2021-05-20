@@ -1,3 +1,5 @@
 #!/bin/sh
 
 sxhkd &
+
+sarasock "r st NULL cal 0 1 0 -1"
