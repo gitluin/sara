@@ -21,6 +21,8 @@ main(int argc, char* argv[]){
 	int sfd;
 	struct sockaddr saddress = {AF_UNIX, INPUTSOCK};
 
+	// TODO: convert args array into single string, then write string
+
 	if (argc != 2)
 		die("please provide one argument!");
 	if ( (sfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)

@@ -352,12 +352,9 @@ static void roundcorners(client* c);
 static void unroundcorners(client* c);
 #endif
 /* sarasock interfacing */
-static void addrule(char** args);
-static void assignconfig(char** args);
 static void handlemsg(char* msg);
 static void reloadgeom();
 static void (*str2func(const char* str))(Arg);
-static void* str2var(const char* str, const char** typestr);
 /* X */
 static void buttonpress(XEvent* e);
 static void configurenotify(XEvent* e);
@@ -444,20 +441,6 @@ static Atom w_atom; /* for unmanage and unmapnotify */
 static XEvent dumbev; /* for XCheckMasking */
 /* BSPWM-style */
 static char config_path[MAXLEN];
-static rule* rules;
-
-/* configurable variables from outside */
-struct {
-	void* ret;
-	const char* val;
-	const char* rettype;
-} configs [] = {
-	{&barpx,		"barpx",		"int"},
-	{&bottombar,		"bottombar",		"int"},
-	{&corner_radius,	"corner_radius",	"int"},
-	{&gappx,		"gappx",		"int"},
-	{&snappx,		"snappx",		"int"},
-};
 
 
 /* ---------------------------------------
@@ -478,6 +461,7 @@ adjustcoords(client* c){
 void
 applyrules(client* c){
 	const char* class, * instance;
+	int i;
 	rule* r;
 	XTextProperty tp;
 	XClassHint ch = { NULL, NULL };
@@ -486,32 +470,11 @@ applyrules(client* c){
 
 	XGetWMName(dis, c->win, &tp);
 	XGetClassHint(dis, c->win, &ch);
-	class = ch.res_class ? ch.res_class : "NULL";
+	class = ch.res_class ? ch.res_class : "broken";
 	instance = ch.res_name  ? ch.res_name  : "NULL";
 
-	fprintf(stderr, "sara: applyrules: tp.value is %s\n", tp.value);
-	fprintf(stderr, "sara: applyrules: class is %s\n", class);
-	fprintf(stderr, "sara: applyrules: instance is %s\n", instance);
-
-	fprintf(stderr, "sara: applyrules: about to loop\n");
-	for (r=rules;r;r=r->next){
-		fprintf(stderr, "sara: applyrules: in loop\n");
-		fprintf(stderr, "sara: applyrules: r->class is %s\n", r->class);
-		fprintf(stderr, "sara: applyrules: r->instance is %s\n", r->instance);
-		fprintf(stderr, "sara: applyrules: r->title is %s\n", r->title);
-		fprintf(stderr, "sara: applyrules: r->desks is %u\n", r->desks);
-		fprintf(stderr, "sara: applyrules: r->isfloat is %d\n", r->isfloat);
-		fprintf(stderr, "sara: applyrules: r->isfull is %d\n", r->isfull);
-		fprintf(stderr, "sara: applyrules: r->monitor is %d\n", r->monitor);
-
-		if (!r->title || (tp.value && strstr(r->title, (const char*) tp.value)))
-			fprintf(stderr, "sara: applyrules: passed !r->title || r->title == tp.value\n");
-
-		if (!r->class || strstr(class, r->class))
-			fprintf(stderr, "sara: applyrules: passed !r->class || r->class == class\n");
-
-		if (!r->instance || strstr(instance, r->instance))
-			fprintf(stderr, "sara: applyrules: passed !r->instance || r->instance == instance\n");
+	for (i=0;i < TABLENGTH(rules);i++){
+		r = &rules[i];
 
 		if ((!r->title || (tp.value && strstr(r->title, (const char*) tp.value)))
 		&& (!r->class || strstr(class, r->class))
@@ -519,8 +482,6 @@ applyrules(client* c){
 			c->isfloat = r->isfloat;
 			c->isfull = r->isfull;
 			c->desks |= r->desks;
-
-			fprintf(stderr, "sara: applyrules: passed all checks\n");
 
 			for EACHMON(mhead){
 				if (im->num == r->monitor){
@@ -1498,7 +1459,6 @@ void
 cleanup(){
 	int i = 0;
 	monitor* m, * tm = mhead;
-	rule* tmp, * currule = rules;
 	const Arg arg = {.s = "-1"};
 
 	/* for an unknown reason, using EACHMON segfaults this */
@@ -1516,17 +1476,6 @@ cleanup(){
 	while ( (m = tm) ){
 		tm = m->next;
 		cleanupmon(m);
-	}
-
-	while (currule){
-		fprintf(stderr, "sara: cleanup: 1 rule\n");
-		tmp = currule;
-		currule = currule->next;
-
-		free(tmp->class);
-		free(tmp->instance);
-		free(tmp->title);
-		free(tmp);
 	}
 
 	XFreeCursor(dis, cursor);
@@ -1608,24 +1557,23 @@ outputstats(){
 	fflush(stdout);
 }
 
+// TODO:
 /* à la BSPWM */
 void
 runconfig(){
-	char* config_home = getenv("XDG_CONFIG_HOME");
+	char shcmd[MAXLEN];
 
-	if (config_home){
-		snprintf(config_path, sizeof(config_path), "%s/sara/sararc", config_home);
-	} else {
-		snprintf(config_path, sizeof(config_path), "%s/.config/sara/sararc", getenv("HOME"));
-	}
+	for (i=0;i < TABLENGTH(prog);i++){
+		snprintf(shcmd, slen(prog[i])+1+11, "/bin/sh -c %s", prog[i]);
 
-	if (fork() == 0) {
-		if (dis)
-			close(ConnectionNumber(dis));
-		setsid();
-		execl(config_path, config_path, (char *) NULL);
-		fprintf(stderr, "sara: failed to execute sararc\n");
-		exit(EXIT_SUCCESS);
+		if (fork() == 0) {
+			if (dis)
+				close(ConnectionNumber(dis));
+			setsid();
+			execl(shcmd, shcmd, (char *) NULL);
+			fprintf(stderr, "sara: failed to execute sararc\n");
+			exit(EXIT_SUCCESS);
+		}
 	}
 }
 
@@ -1663,7 +1611,6 @@ setup(){
 
 	mhead = NULL;
 	curmon = NULL;
-	rules = NULL;
 
 	updategeom();
 	loaddesktop(0);
@@ -1848,71 +1795,7 @@ unroundcorners(client *c)
  * ---------------------------------------
  */
 
-void
-addrule(char** args){
-	rule* currule;
-	rule* r = ecalloc(1, sizeof(rule));
-
-	r->class = ecalloc(MAXLEN, sizeof(char));
-	r->instance = ecalloc(MAXLEN, sizeof(char));
-	r->title = ecalloc(MAXLEN, sizeof(char));
-
-	args++;
-	
-	if (STREQ(args[0], "NULL"))
-		r->class = NULL;
-	else
-		snprintf(r->class, slen(args[0])+1, "%s", args[0]);
-
-	if (STREQ(args[1], "NULL"))
-		r->instance = NULL;
-	else
-		snprintf(r->instance, slen(args[1])+1, "%s", args[1]);
-
-	if (STREQ(args[2], "NULL"))
-		r->title = NULL;
-	else
-		snprintf(r->title, slen(args[2])+1, "%s", args[2]);
-
-	r->desks = estrtoul(args[3], slen(args[3]), 0);
-	r->isfloat = (int) strtol(args[4], (char**) NULL, 10);
-	r->isfull = (int) strtol(args[5], (char**) NULL, 10);
-	r->monitor = (int) strtol(args[6], (char**) NULL, 10);
-	r->next = NULL;
-
-	if (!rules){
-		rules = r;
-		return;
-	}
-
-	for (currule=rules;currule && currule->next;currule=currule->next);
-	if (currule)
-		currule->next = r;
-}
-
-/* Assign config options to the appropriate variable, casting where necessary */
-void
-assignconfig(char** args){
-	const char* typestr;
-	void* var_ptr = str2var(*(args+1), &typestr);
-	char* valstr = *(args+2);
-
-	if (!var_ptr)
-		return;
-
-	if (STREQ(typestr, "int")){
-		*(int *) var_ptr = (int) strtol(valstr, (char**) NULL, 10);
-	} else if (STREQ(typestr, "float")){
-		*(float *) var_ptr = (float) strtof(valstr, (char**) NULL);
-	} else if (STREQ(typestr, "unsigned int")){
-		*(unsigned int*) var_ptr = (unsigned int) strtoul(valstr, (char**) NULL, 10);
-	} else if (STREQ(typestr, "str")){
-		*(char**) var_ptr = (char*) valstr;
-	}
-
-	reloadgeom();
-}
-
+// TODO: cleanup à la previous version
 /* Thanks to bspwm's handle_message and process_message for some inspiration */
 void
 handlemsg(char* msg){
@@ -1924,25 +1807,11 @@ handlemsg(char* msg){
 	void (*func)(Arg);
 	Arg arg;
 
-
-	/*
-	 * sarasock "wm changemsize +0.05"
-	 * sarasock "r firefox NULL weeb-trash '1 << 8' 1 1 -1"
-	 * sarasock "c barpx 10"
-	 *
-	 * Goal
-	 * 	wm: convert to funcptr, call funcptr on remaining args (1)
-	 * 	r: call addrule on remaining args (7)
-	 * 	c: call assignconfig on remaining args (2)
-	 *
-	 */
-
 	if ( (tmp = strtok(msg, " ")) ){
 		args[0] = tmp;
 		nargs++;
 	}
 
-	// TODO: presumably this destroys '1 << 8'
 	while ((tmp = strtok(NULL, " ")) && nargs++){
 		if ( (tmp_args = realloc(args, nargs * sizeof(char *))) ){
 			args = tmp_args;
@@ -1962,12 +1831,6 @@ handlemsg(char* msg){
 
 		if ( (func = str2func(*(args+1))) )
 			func(arg);
-
-	} else if (STREQ("c", *args) && nargs == 3){
-		assignconfig((args++));
-
-	} else if (STREQ("r", *args) && nargs == 8){
-		addrule((args++));
 	}
 
 	free(args_bak);
@@ -1988,24 +1851,6 @@ void (*str2func(const char* str))(Arg){
 	for (i=0;i < TABLENGTH(conversions);i++)
 		if (STREQ(str, conversions[i].str))
 			return conversions[i].func;
-
-	return NULL;
-}
-
-/* thanks to StackOverflow's wallyk for analagous str2enum */
-void*
-str2var(const char* str, const char** typestr){
-	int i;
-
-	if (typestr){
-		for (i=0;i < TABLENGTH(configs);i++){
-			if (STREQ(str, configs[i].val)){
-				*typestr = configs[i].rettype;
-
-				return configs[i].ret;
-			}
-		}
-	}
 
 	return NULL;
 }
