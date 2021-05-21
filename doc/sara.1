@@ -1,6 +1,6 @@
 .TH sara 1 "" "" "User Commands"
 .SH NAME
-\fBsara\fR - Another X11 dynamic window manager. Doesn't even use XCB. Also not EWMH/ICCCM compliant.
+\fBsara\fR - Another X11 dynamic window manager. Doesn't even use XCB (yet). Also not EWMH/ICCCM compliant.
 
 fight me
 
@@ -34,8 +34,8 @@ Move the currently selected client up (+) or down (-) the client list.
 \fBmovefocus\fR \fI+/-1\fR
 Move focus up (+) or down (-) the client list.
 .TP
-\fBquit\fR \fI0\fR
-Safely quit \fBsara\fR. 0 is used as a passthrough.
+\fBquit\fR \fI{0,1}\fR
+Safely quit (0) or restart (1) \fBsara\fR.
 .TP
 \fBtodesktop\fR \fI[0-8]\fR
 Send the currently selected client to only the specified tag. The number range will depend on how many tags you have allowed in \fBconfig.h\fR.
@@ -65,7 +65,7 @@ View the specified tag. The number range will depend on how many tags you have a
 Promote the currently selected client to the master area. 0 is used as a passthrough.
 
 .SH EXAMPLE
-.B sarasock 'changemsize +0.05'
+.B sarasock changemsize +0.05
 
 Tell \fBsarasock\fR to write to the compile-time specified socket, telling \fBsara\fR to increase the width of the master area by 5% of the screen width.
 

@@ -12,7 +12,7 @@ Features
 * Tiling mode (master window with right-hand vertical stack).
 * Monocle mode (fullscreen, but bar area still visible).
 * Floating mode (clients freely set coordinates).
-* Fullscreen mode (see limitations).
+* Fullscreen mode (see Design Limitations).
 
 ### Behavior/Traits
 * dwm-like:
@@ -22,6 +22,7 @@ Features
 		* attachaside
 		* movestack
 		* pertag-like: layouts, master_size
+		* restartsig
 		* singularborders
 		* vanitygaps
 * bspwm-like:
@@ -30,12 +31,12 @@ Features
 * output desktop information to the X server for external parsing (like with shell script + `lemonbar`/`polybar`).
 * no window borders.
 * no window titles.
-* easily hackable.
 
 ### Design Limitations
 * No support for urgency, because nothing I do is urgent.
+* No support for iconified (i.e. "minimized") clients.
 * No [ICCCM](https://web.archive.org/web/20190617214524/https://raw.githubusercontent.com/kfish/xsel/1a1c5edf0dc129055f7764c666da2dd468df6016/rant.txt). This is mostly felt in the lack of the applysizehints behavior that dwm has (ex. cmatrix won't redraw using larger window bounds if you give it more space via togglefs, changemsize, etc.).
-* No EWMH support. Fullscreening manually isn't so bad (see examples/sxhkdrc).
+* No EWMH support. Fullscreening is done manually (see examples/sxhkdrc).
 
 
 Help Me (Keybindings, Installation, Etc.)!
@@ -46,8 +47,9 @@ If that doesn't answer your question, check out the [wiki](https://github.com/gi
 
 Recent Statii
 ------
+ * v4.2		- No longer sources a config file, but `config.h` supports exactly the same syntax. Just add new lines to the `const char* progs[]` array in `config.h`! `sara` also now supports reloading this config file on-the-fly, without restarting, thanks to bringing in the `dwm` approach to "adopting" unmanaged windows and referencing the `restartsig` patch (anything specified in `progs[]` will be re-run, FYI!). And `sarasock` no longer requires quoting all its arguments, though you can still do so! Updated directory structure for the repository so it's less messy.
  * v4.1		- Now sources a config file, `$XDG_CONFIG_HOME/sara/sararc` or `$HOME/.config/sara/sararc`, which is a shell script that specifies programs to start à la `bspwm`. My plan is to update `sarasock` to configure some variables at runtime in a similar fashion. Also including a `polybar` script for tag information that has support for clickable areas.
- * v4.0		- A man page! Lots of """"bloat""""; polybar is now the suggested default! Huge shoutout to [Jonas](https://jonas-langlotz.de/2020/10/05/polybar-on-dwm) for the only post on his blog single-handedly making my `peachbar` problems obsolete.
+ * v4.0		- A man page! Lots of """"bloat""""; `polybar` is now the suggested default! Huge shoutout to [Jonas](https://jonas-langlotz.de/2020/10/05/polybar-on-dwm) for the only post on his blog single-handedly making my `peachbar` problems obsolete.
  * v3.0		- Internal bar removed and bar scripts created. Floating layout. More Zoom-friendly client handling (nothing is sacred). Fixed longstanding math issues with `tile()`.
  * v2.0		- Keybinds are controlled by sxhkd now! A little bit of bspwm never hurt anyone. Pointer events (click into window, move and resize window) still handled internally.
  * v1.0 	- Finished it enough to share with the class. At this stage, very like dwm with some patches (see above) built-in, some cleaned-up code (and some not), some cut corners (not as much support for Atoms), but all is well and functional.
@@ -60,7 +62,8 @@ Bugs
 To Do
 ----
  * Fix bugs.
- * `bspc` style interfacing with `sara`: config setting, rule setting.
+ * External pointer management: can `sxhkd` reasonably do this?
+ * `moveclient` and `changecurrent` feel overcomplicated. Any refactoring?
  * Partial standards compliance so things like `rofi -m -4` works.
  * Convert to XCB if the mood strikes me.
 

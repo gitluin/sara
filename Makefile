@@ -1,34 +1,39 @@
 PREFIX?= /usr/local
 BINDIR?= $(PREFIX)/bin
 MANDIR?= ${PREFIX}/share/man
+DOCDIR?= doc
 
-#CFLAGS= -std=c99 -Wall -Wno-deprecated-declarations -g -DXINERAMA #-D_POSIX_C_SOURCE=200809L -DXINERAMA -g -Os
 CFLAGS= -std=c99 -Wall -Wno-deprecated-declarations -D_POSIX_C_SOURCE=200809L -DXINERAMA -Os
 INCFLAGS= -I/usr/include/freetype2
 LIBS= -lX11 -lXft -lXinerama -lXext
 
-SRC= sara.c
-OBJ= ${SRC:.c=.o}
+SARASRC= sara.c common.c
+SARAOBJ= ${SARASRC:.c=.o}
+
+SOCKSRC= sarasock.c common.c
+SOCKOBJ= ${SOCKSRC:.c=.o}
 
 all: sara sarasock man
 
+VPATH=src
+
 config.h:
-	cp config.def.h config.h
+	cp src/config.def.h src/config.h
 
 .c.o:
 	${CC} -c ${CFLAGS} ${INCFLAGS} $<
 
-${OBJ}: config.h
+${SARAOBJ}: config.h common.h
+${SOCKOBJ}: common.h
 
-sara: ${OBJ}
-	${CC} -o $@ ${OBJ} ${LIBS}
+sara: ${SARAOBJ}
+	${CC} -o $@ ${SARAOBJ} ${LIBS}
 
-sarasock:
-	${CC} -c sarasock.c
-	${CC} -o sarasock sarasock.o
+sarasock: ${SOCKOBJ}
+	${CC} -o $@ ${SOCKOBJ} ${LIBS}
 
 man: 
-	install -Dm 644 sara.1 $(MANDIR)/man1
+	install -Dm 644 $(DOCDIR)/sara.1 $(MANDIR)/man1
 
 install: all
 	install -Dsm 755 sara $(BINDIR)/sara

@@ -2,8 +2,6 @@
  * sara Window Manager
  * ______________________________________________________________________________ 
  *                                                                                
- * Copyright (c) 2020, This Fackin Guy, gitluin on github (no email for you!)     
- *                                                                                
  * Please refer to the complete LICENSE file that should accompany this software.
  * Please refer to the MIT license for details on usage: https://mit-license.org/
  */ 
@@ -21,26 +19,22 @@
 #define MASTER_SIZE     0.55
 
 
-/* ---------------------------------------
- * Appearance
- * ---------------------------------------
- */
-
 /* vertical space allotted for your bar of choice */
 static const int barpx			= 20;
-/* is bar at top or bottom of screen? */
 static const int bottombar		= 0;
 static const int gappx			= 10;
 static const int corner_radius		= 10;
+/* once within snappx of a monitor edge, snap to the edge */
+static const unsigned int snappx	= 32;
 
 
-/* ---------------------------------------
- * Behavior
- * ---------------------------------------
+/* commands to be executed at startup. will be run in-order with /bin/sh
+ * each entry can only be common.h::MAXLEN chars by default
  */
+static const char* progs[] = {
+	"pgrep -x sxhkd > /dev/null || sxhkd &",
+};
 
-/* once within 32 pixels of a monitor edge, snap to the edge */
-static const unsigned int snap = 32;
 
 static const rule rules[] = {
 	/* WM_CLASS(STRING) = instance, class
@@ -51,10 +45,7 @@ static const rule rules[] = {
 	 */
 
 	/* class      instance    title       tags mask     isfloat   isfull	monitor */
-	/* script for taking quick notes */
-	{ "st",       NULL,	  "scratch",  0,            1,	      1,	-1 },
-	/* Any function key scripts go to the 9th space */
-	{ "st",       NULL,       "funkey",   1 << 8,       1,        0,	-1 },
+	{ "st",       NULL,	  "cal",      0,            1,	      1,	-1 },
 };
 
 /* Layouts */
