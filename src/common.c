@@ -14,3 +14,12 @@ die(const char* e, ...){
 	fprintf(stdout, "sara: %s\n", e);
 	exit(1);
 }
+
+int
+slen(const char* str){
+	int i = 0;
+
+	for (;*str;str++,i++);
+
+	return i;
+}

@@ -18,8 +18,6 @@ Communicates commands to \fBsara\fR via a socket.
 
 \fBsarasock\fR passes arbitrary text to \fBsara\fR, but \fBsara\fR will only accept a predefined set of commands (defined in the \fBconversions\fR enum) and will only copy \fBMAXBUFF\fR characters of the message (defaults to 18, set at compile time). \fBsara\fR checks that a message has a function and an argument, and will not execute it otherwise, which is why commands like \fBkillclient\fR require a passthrough value.
 
-\fB*Important!*\fR sara reads only a single string from sarasock, so your sarasock usage must be properly quoted. For example, \fBsarasock 'changemsize +0.05'\fR will work, whereas \fBsarasock 'changemsize' '+0.05'\fR or even simply \fBsarasock changemsize +0.05\fR will not work. This is a limitation I plan to address.
-
 .TP
 \fBchangemsize\fR \fI+/-[0.05,0.95]\fR
 Increment the horizontal size of the master area by the amount given. Can be either positive or negative. If the result would lead to a value greater than 0.95 or less than 0.05 of the screen width, it will not be changed.
@@ -67,7 +65,7 @@ View the specified tag. The number range will depend on how many tags you have a
 Promote the currently selected client to the master area. 0 is used as a passthrough.
 
 .SH EXAMPLE
-.B sarasock 'changemsize +0.05'
+.B sarasock changemsize +0.05
 
 Tell \fBsarasock\fR to write to the compile-time specified socket, telling \fBsara\fR to increase the width of the master area by 5% of the screen width.
 

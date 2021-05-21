@@ -24,7 +24,7 @@ config.h:
 	${CC} -c ${CFLAGS} ${INCFLAGS} $<
 
 ${SARAOBJ}: config.h common.h
-${SOCKOBJ}: config.h common.h
+${SOCKOBJ}: common.h
 
 sara: ${SARAOBJ}
 	${CC} -o $@ ${SARAOBJ} ${LIBS}

@@ -11,10 +11,11 @@
 
 #define INPUTSOCK			"/tmp/sara.sock"
 /* longest is "changemsize -0.05" at 17, +1 for '\0' */
-#define MAXBUFF				18*sizeof(char)
+#define MAXBUFF				18
 /* max length of a progs command */
 #define MAXLEN				256
 
 void die(const char* e, ...);
+int slen(const char* str);
 
 #endif

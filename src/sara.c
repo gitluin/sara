@@ -146,15 +146,6 @@ estrtof(const char* s, Arg* arg){
 	arg->f = (float) strtof(s, (char**) NULL);
 }
 
-int
-slen(const char* str){
-	int i = 0;
-
-	for (;*str;str++,i++);
-
-	return i;
-}
-
 /* convert 11011110 to "01111011"
  * for this example, len = 8
  * dest must be a calloc'd char* that you free() afterwards
@@ -1105,7 +1096,7 @@ toggleview(const Arg arg){
 
 	parser[WantInt](arg.s, &parg);
 
-	if (!SAFEPARG(0,NUMTAGS))
+	if (!SAFEPARG(-1,NUMTAGS))
 		return;
 
 	if (parg.i < 0)
@@ -1747,7 +1738,7 @@ void (*str2func(const char* str))(Arg){
 void
 adopt(){
 	unsigned int i, num;
-	Window d1, d2, *wins = NULL;
+	Window d1, d2, * wins = NULL;
 	XWindowAttributes wa;
 
 	if (XQueryTree(dis, root, &d1, &d2, &wins, &num)) {

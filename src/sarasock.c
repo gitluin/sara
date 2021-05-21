@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <poll.h>
 #include <sys/un.h>
@@ -18,18 +19,24 @@
 
 int
 main(int argc, char* argv[]){
-	int i, sfd;
+	int i, sfd, left = MAXBUFF;
 	char msg[MAXBUFF];
 	struct sockaddr saddress = {AF_UNIX, INPUTSOCK};
 
-	// TODO: convert args array into single string, then write string
+	if (argc < 2)
+		die("please provide at least one argument!");
 
-	if (argc != 2)
-		die("please provide one argument!");
+	for (i=1;i < argc && left > 0;i++){
+		if (i != 1){
+			strncat(msg, " ", 2);
+			left--;
+		}
 
-	// TODO: safe, can strcat into empty?
-	for (i=1;i < argc;i++)
-		strcat(msg, argv[i]);
+		strncat(msg, argv[i], slen(argv[i]) > left ? left : slen(argv[i]) );
+		left -= slen(argv[i]);
+	}
+
+	msg[MAXBUFF-1] = '\0';
 
 	if ( (sfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
 		die("failed to create socket!");

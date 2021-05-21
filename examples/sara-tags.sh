@@ -16,7 +16,7 @@ TAGDELIMB="$TAGDELIMF"
 LTDELIMF="  "
 LTDELIMB="$LTDELIMF"
 
-LTBUTTONSTART="%{A1:sarasock 'setlayout tile':}%{A3:sarasock 'setlayout monocle':}"
+LTBUTTONSTART="%{A1:sarasock setlayout tile:}%{A3:sarasock setlayout monocle:}"
 LTBUTTONEND="%{A}%{A}"
 
 # This man is a god
@@ -57,10 +57,6 @@ xprop -spy -root "SARA_MONSTATE_$MONITOR" 2>/dev/null | {
 			LAYOUTSYM="\ue9c1"
 		fi
 		TAGSTR="${TAGSTR}${LTBUTTONSTART}${LTDELIMF}$LAYOUTSYM${LTDELIMB}${LTBUTTONEND}%{B$BARBG}%{F$BARFG}"
-
-		# Insert '' for proper sarasock arg'ing
-		TAGSTR="$(echo "$TAGSTR" | sed "s/[^e]\(view [0-9]\)/ \'\1\'/g")"
-		TAGSTR="$(echo "$TAGSTR" | sed "s/\(toggleview [0-9]\)/\'\1\'/g")"
 
 		echo -e "${TAGSTR}"
 	done

@@ -47,6 +47,7 @@ If that doesn't answer your question, check out the [wiki](https://github.com/gi
 
 Recent Statii
 ------
+ * v4.2		- No longer sources a config file, but `config.h` supports exactly the same syntax. Just add new lines to the `const char* progs[]` array in `config.h`! `sara` also now supports reloading this config file on-the-fly, without restarting, thanks to bringing in the `dwm` approach to "adopting" unmanaged windows and referencing the `restartsig` patch (anything specified in `progs[]` will be re-run, FYI!). And `sarasock` no longer requires quoting all its arguments, though you can still do so! Updated directory structure for the repository so it's less messy.
  * v4.1		- Now sources a config file, `$XDG_CONFIG_HOME/sara/sararc` or `$HOME/.config/sara/sararc`, which is a shell script that specifies programs to start à la `bspwm`. My plan is to update `sarasock` to configure some variables at runtime in a similar fashion. Also including a `polybar` script for tag information that has support for clickable areas.
  * v4.0		- A man page! Lots of """"bloat""""; `polybar` is now the suggested default! Huge shoutout to [Jonas](https://jonas-langlotz.de/2020/10/05/polybar-on-dwm) for the only post on his blog single-handedly making my `peachbar` problems obsolete.
  * v3.0		- Internal bar removed and bar scripts created. Floating layout. More Zoom-friendly client handling (nothing is sacred). Fixed longstanding math issues with `tile()`.
