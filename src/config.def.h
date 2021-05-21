@@ -28,18 +28,25 @@ static int corner_radius		= 10;
 static unsigned int snappx		= 32;
 
 
-//static const rule rules[] = {
-//	/* WM_CLASS(STRING) = instance, class
-//	 * WM_NAME(STRING) = title
-//	 * tags mask 0 means it takes whatever the current tags are
-//	 * else, go to that tag
-//	 * monitor of -1 means spawn on focused monitor
-//	 */
-//
-//	/* class      instance    title       tags mask     isfloat   isfull	monitor */
-//	/* script for taking quick notes */
-//	{ "st",       NULL,	  "scratch",  0,            1,	      1,	-1 },
-//};
+/* commands to be executed at startup. will be run in-order with /bin/sh
+ * each entry can only be common.h::MAXLEN chars by default
+ */
+static const char* progs[] = {
+	"pgrep -x sxhkd > /dev/null || sxhkd &",
+};
+
+
+static const rule rules[] = {
+	/* WM_CLASS(STRING) = instance, class
+	 * WM_NAME(STRING) = title
+	 * tags mask 0 means it takes whatever the current tags are
+	 * else, go to that tag
+	 * monitor of -1 means spawn on focused monitor
+	 */
+
+	/* class      instance    title       tags mask     isfloat   isfull	monitor */
+	{ "st",       NULL,	  "cal",      0,            1,	      1,	-1 },
+};
 
 /* Layouts */
 static const layout layouts[] = {
