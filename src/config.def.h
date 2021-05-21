@@ -20,12 +20,12 @@
 
 
 /* vertical space allotted for your bar of choice */
-static int barpx			= 20;
-static int bottombar			= 0;
-static int gappx			= 10;
-static int corner_radius		= 10;
+static const int barpx			= 20;
+static const int bottombar		= 0;
+static const int gappx			= 10;
+static const int corner_radius		= 10;
 /* once within snappx of a monitor edge, snap to the edge */
-static unsigned int snappx		= 32;
+static const unsigned int snappx	= 32;
 
 
 /* commands to be executed at startup. will be run in-order with /bin/sh

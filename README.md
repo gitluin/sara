@@ -65,6 +65,6 @@ To Do
  * External pointer management: can `sxhkd` reasonably do this?
  * `moveclient` and `changecurrent` feel overcomplicated. Any refactoring?
  * Partial standards compliance so things like `rofi -m -4` works.
- * Convert to XCB.
+ * Convert to XCB if the mood strikes me.
 
 Please submit bug reports! I've only tested this on my own system.

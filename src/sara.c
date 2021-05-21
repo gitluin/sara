@@ -117,7 +117,6 @@ struct rule {
 	int isfloat;
 	int isfull;
 	int monitor;
-	rule* next;
 };
 
 
@@ -240,7 +239,6 @@ static void unroundcorners(client* c);
 #endif
 /* sarasock interfacing */
 static void handlemsg(char* msg);
-static void reloadgeom();
 static void (*str2func(const char* str))(Arg);
 /* X */
 static void adopt();
@@ -1704,15 +1702,6 @@ handlemsg(char* msg){
 
 		if ( (func = str2func(funcstr)) )
 			func(arg);
-	}
-}
-
-void
-reloadgeom(){
-	for EACHMON(mhead){
-		im->wy = im->my + (bottombar ? 0 : barpx );
-		im->wh = im->mh - barpx;
-		arrange(im);
 	}
 }
 
