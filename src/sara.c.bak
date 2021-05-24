@@ -37,12 +37,12 @@
 #define TABLENGTH(X)    		(sizeof(X)/sizeof(*X))
 
 
-enum { AnyVis,     	OnlyVis };
-enum { NoZoom,     	YesZoom };
-enum { NoFocus,    	YesFocus };
-enum { WantMove,   	WantResize };
-enum { WantFloating,  	WantTiled,	WantDummy};
-enum { WantInt,    	WantFloat,	NumTypes};
+enum { AnyVis,     OnlyVis };
+enum { NoZoom,     YesZoom };
+enum { NoFocus,    YesFocus };
+enum { WantMove,   WantResize };
+enum { WantTiled,  WantFloating };
+enum { WantInt,    WantFloat,	NumTypes};
 
 
 /* ---------------------------------------
@@ -176,19 +176,19 @@ uitos(unsigned int ui, int len, char* dest){
 /* Clients */
 static void adjustcoords(client* c);
 static void applyrules(client* c);
-static void attach(client* c, int aside);
+static void attachaside(client* c);
 static void changecurrent(client* c, monitor* m, int desk, int refocused);
 static void configure(client* c);
-static void detach(client* c, int refocus_override);
+static void detach(client* c);
 static client* findclient(Window w);
 static client* findcurrent(monitor* m);
-static client* findprevclient(client* c, int onlyvis, int onlytiled);
+static client* findprevclient(client* c, int wantvis, int wantfloat);
 static client* findvisclient(client* c, int wantfloat);
 static void killclient(const Arg arg);
 static void manage(Window parent, XWindowAttributes* wa);
 static void manipulate(const Arg arg);
 static void moveclient(const Arg arg);
-static void moveclientup(client* c);
+static void moveclientup(client* c, int wantzoom);
 static void movefocus(const Arg arg);
 static void resizeclient(client* c, int x, int y, int w, int h);
 static void restack(monitor* m);
@@ -386,11 +386,10 @@ applyrules(client* c){
 }
 
 void
-attach(client* c, int aside){
+attachaside(client* c){
 	client* l;
 
-	if (!aside || !c->mon->head){
-		c->next = c->mon->head;
+	if (!c->mon->head){
 		c->mon->head = c;
 
 	} else {
@@ -428,7 +427,6 @@ changecurrent(client* c, monitor* m, int desk, int refocused){
 
 	m->current = c;
 
-	/* move focus down if possible, else move up */
 	if (m->current && refocused){
 		vis = (vis = findvisclient(c->next, WantFloating))
 			? vis : findprevclient(c, OnlyVis, WantFloating);
@@ -458,11 +456,11 @@ configure(client* c){
 }
 
 void
-detach(client* c, int refocus_override){
+detach(client* c){
 	client** t;
 
 	/* refocus only as necessary */
-	if (c == c->mon->current && !refocus_override)
+	if (c == c->mon->current)
 		changecurrent(c, c->mon, c->mon->curdesk, 1);
 
 	for (t=&(c->mon->head);*t && *t != c;t=&(*t)->next);
@@ -489,19 +487,24 @@ findcurrent(monitor* m){
 }
 
 client*
-findprevclient(client* c, int onlyvis, int onlytiled){
+findprevclient(client* c, int onlyvis, int wantfloat){
 	client* ret = NULL;
 
 	for EACHCLIENT(c->mon->head){
 		if (ic == c)
 			break;
 
-		if (onlyvis && ISVISIBLE(ic))
-			if ((onlytiled && !ic->isfloat) || !onlytiled)
+		if (onlyvis){
+			if (ISVISIBLE(ic))
 				ret = ic;
 
+		} else if (!wantfloat){
+			if (ISVISIBLE(ic) && !ic->isfloat)
+				ret = ic;
+		}
+
 		if (ic->next == c)
-			return (onlyvis) ? ret : ic;
+			return (onlyvis || !wantfloat) ? ret : ic;
 	}
 
 	return NULL;
@@ -509,10 +512,14 @@ findprevclient(client* c, int onlyvis, int onlytiled){
 
 client*
 findvisclient(client* c, int wantfloat){
-	for EACHCLIENT(c)
-		if (ISVISIBLE(ic))
-			if ((!wantfloat && !ic->isfloat) || wantfloat)
+	for EACHCLIENT(c){
+		if (ISVISIBLE(ic)){
+			if (!wantfloat && !ic->isfloat)
 				return ic;
+			else if (wantfloat)
+				return ic;
+		}
+	}
 	
 	return NULL;
 }
@@ -567,7 +574,7 @@ manage(Window parent, XWindowAttributes* wa){
 			|StructureNotifyMask);
 	grabbuttons(c, 0);
 
-	attach(c, 1);
+	attachaside(c);
 
 	/* move out of the way until told otherwise */
 	XMoveResizeWindow(dis, c->win, c->x + 2*sw, c->y, c->w, c->h);
@@ -600,39 +607,39 @@ moveclient(const Arg arg){
 	
 	parser[WantInt](arg.s, &parg);
 
-	if (!(SAFEPARG(-1,1)))
-		return;
+	/* Up stack */
+	if (parg.i > 0)
+		moveclientup(curmon->current, NoZoom);
+	/* Down stack - equivalent to moving next tiled client up */
+	else if ( parg.i < 0 && (c = findvisclient(curmon->current->next, WantTiled)) )
+		moveclientup(c, NoZoom);
 
-	/* move current up, or move next visible up (i.e. move current down) */
-	c = (parg.i > 0) ? curmon->current : findvisclient(curmon->current->next, WantTiled);
-
-	if (c){
-		moveclientup(c);
-		arrange(c->mon);
-	}
+	arrange(curmon);
 }
 
 void
-moveclientup(client* c){
-	client* p = NULL, * target = NULL;
-	client** t = NULL;
+moveclientup(client* c, int wantzoom){
+	client* p, * target, * ptarget;
 
 	if (!c)
 		return;
 
-	target = findprevclient(c, OnlyVis, WantTiled);
-	p = findprevclient(c, AnyVis, WantDummy);
-	
 	/* Go up only if not highest visible */
-	if (!target || !p)
+	target = wantzoom ? findvisclient(curmon->head, WantTiled) : findprevclient(c, 0, WantTiled);
+
+	if (!target || target == c)
 		return;
 
- 	for (t=&c->mon->head;*t && *t != target;t=&(*t)->next);
+	p = findprevclient(c, AnyVis, WantFloating);
+	ptarget = findprevclient(target, AnyVis, WantFloating);
 
 	/* if p == target, then we're still okay */
 	p->next = c->next;
 	c->next = target;
-	*t = c;
+	if (ptarget)
+		ptarget->next = c;
+	else
+		curmon->head = c;
 }
 
 void
@@ -822,12 +829,12 @@ sendmon(client* c, monitor* m){
 	if (c->mon == m || c->isfull)
 		return;
 
-	detach(c, 0);
+	detach(c);
 	c->mon = m;
 	c->desks = m->seldesks;
 
 	c->next = NULL;
-	attach(c, 1);
+	attachaside(c);
 	c->iscur = 0;
 	changecurrent(c, c->mon, c->mon->curdesk, 0);
 	if (c->isfloat)
@@ -939,7 +946,7 @@ void
 unmanage(client* c, int destroyed){
 	monitor* m = c->mon;
 
-	detach(c, 0);
+	detach(c);
 	if (!destroyed){
 		XGrabServer(dis);
 		XUngrabButton(dis, AnyButton, AnyModifier, c->win);
@@ -968,14 +975,11 @@ updatefocus(monitor* m){
 
 void
 zoom(const Arg arg){
-	client* c;
-
-	if (!(c = curmon->current))
+	if (!curmon->current)
 		return;
 
-	detach(c, 1);
-	attach(c, 0);
-	arrange(c->mon);
+	moveclientup(curmon->current, YesZoom);
+	arrange(curmon);
 }
 
 
@@ -1304,10 +1308,10 @@ updategeom(){
 	while ( (m = oldmhead) ){
 		while ( (c = m->head) ){
 			m->head = c->next;
-			detach(c, 0);
+			detach(c);
 			c->mon = mhead;
 			c->next = NULL;
-			attach(c, 1);
+			attachaside(c);
 		}
 		mhead->seldesks |= m->seldesks;
 		oldmhead = m->next;
@@ -1716,7 +1720,7 @@ void (*str2func(const char* str))(Arg){
  */
 
 
-// TODO: XCB
+// TODO: good XCB guinea pig?
 /* dwm */
 void
 adopt(){
