@@ -1,0 +1,52 @@
+diff --git a/sara.c b/sara.c
+index f8295ef..11086d5 100644
+--- a/sara.c
++++ b/sara.c
+@@ -204,6 +204,7 @@ static void manipulate(const Arg arg);
+ static void moveclient(const Arg arg);
+ static void moveclientup(client* c, int wantzoom);
+ static void movefocus(const Arg arg);
++static void movefocusabs(const Arg arg);
+ static void resizeclient(client* c, int x, int y, int w, int h);
+ static void restack(monitor* m);
+ static void sendmon(client* c, monitor* m);
+@@ -260,6 +261,7 @@ struct {
+ 	{killclient,    "killclient"},
+ 	{moveclient,    "moveclient"},
+ 	{movefocus,     "movefocus"},
++	{movefocusabs,  "movefocusabs"},
+ 	{quit,          "quit"},
+ 	{todesktop,     "todesktop"},
+ 	{toggledesktop, "toggledesktop"},
+@@ -760,6 +762,31 @@ movefocus(const Arg arg){
+ 	}
+ }
+ 
++void
++movefocusabs(const Arg arg){
++	client* j, * c = NULL;
++	int i = 0;
++	if (!curmon->current || curmon->current->isfull)
++		return;
++
++	parser[WantInt](arg.s, &parg);
++
++	if (parg.i >= 0){
++		for EACHCLIENT(curmon->head){
++			if (ISVISIBLE(ic) && ic->desks == 1 << curmon->curdesk){
++				if (i==parg.i)
++					c = ic;
++				i++;
++			}
++		}
++	}
++
++	if (c && c != curmon->current){
++		changecurrent(c, curmon, curmon->curdesk, 0);
++		restack(curmon);
++	}
++}
++
+ void
+ manipulate(const Arg arg){
+ 	int x, y, ocx, ocy, nx, ny, nw, nh;
