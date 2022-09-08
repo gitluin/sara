@@ -1,5 +1,7 @@
 sara
 =====
+NOTE: This project is no longer actively maintained and has been archived. Thanks for all the fish! I might return to this in the future.
+
 Description
 -------
 sara is a simple and lightweight dynamic window manager. What started out as an attempt to make catwm into a small and fully-functional window manager has turned into my primary project in C. At the moment, sara combines aspects of dwm and bspwm with some custom features. As my needs/wants change, so too will the program, and probably how much you like it.
